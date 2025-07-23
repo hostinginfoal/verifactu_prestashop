@@ -1,1 +1,1 @@
-# VeriFactu
+# Módulo VeriFactu para PrestaShop
