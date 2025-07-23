@@ -1,0 +1,11 @@
+{
+    "name": "infoal/verifactu",
+    "description": "Módulo para el enviar las facturas a verifactu",
+    "type": "prestashop-module",
+    "license": "AFL-3.0",
+    "autoload": {
+        "psr-4": {
+            "Verifactu\\VerifactuClasses\\": "classes/"
+        }
+    }
+}
