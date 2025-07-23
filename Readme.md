@@ -16,3 +16,4 @@ Nuestra solución se integra de forma nativa en el corazón de PrestaShop. Al ge
 - Envía de Forma Segura: Transmite el registro al sistema VeriFactu a través de una conexión segura (Infoal Verifactu API).
 - Recibe Confirmación: Almacena la respuesta y el código de validación, garantizando la trazabilidad.
 
+Solicita tu Token de acceso gratuïto a la API Infoal Verifactu para pruebas en el entorno PRE-PROD de VERI*FACTU.  
