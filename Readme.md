@@ -19,3 +19,16 @@ Nuestra solución se integra de forma nativa en el corazón de PrestaShop. Al ge
 - Recibe Confirmación: Almacena la respuesta y el código de validación, garantizando la trazabilidad.
 
 Solicita tu Token de acceso gratuïto a la API Infoal Verifactu en https://verifactu.infoal.com.  
+
+PRIMER RELEASE
+- Configuración del token de API InFoAL Veri*Factu
+- Envío manual de los registros de Alta desde la ficha del pedido.
+- Envío manual de los registros de Anulación desde la ficha del pedido.
+- Registro de logs
+
+PROXIMAMENTE
+- Envío automático de los registros de facturación cuando se generen las facturas.
+- Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
+- Listado de los registros de facturación enviado en el formulario de configuración del módulo
+- Listado de los logs de los registros enviados en el formulario de configuración del módulo
+- Código QR en la factura generada de prestashop.
