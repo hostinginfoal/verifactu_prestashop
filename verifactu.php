@@ -1,6 +1,6 @@
 <?php
 /**
-* 2007-2025 PrestaShop
+* InFoAL S.L.
 *
 * NOTICE OF LICENSE
 *
@@ -10,7 +10,7 @@
 * http://opensource.org/licenses/afl-3.0.php
 * If you did not receive a copy of the license and are unable to
 * obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
+* to hosting@infoal.com so we can send you a copy immediately.
 *
 * DISCLAIMER
 *
@@ -18,10 +18,10 @@
 * versions in the future. If you wish to customize PrestaShop for your
 * needs please refer to http://www.prestashop.com for more information.
 *
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2025 PrestaShop SA
+*  @author    InFoAL S.L. <hosting@infoal.com>
+*  @copyright InFoAL S.L.
 *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
+*  International Registered Trademark & Property of InFoAL S.L.
 */
 
 if (!defined('_PS_VERSION_')) {
@@ -54,8 +54,8 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.0';
-        $this->author = 'InFoAL';
+        $this->version = '1.0.1';
+        $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
         /**
@@ -66,7 +66,7 @@ class Verifactu extends Module
         parent::__construct();
 
         $this->displayName = $this->l('VeriFactu');
-        $this->description = $this->l('Envía los registros de facturación automáticamente al sistema VeriFactu');
+        $this->description = $this->l('Envía los registros de facturación automáticamente al sistema Veri*Factu');
 
         $this->confirmUninstall = $this->l('Seguro que quieres desinstalar el módulo?');
 
@@ -167,7 +167,7 @@ class Verifactu extends Module
         return array(
             'form' => array(
                 'legend' => array(
-                'title' => $this->l('Configuración del modulo'),
+                'title' => $this->l('Configuración del módulo'),
                 'icon' => 'icon-cogs',
                 ),
                 'input' => array(
@@ -176,7 +176,7 @@ class Verifactu extends Module
                         'label' => $this->l('Entorno Real'),
                         'name' => 'VERIFACTU_ENTORNO_REAL',
                         'is_bool' => true,
-                        'desc' => $this->l('Envía los registros de facturación al entorno real o al entorno de pruebas de VeriFactu (Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de VeriFactu)'),
+                        'desc' => $this->l('Envía los registros de facturación al entorno real o al entorno de pruebas de Veri*Factu (Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de Veri*Factu)'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -195,29 +195,24 @@ class Verifactu extends Module
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '',
-                        'desc' => $this->l('Token de InFoAL Verifactu API (Si no dispones de una clave de API, solicita una de prueba gratuïta enviando un email a hosting@infoal.com'),
+                        'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispones de una clave de API, solicita una gratuïta en https://verifactu.infoal.com'),
                         'name' => 'VERIFACTU_API_TOKEN',
-                        'label' => $this->l('ApiKey'),
+                        'label' => $this->l('InFoAL Veri*Factu API Token'),
                     ),
-                    array(
+                    /*array(
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-envelope"></i>',
                         'desc' => $this->l('Dirección de email'),
                         'name' => 'VERIFACTU_ACCOUNT_EMAIL',
                         'label' => $this->l('Email'),
-                    ),
-                    /*array(
-                        'type' => 'password',
-                        'name' => 'VERIFACTU_ACCOUNT_PASSWORD',
-                        'label' => $this->l('Password'),
                     ),*/
                     array(
                         'type' => 'switch',
-                        'label' => $this->l('Envío automático a VeriFactu'),
+                        'label' => $this->l('Envío automático a Veri*Factu'),
                         'name' => 'VERIFACTU_LIVE_SEND',
                         'is_bool' => true,
-                        'desc' => $this->l('Activa esta opción si quieres que los registros de facturación se envíen automáticamente a VeriFactu en el momento que se generen las facturas de venta.'),
+                        'desc' => $this->l('Activa esta opción si quieres que los registros de facturación se envíen automáticamente a Veri*Factu en el momento que se generen las facturas de venta.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -247,7 +242,7 @@ class Verifactu extends Module
         return array(
             'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
-            'VERIFACTU_ACCOUNT_EMAIL' => Configuration::get('VERIFACTU_ACCOUNT_EMAIL', 'info@infoal.com'),
+            //'VERIFACTU_ACCOUNT_EMAIL' => Configuration::get('VERIFACTU_ACCOUNT_EMAIL', ''),
             //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
             'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', false),
         );

@@ -1,4 +1,28 @@
 <?php
+/**
+* InFoAL S.L.
+*
+* NOTICE OF LICENSE
+*
+* This source file is subject to the Academic Free License (AFL 3.0)
+* that is bundled with this package in the file LICENSE.txt.
+* It is also available through the world-wide-web at this URL:
+* http://opensource.org/licenses/afl-3.0.php
+* If you did not receive a copy of the license and are unable to
+* obtain it through the world-wide-web, please send an email
+* to hosting@infoal.com so we can send you a copy immediately.
+*
+* DISCLAIMER
+*
+* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+* versions in the future. If you wish to customize PrestaShop for your
+* needs please refer to http://www.prestashop.com for more information.
+*
+*  @author    InFoAL S.L. <hosting@infoal.com>
+*  @copyright InFoAL S.L.
+*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+*  International Registered Trademark & Property of InFoAL S.L.
+*/
 
 namespace Verifactu\VerifactuClasses;
 
@@ -213,61 +237,69 @@ class ApiVerifactu
         $response = curl_exec($curl);
         curl_close($curl);
 
+        //die($response);
+
         //Guardamos el campo verifactuEstadoRegistro y verifactuEstadoEnvio en base de datos si ha sido correcto
         $obj = json_decode($response);
 
-        $guardar = false;
+        //die($obj->error);
 
-        if ($invoice['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
+        if (!$obj->error)
         {
+            $guardar = false;
 
-        }
-        else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
-        {
-            /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
-            { 
+            if ($invoice['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
+            {
+
+            }
+            else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
+            {
+                /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
+                { 
+                    $guardar = true;
+                }*/
+            }
+            else //Para lo demás guardamos el estado que sea
+            {
                 $guardar = true;
-            }*/
-        }
-        else //Para lo demás guardamos el estado que sea
-        {
-            $guardar = true;
-        }
-
-        if ($guardar)
-        {   
-            //Guardamo o actualizamos el estado de la factura
-            if($invoice['verifactuEstadoRegistro'] != '')
-            {
-                $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET verifactuEstadoRegistro = "'.$obj->EstadoRegistro.'",verifactuEstadoEnvio = "'.$obj->EstadoEnvio.'",verifactuCodigoErrorRegistro = "'.$obj->CodigoErrorRegistro.'", verifactuDescripcionErrorRegistro = "'.$obj->DescripcionErrorRegistro.'", urlQR = "'.$obj->urlQR.'" WHERE id_order_invoice = "'.$invoice['id_order_invoice'].'"';
-                if (!Db::getInstance()->execute($sql)) 
-                {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    //echo $errorMessage;
-                }
             }
-            else
-            {
-                $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_order_invoice (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; //qr = "'.$obj->qr.'"
-                if (!Db::getInstance()->execute($sql)) 
+
+            if ($guardar)
+            {   
+                //Guardamo o actualizamos el estado de la factura
+                if($invoice['verifactuEstadoRegistro'] != '')
                 {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    //echo $errorMessage;
+                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET verifactuEstadoRegistro = "'.$obj->EstadoRegistro.'",verifactuEstadoEnvio = "'.$obj->EstadoEnvio.'",verifactuCodigoErrorRegistro = "'.$obj->CodigoErrorRegistro.'", verifactuDescripcionErrorRegistro = "'.$obj->DescripcionErrorRegistro.'", urlQR = "'.$obj->urlQR.'" WHERE id_order_invoice = "'.$invoice['id_order_invoice'].'"';
+                    if (!Db::getInstance()->execute($sql)) 
+                    {
+                        $errorMessage = Db::getInstance()->getMsgError();
+                        //echo $errorMessage;
+                    }
                 }
+                else
+                {
+                    $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_order_invoice (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; //qr = "'.$obj->qr.'"
+                    if (!Db::getInstance()->execute($sql)) 
+                    {
+                        $errorMessage = Db::getInstance()->getMsgError();
+                        //echo $errorMessage;
+                    }
+                }
+                
+                //Guardamos el registro de facturación ??
+
             }
-            
-            //Guardamos el registro de facturación ??
 
+            //Guardamos el log
+            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
+            if (!Db::getInstance()->execute($sql)) 
+            {
+                $errorMessage = Db::getInstance()->getMsgError();
+                //echo $errorMessage;
+            }
+            //echo $sql;
         }
-
-        //Guardamos el log
-        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
-        if (!Db::getInstance()->execute($sql)) 
-        {
-            $errorMessage = Db::getInstance()->getMsgError();
-            //echo $errorMessage;
-        }
-        //echo $sql;
+                
 
         return $response;
     }

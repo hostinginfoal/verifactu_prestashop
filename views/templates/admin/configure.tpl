@@ -1,5 +1,5 @@
 {*
-* 2007-2025 PrestaShop
+* InFoAL S.L.
 *
 * NOTICE OF LICENSE
 *
@@ -9,7 +9,7 @@
 * http://opensource.org/licenses/afl-3.0.php
 * If you did not receive a copy of the license and are unable to
 * obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
+* to hosting@infoal.com so we can send you a copy immediately.
 *
 * DISCLAIMER
 *
@@ -17,10 +17,10 @@
 * versions in the future. If you wish to customize PrestaShop for your
 * needs please refer to http://www.prestashop.com for more information.
 *
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2025 PrestaShop SA
+*  @author    InFoAL S.L. <hosting@infoal.com>
+*  @copyright InFoAL S.L.
 *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
+*  International Registered Trademark & Property of InFoAL S.L.
 *}
 
 <div class="panel">
@@ -31,13 +31,13 @@
 	</p>
 	<br />
 	<p>
-		{l s='Si no dispones de una clave de API, solicita una de prueba gratuïta enviando un email a ' mod='verifactu'}<a href="mailto:hosting@infoal.com">hosting@infoal.com</a>
+		{l s='Si no dispones de una clave de API, solicita una gratuita en ' mod='verifactu'}<a href="https://verifactu.infoal.com">https://verifactu.infoal.com</a>
 	</p>
 </div>
 
 <div class="panel" style="">
 	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
 	<p>
-		&raquo; {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://hosting.infoal.com/modulo-prestashop-verifactu">https://hosting.infoal.com/modulo-prestashop-verifactu</a>
+		&raquo; {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop">https://github.com/hostinginfoal/verifactu_prestashop</a>
 	</p>
 </div>

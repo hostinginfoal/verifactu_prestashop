@@ -1,5 +1,5 @@
 {*
-* 2007-2020 PrestaShop
+* InFoAL S.L.
 *
 * NOTICE OF LICENSE
 *
@@ -9,7 +9,7 @@
 * http://opensource.org/licenses/afl-3.0.php
 * If you did not receive a copy of the license and are unable to
 * obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
+* to hosting@infoal.com so we can send you a copy immediately.
 *
 * DISCLAIMER
 *
@@ -17,10 +17,10 @@
 * versions in the future. If you wish to customize PrestaShop for your
 * needs please refer to http://www.prestashop.com for more information.
 *
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2020 PrestaShop SA
+*  @author    InFoAL S.L. <hosting@infoal.com>
+*  @copyright InFoAL S.L.
 *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
+*  International Registered Trademark & Property of InFoAL S.L.
 *}
 
 {if $id_order_invoice != ""}
@@ -59,14 +59,14 @@
             {/if}
             <div class="input-group">
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu">
-                  {l s='Enviar Verifactu' mod='lupiverifactu'}
+                  {l s='Enviar registro de Alta' mod='lupiverifactu'}
                 </button>
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
-                  {l s='Check DNI' mod='lupiverifactu'}
+                <button  style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
+                  {l s='Comprobar DNI' mod='lupiverifactu'}
                 </button>
                 {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:10px;" id="send_anulacion_verifactu">
-                  {l s='Anular factura' mod='lupiverifactu'}
+                  {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
                 {/if}
             </div>
