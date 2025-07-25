@@ -1,6 +1,8 @@
 # Módulo VeriFactu para PrestaShop
 
-Nuestro módulo conecta tu tienda directamente al sistema VeriFactu, enviando los registros de facturación de forma automática y segura.
+Nuestro módulo conecta tu tienda directamente al sistema Veri*Factu, enviando los registros de facturación de forma automática y segura.
+
+***NOTA IMPORTANTE: Nuestra API de momento solo envía datos al entorno de PRE-PRODUCCIÓN de VERI*FACTU puesto que la AEAT no ha publicado un entorno real todavía***
 
 - Envío automático de registros de facturación.
 - Respuesta de verifactu con código QR y enlace.
