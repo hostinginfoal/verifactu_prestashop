@@ -24,6 +24,7 @@ PRIMER RELEASE
 - Configuración del token de API InFoAL Veri*Factu
 - Envío manual de los registros de Alta desde la ficha del pedido.
 - Envío manual de los registros de Anulación desde la ficha del pedido.
+- Codigo QR en ficha del producto.
 - Registro de logs
 
 PROXIMAMENTE
