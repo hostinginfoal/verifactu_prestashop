@@ -39,8 +39,12 @@ v1.0.2
 - Ocultamos el botón de enviar registros de Anulación desde la ficha del pedido hasta que quede claro como hay que proceder con las anulaciones según la AEAT.
 - Codigo QR en ficha del producto.
 
-PROXIMAMENTE
+v1.0.3
 - Listado de los registros de facturación enviado en el formulario de configuración del módulo
+- Listado estado de facturas enviadas a verifactu en vista de configuración del módulo
+
+
+- PROXIMAMENTE
 - Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
 - Código QR en la factura generada de prestashop.
 - Config: Selector habilitar Anulación de factura en la ficha del pedido
