@@ -54,6 +54,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     `verifactuCodigoErrorRegistro` VARCHAR(100),
     `verifactuDescripcionErrorRegistro` TEXT,
     `urlQR` VARCHAR(255),
+    `imgQR` TEXT,
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 

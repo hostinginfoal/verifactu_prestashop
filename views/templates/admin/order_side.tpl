@@ -52,20 +52,20 @@
                   {/if}
                 {/if}</span>
             </div>
-            {if $qr != ''}
+            {if $imgQR != ''}
             <div class="input-group" style="text-align:center;">
-                <img src="{$qr}" width="200">
+                <a href="{$urlQR}" target="_new"><img src="{$imgQR}" width="200"></a>
             </div>
             {/if}
             <div class="input-group">
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu">
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $verifactuEstadoRegistro == "Correcto"}disabled="true"{/if}>
                   {l s='Enviar registro de Alta' mod='lupiverifactu'}
                 </button>
                 <button  style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
                   {l s='Comprobar DNI' mod='lupiverifactu'}
                 </button>
                 {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:10px;" id="send_anulacion_verifactu">
+                <button style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:10px;" id="send_anulacion_verifactu">
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
                 {/if}

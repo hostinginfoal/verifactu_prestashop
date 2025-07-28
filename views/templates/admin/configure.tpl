@@ -24,20 +24,40 @@
 *}
 
 <div class="panel">
-	<h3><i class="icon icon-credit-card"></i> {l s='VeriFactu by InFoAL' mod='verifactu'}</h3>
+    <h3><i class="icon icon-credit-card"></i> {l s='VeriFactu by InFoAL' mod='verifactu'}</h3>
+    <p>
+        <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
+        {l s='Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de VeriFactu' mod='verifactu'}<br />
+    </p>
+    <br />
+    <p>
+        {l s='Si no dispones de una clave de API, solicita una gratuita en ' mod='verifactu'}<a href="https://verifactu.infoal.com" target="_blank">https://verifactu.infoal.com</a>
+    </p>
+</div>
+
+<div class="panel">
+	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
 	<p>
-		<strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
-		{l s='Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de VeriFactu' mod='verifactu'}<br />
-	</p>
-	<br />
-	<p>
-		{l s='Si no dispones de una clave de API, solicita una gratuita en ' mod='verifactu'}<a href="https://verifactu.infoal.com">https://verifactu.infoal.com</a>
+		&raquo;
+        {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop" target="_blank">https://github.com/hostinginfoal/verifactu_prestashop</a>
 	</p>
 </div>
 
-<div class="panel" style="">
-	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
-	<p>
-		&raquo; {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop">https://github.com/hostinginfoal/verifactu_prestashop</a>
-	</p>
-</div>
+<ul class="nav nav-tabs">
+    <li class="{if $active_tab == 'configure'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=configure">
+            <i class="icon-cogs"></i> {l s='Configuración' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'logs'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=logs">
+            <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'shipping_logs'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=shipping_logs">
+            <i class="icon-truck"></i> {l s='Logs de Envío' mod='verifactu'}
+        </a>
+    </li>
+</ul>
+

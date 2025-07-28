@@ -18,10 +18,10 @@
 * versions in the future. If you wish to customize PrestaShop for your
 * needs please refer to http://www.prestashop.com for more information.
 *
-*  @author    InFoAL S.L. <hosting@infoal.com>
-*  @copyright InFoAL S.L.
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of InFoAL S.L.
+* @author    InFoAL S.L. <hosting@infoal.com>
+* @copyright InFoAL S.L.
+* @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+* International Registered Trademark & Property of InFoAL S.L.
 */
 
 if (!defined('_PS_VERSION_')) {
@@ -54,7 +54,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.1';
+        $this->version = '1.0.2';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -117,18 +117,39 @@ class Verifactu extends Module
      */
     public function getContent()
     {
-        /**
-         * If values have been submitted in the form, process.
-         */
+        $output = '';
+
         if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
             $this->postProcess();
+            $output .= $this->displayConfirmation($this->l('Settings updated'));
         }
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+        $tab = Tools::getValue('tab_module_verifactu', 'configure');
 
-        return $output.$this->renderForm();
+        $current_url = $this->context->link->getAdminLink('AdminModules', true) .
+                       '&configure=' . $this->name .
+                       '&tab_module=' . $this->tab .
+                       '&module_name=' . $this->name;
+
+        $this->context->smarty->assign(array(
+            'module_name' => $this->name,
+            'active_tab' => $tab,
+            'current' => $current_url
+        ));
+        
+        $output .= $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
+
+        if ($tab == 'configure') {
+            $output .= $this->renderForm();
+        } elseif ($tab == 'logs') {
+            $output .= $this->renderList();
+        } elseif ($tab == 'shipping_logs') {
+            $output .= $this->renderLogsList();
+        }
+
+        return $output;
     }
 
     /**
@@ -199,14 +220,6 @@ class Verifactu extends Module
                         'name' => 'VERIFACTU_API_TOKEN',
                         'label' => $this->l('InFoAL Veri*Factu API Token'),
                     ),
-                    /*array(
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '<i class="icon icon-envelope"></i>',
-                        'desc' => $this->l('Dirección de email'),
-                        'name' => 'VERIFACTU_ACCOUNT_EMAIL',
-                        'label' => $this->l('Email'),
-                    ),*/
                     array(
                         'type' => 'switch',
                         'label' => $this->l('Envío automático a Veri*Factu'),
@@ -228,11 +241,180 @@ class Verifactu extends Module
                     ),
                 ),
                 'submit' => array(
-                    'title' => $this->l('Save'),
+                    'title' => $this->l('Guardar'),
                 ),
             ),
         );
     }
+
+    //Listado de registros de facturación-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    
+    public function renderList()
+    {
+        $fields_list = array(
+            'id_reg_fact' => array('title' => $this->l('ID'),'type' => 'number'),
+            'id_order_invoice' => array('title' => $this->l('ID Factura'), 'type' => 'number'),
+            'verifactuEstadoEnvio' => array('title' => $this->l('Estado Envío')),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado Registro')),
+            'verifactuCodigoErrorRegistro' => array('title' => $this->l('Código Error')),
+            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Descripción Error')),
+            'urlQR' => array('title' => $this->l('URL QR')),
+        );
+
+        $helper = new HelperList();
+        $helper->title = $this->l('Registros de Facturación');
+        $helper->table = 'verifactu_reg_fact';
+        $helper->identifier = 'id_reg_fact';
+        $helper->simple_header = false;
+        $helper->actions = array();
+        $helper->show_toolbar = true;
+        $helper->module = $this;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=logs';
+        
+        $page = (int) Tools::getValue('submitFilter' . $helper->table);
+        $page = $page ? $page : 1;
+        $pagination = (int) Tools::getValue('pagination', 20);
+        $pagination = $pagination ? $pagination : 20;
+
+        $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_reg_fact');
+        $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
+
+        $content = $this->getListContent($helper->table, $page, $pagination, $orderBy, $orderWay);
+        $helper->listTotal = $this->getTotalListContent($helper->table);
+
+
+        return $helper->generateList($content, $fields_list);
+    }
+
+    private function getListContent($table, $page, $pagination, $orderBy, $orderWay)
+    {
+        $sql = new DbQuery();
+        $sql->select('*');
+        $sql->from($table, 't');
+        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
+        
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen($table . 'Filter_'));
+                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+
+        $sql->limit($pagination, ($page - 1) * $pagination);
+
+        return Db::getInstance()->executeS($sql);
+    }
+
+    private function getTotalListContent($table)
+    {
+        $sql = new DbQuery();
+        $sql->select('COUNT(*)');
+        $sql->from($table, 't');
+
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen($table . 'Filter_'));
+                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+
+        return (int)Db::getInstance()->getValue($sql);
+    }
+
+    //Listado de logs-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    public function renderLogsList()
+    {
+        $fields_list = array(
+            'id_log' => array('title' => $this->l('ID'), 'type' => 'number'),
+            'id_order_invoice' => array('title' => $this->l('ID Factura'), 'type' => 'number'),
+            'verifactuEstadoEnvio' => array('title' => $this->l('Estado Envío')),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado Registro')),
+            'verifactuCodigoErrorRegistro' => array('title' => $this->l('Código Error')),
+            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Descripción Error')),
+            'fechahora' => array('title' => $this->l('Fecha y Hora'), 'type' => 'datetime'),
+        );
+    
+        $helper = new HelperList();
+        $helper->title = $this->l('Logs de Envío');
+        $helper->table = 'verifactu_logs';
+        $helper->identifier = 'id_log';
+        $helper->simple_header = false;
+        $helper->actions = array();
+        $helper->show_toolbar = true;
+        $helper->module = $this;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=shipping_logs';
+    
+        $page = (int)Tools::getValue('submitFilter' . $helper->table, 1);
+        $pagination = (int)Tools::getValue($helper->table . '_pagination', 20);
+    
+        $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_log');
+        $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
+    
+        $content = $this->getLogsListContent($page, $pagination, $orderBy, $orderWay);
+        $helper->listTotal = $this->getTotalLogsListContent();
+    
+        return $helper->generateList($content, $fields_list);
+    }
+    
+    private function getLogsListContent($page, $pagination, $orderBy, $orderWay)
+    {
+        $sql = new DbQuery();
+        $sql->select('*');
+        $sql->from('verifactu_logs', 'vl');
+        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
+    
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen('verifactu_logsFilter_'));
+                $where .= ' AND vl.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+    
+        $sql->limit($pagination, ($page - 1) * $pagination);
+    
+        return Db::getInstance()->executeS($sql);
+    }
+    
+    private function getTotalLogsListContent()
+    {
+        $sql = new DbQuery();
+        $sql->select('COUNT(*)');
+        $sql->from('verifactu_logs', 'vl');
+    
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen('verifactu_logsFilter_'));
+                $where .= ' AND vl.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+    
+        return (int)Db::getInstance()->getValue($sql);
+    }
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     /**
      * Set values for the inputs.
@@ -271,27 +453,6 @@ class Verifactu extends Module
         }
     }
 
-    /**
-     * Add the CSS & JavaScript files you want to be added on the FO.
-     */
-    /*public function hookHeader()
-    {
-        $this->context->controller->addJS($this->_path.'/views/js/front.js');
-        $this->context->controller->addCSS($this->_path.'/views/css/front.css');
-    }
-
-    public function hookActionAdminControllerSetMedia()
-    {
-        
-    }
-
-    public function hookDisplayAdminOrderContentOrder()
-    {
-        
-    }*/
-
-
-    //LUPI --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     public function hookActionSetInvoice($params)
     {
@@ -325,18 +486,6 @@ class Verifactu extends Module
                 $verifactuColumn
             )
         ;
-
-        /*$definition->getFilters()->add(
-            (new Filter('verifactu', TextType::class))
-            ->setAssociatedColumn('Verifactu')
-            ->setTypeOptions([
-                'required' => false,
-                'attr' => [
-                    'placeholder' => $this->trans('Verifactu', [], 'Admin.Actions'),
-                ],
-            ])
-        );*/
-        //die(print_r($definition->getFilters()));
     }
 
     public function hookActionOrderGridQueryBuilderModifier(array $params)
@@ -383,23 +532,15 @@ class Verifactu extends Module
         // On every pages
         $this->context->controller->addCSS('modules/'.$this->name.'/views/css/back.css');
 
-        /*if ($this->context->employee->id_profile == 1)
-        {
-            $this->context->controller->addJS('modules/'.$this->name.'/views/js/lupigestionventas.js');
+        foreach (Language::getLanguages() as $language) {
+            $lang = Tools::strtoupper($language['iso_code']);
         }
-        else
-        {*/
-            foreach (Language::getLanguages() as $language) {
-                $lang = Tools::strtoupper($language['iso_code']);
-            }
 
-            if ($lang == '') $lang = 'ES';
+        if ($lang == '') $lang = 'ES';
 
-            Media::addJsDef(array('verifactu' => array('lang' => $lang)));
+        Media::addJsDef(array('verifactu' => array('lang' => $lang)));
 
-            $this->context->controller->addJS('modules/'.$this->name.'/views/js/back.js');
-            
-        //}
+        $this->context->controller->addJS('modules/'.$this->name.'/views/js/back.js');
     }
 
     public function hookDisplayAdminOrderSide($params)
@@ -413,7 +554,7 @@ class Verifactu extends Module
         $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
         $urlQR = $result['urlQR'];
-        $qr = $result['qr'];
+        $imgQR = $result['imgQR'];
 
         $urladmin = Context::getContext()->link->getModuleLink( 'verifactu','ajax', array('ajax'=>true) );
 
@@ -424,14 +565,13 @@ class Verifactu extends Module
             'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
             'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
             'id_order' => $id_order,
-            'qr' => $qr,
+            'imgQR' => $imgQR,
+            'urlQR' => $urlQR,
             'id_order_invoice' => $result['id_order_invoice'],
             'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
         ));
 
 
         return $this->display(dirname(__FILE__), '/views/templates/admin/order_side.tpl');
-        
-        
     }
 }
