@@ -11,6 +11,10 @@ Nuestro módulo conecta tu tienda directamente al sistema Veri*Factu, enviando l
 - Panel de gestión y visualización de logs.
 - Cumplimiento con la normativa VeriFactu.
 
+![Screenshot_2](https://github.com/user-attachments/assets/2e282a1e-e733-455c-8f0e-ef5dd70b5dca)
+![Screenshot_3](https://github.com/user-attachments/assets/946fe15a-5df8-4b53-a0ab-231b09fe8009)
+
+
 Nuestra solución se integra de forma nativa en el corazón de PrestaShop. Al generarse una factura, el módulo envía el registro de facturación directamente al sistema verifactu a través de nuestra API:
 
 - Recopila los Datos: Captura toda la información necesaria de la factura.
