@@ -35,12 +35,12 @@ v1.0.1
 
 v1.0.2
 - Envío automático de los registros de facturación cuando se generen las facturas.
-- Listado de los registros de facturación enviado en el formulario de configuración del módulo
 - Listado de los logs de los registros enviados en el formulario de configuración del módulo
 - Ocultamos el botón de enviar registros de Anulación desde la ficha del pedido hasta que quede claro como hay que proceder con las anulaciones según la AEAT.
 - Codigo QR en ficha del producto.
 
 PROXIMAMENTE
+- Listado de los registros de facturación enviado en el formulario de configuración del módulo
 - Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
 - Código QR en la factura generada de prestashop.
 - Config: Selector habilitar Anulación de factura en la ficha del pedido
