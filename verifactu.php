@@ -54,7 +54,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.2';
+        $this->version = '1.0.3';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -79,7 +79,7 @@ class Verifactu extends Module
      */
     public function install()
     {
-        Configuration::updateValue('VERIFACTU_LIVE_MODE', false);
+        //Configuration::updateValue('VERIFACTU_LIVE_MODE', true);
 
         include(dirname(__FILE__).'/sql/install.php');
 
@@ -105,7 +105,7 @@ class Verifactu extends Module
 
     public function uninstall()
     {
-        Configuration::deleteByName('VERIFACTU_LIVE_MODE');
+        //Configuration::deleteByName('VERIFACTU_LIVE_MODE');
 
         include(dirname(__FILE__).'/sql/uninstall.php');
 
@@ -143,9 +143,11 @@ class Verifactu extends Module
 
         if ($tab == 'configure') {
             $output .= $this->renderForm();
-        } elseif ($tab == 'logs') {
+        } elseif ($tab == 'invoices') {
+            $output .= $this->renderInvoicesList();
+        } elseif ($tab == 'reg_facts') {
             $output .= $this->renderList();
-        } elseif ($tab == 'shipping_logs') {
+        } elseif ($tab == 'logs') {
             $output .= $this->renderLogsList();
         }
 
@@ -247,6 +249,118 @@ class Verifactu extends Module
         );
     }
 
+    /**
+     * Set values for the inputs.
+     */
+    protected function getConfigFormValues()
+    {
+        return array(
+            'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
+            'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
+            'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', ''),
+            //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
+            'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
+        );
+    }
+
+    /**
+     * Save form data.
+     */
+    protected function postProcess()
+    {
+        $form_values = $this->getConfigFormValues();
+
+        foreach (array_keys($form_values) as $key) {
+            Configuration::updateValue($key, Tools::getValue($key));
+        }
+    }
+
+    //Listado estado facturas----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    public function renderInvoicesList()
+    {
+        $fields_list = array(
+            'id_reg_fact' => array('title' => $this->l('ID'),'type' => 'number'),
+            'id_order_invoice' => array('title' => $this->l('ID Factura'), 'type' => 'number'),
+            'verifactuEstadoEnvio' => array('title' => $this->l('Estado Envío')),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado Registro')),
+            'verifactuCodigoErrorRegistro' => array('title' => $this->l('Código Error')),
+            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Descripción Error')),
+            'urlQR' => array('title' => $this->l('URL QR')),
+        );
+
+        $helper = new HelperList();
+        $helper->title = $this->l('Estado facturas');
+        $helper->table = 'verifactu_order_invoice';
+        $helper->identifier = 'id_order_invoice';
+        $helper->simple_header = false;
+        $helper->actions = array();
+        $helper->show_toolbar = true;
+        $helper->module = $this;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=invoices';
+        
+        $page = (int) Tools::getValue('submitFilter' . $helper->table);
+        $page = $page ? $page : 1;
+        $pagination = (int) Tools::getValue('pagination', 20);
+        $pagination = $pagination ? $pagination : 20;
+
+        $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_order_invoice');
+        $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
+
+        $content = $this->getInvoicesListContent($helper->table, $page, $pagination, $orderBy, $orderWay);
+        $helper->listTotal = $this->getTotalInvoicesListContent($helper->table);
+
+
+        return $helper->generateList($content, $fields_list);
+    }
+
+    private function getInvoicesListContent($table, $page, $pagination, $orderBy, $orderWay)
+    {
+        //INNER JOIN AQUIIIIIIIIIIIIII
+        $sql = new DbQuery();
+        $sql->select('*');
+        $sql->from($table, 't');
+        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
+        
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen($table . 'Filter_'));
+                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+
+        $sql->limit($pagination, ($page - 1) * $pagination);
+
+        return Db::getInstance()->executeS($sql);
+    }
+
+    private function getTotalInvoicesListContent($table)
+    {
+        $sql = new DbQuery();
+        $sql->select('COUNT(*)');
+        $sql->from($table, 't');
+
+        $where = '';
+        $filters = Tools::getAllValues();
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
+                $field = substr($key, strlen($table . 'Filter_'));
+                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+        }
+        if ($where) {
+            $sql->where(ltrim($where, ' AND'));
+        }
+
+        return (int)Db::getInstance()->getValue($sql);
+    }
+
     //Listado de registros de facturación-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     
     public function renderList()
@@ -270,7 +384,7 @@ class Verifactu extends Module
         $helper->show_toolbar = true;
         $helper->module = $this;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=logs';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=reg_facts';
         
         $page = (int) Tools::getValue('submitFilter' . $helper->table);
         $page = $page ? $page : 1;
@@ -347,7 +461,7 @@ class Verifactu extends Module
         );
     
         $helper = new HelperList();
-        $helper->title = $this->l('Logs de Envío');
+        $helper->title = $this->l('Logs');
         $helper->table = 'verifactu_logs';
         $helper->identifier = 'id_log';
         $helper->simple_header = false;
@@ -355,7 +469,10 @@ class Verifactu extends Module
         $helper->show_toolbar = true;
         $helper->module = $this;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=shipping_logs';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=logs';
+
+        // Asignamos nuestra función como callback para las clases de las filas
+        //$helper->row_class_callback = array($this, 'getRowClass');
     
         $page = (int)Tools::getValue('submitFilter' . $helper->table, 1);
         $pagination = (int)Tools::getValue($helper->table . '_pagination', 20);
@@ -368,6 +485,18 @@ class Verifactu extends Module
     
         return $helper->generateList($content, $fields_list);
     }
+
+    /*public function getRowClass($row)
+    {
+        // Comprobamos si el campo 'verifactuEstadoRegistro' existe y si su valor es 'Correcto'
+        if (isset($row['verifactuEstadoRegistro']) && $row['verifactuEstadoRegistro'] == 'Correcto') {
+            // Si es correcto, devolvemos la clase CSS para el éxito
+            return 'verifactu_correct';
+        } else {
+            // Para cualquier otro caso, devolvemos la clase CSS para el error
+            return 'verifactu_error';
+        }
+    }*/
     
     private function getLogsListContent($page, $pagination, $orderBy, $orderWay)
     {
@@ -416,31 +545,7 @@ class Verifactu extends Module
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    /**
-     * Set values for the inputs.
-     */
-    protected function getConfigFormValues()
-    {
-        return array(
-            'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
-            'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
-            //'VERIFACTU_ACCOUNT_EMAIL' => Configuration::get('VERIFACTU_ACCOUNT_EMAIL', ''),
-            //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
-            'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', false),
-        );
-    }
-
-    /**
-     * Save form data.
-     */
-    protected function postProcess()
-    {
-        $form_values = $this->getConfigFormValues();
-
-        foreach (array_keys($form_values) as $key) {
-            Configuration::updateValue($key, Tools::getValue($key));
-        }
-    }
+    
 
     /**
     * Add the CSS & JavaScript files you want to be loaded in the BO.
@@ -456,11 +561,16 @@ class Verifactu extends Module
 
     public function hookActionSetInvoice($params)
     {
-        $order = $params['Order'];
-        $id_order = $order->id;
-        //PrestaShopLogger::addLog('Se ejecuta '.$id_order .' '.$params['OrderInvoice']->id.' '.$params['OrderInvoice']->id_order, 1);
-        $av = new ApiVerifactu();
-        $av->sendAltaVerifactu($id_order);
+        //Si la configuración de envío automático a verifactu está activada
+        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        {
+            $order = $params['Order'];
+            $id_order = $order->id;
+            //PrestaShopLogger::addLog('Se ejecuta '.$id_order .' '.$params['OrderInvoice']->id.' '.$params['OrderInvoice']->id_order, 1);
+            $av = new ApiVerifactu();
+            $av->sendAltaVerifactu($id_order);
+        }
+        
     }
 
     public function hookActionOrderGridDefinitionModifier(array $params)

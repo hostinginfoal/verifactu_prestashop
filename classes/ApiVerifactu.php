@@ -264,7 +264,7 @@ class ApiVerifactu
                 $guardar = true;
             }
 
-            if ($guardar)
+            if ($guardar) //Guardamos el verifactu_order_invoice solo si no existe el registro o este ha cambiado
             {   
                 //Guardamos o actualizamos el estado de la factura
                 if($invoice['verifactuEstadoRegistro'] != '')
@@ -285,20 +285,29 @@ class ApiVerifactu
                         //echo $errorMessage;
                     }
                 }
-                
-                //Guardamos el registro de facturación ??
-
             }
 
-            //Guardamos el log
-            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
-            if (!Db::getInstance()->execute($sql)) 
+
+            if (isset($obj->id_reg_fact)) //Si se ha guardado un registro de facturación, del tipo que sea
             {
-                $errorMessage = Db::getInstance()->getMsgError();
-                //echo $errorMessage;
+                $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_reg_fact (id_reg_fact,id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR,imgQR) VALUES ("'.$obj->id_reg_fact.'","'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'","'.$obj->qr.'")'; 
+                if (!Db::getInstance()->execute($sql)) 
+                {
+                    $errorMessage = Db::getInstance()->getMsgError();
+                    //echo $errorMessage;
+                }
             }
-            //echo $sql;
+            
         }
+
+        //Guardamos el log
+        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
+        if (!Db::getInstance()->execute($sql)) 
+        {
+            $errorMessage = Db::getInstance()->getMsgError();
+            //echo $errorMessage;
+        }
+        //echo $sql;
                 
 
         return $response;

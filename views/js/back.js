@@ -90,7 +90,7 @@ $( document ).ready(function() {
                     $('#estado_envio_verifactu').addClass('alert-success');
                     $('#estado_envio_verifactu .alert-text').html('Registro de facturación de alta enviado a verifactu correctamente');
                     $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
+                       //window.location.reload();
                     });
                   }
                   else if (obj.EstadoRegistro == 'AceptadoConErrores')
@@ -99,7 +99,7 @@ $( document ).ready(function() {
                     $('#estado_envio_verifactu').addClass('alert-warning');
                     $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
                     $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() {
-                       window.location.reload();
+                       //window.location.reload();
                     });
                   }
                   else
@@ -118,7 +118,7 @@ $( document ).ready(function() {
                     {
                       $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
                       $('#estado_envio_verifactu').fadeIn('slow').delay(3000).fadeOut(function() {
-                        window.location.reload();
+                        //window.location.reload();
                       });
                     }
                     else //Es un error sql o genérico

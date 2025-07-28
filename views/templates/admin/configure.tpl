@@ -49,14 +49,19 @@
             <i class="icon-cogs"></i> {l s='Configuración' mod='verifactu'}
         </a>
     </li>
-    <li class="{if $active_tab == 'logs'}active{/if}">
-        <a href="{$current}&tab_module_verifactu=logs">
+    <li class="{if $active_tab == 'invoices'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=invoices">
+            <i class="icon-list"></i> {l s='Estado facturas' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'reg_facts'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=reg_facts">
             <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
         </a>
     </li>
-    <li class="{if $active_tab == 'shipping_logs'}active{/if}">
-        <a href="{$current}&tab_module_verifactu=shipping_logs">
-            <i class="icon-truck"></i> {l s='Logs de Envío' mod='verifactu'}
+    <li class="{if $active_tab == 'logs'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=logs">
+            <i class="icon-send"></i> {l s='Logs' mod='verifactu'}
         </a>
     </li>
 </ul>

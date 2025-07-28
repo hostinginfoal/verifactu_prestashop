@@ -58,7 +58,7 @@
             </div>
             {/if}
             <div class="input-group">
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $verifactuEstadoRegistro == "Correcto"}disabled="true"{/if}>
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}disabled="true"{/if}>
                   {l s='Enviar registro de Alta' mod='lupiverifactu'}
                 </button>
                 <button  style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">

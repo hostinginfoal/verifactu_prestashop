@@ -26,3 +26,21 @@
 #estado_envio_verifactu{
 	margin-top:10px !important;
 }
+
+/*
+ * Estilos para las filas de la tabla de logs de VeriFactu
+ */
+
+tr.verifactu_correct td {
+    background-color: #dff0d8 !important; /* Verde claro para éxito */
+}
+
+tr.verifactu_error td {
+    background-color: #f2dede !important; /* Rojo claro para error */
+}
+
+/* Opcional: Mantener un color de hover consistente */
+tr.verifactu_correct:hover td,
+tr.verifactu_error:hover td {
+    background-color: #d9edf7 !important; /* Azul claro al pasar el ratón */
+}
