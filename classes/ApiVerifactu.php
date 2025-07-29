@@ -157,7 +157,7 @@ class ApiVerifactu
         $data->buyer = $buyer;
 
         $inv->InvoiceNumber = $invoice['number'];
-        $inv->InvoiceSeriesCode = "A"; //SERIE??
+        $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
         $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
         $inv->InvoiceClass = "OO"; //Factura normal
         $inv->IssueDate = date('Y-m-d', strtotime($invoice['date_add']));
@@ -173,6 +173,8 @@ class ApiVerifactu
         $inv->InvoiceTotal = /*-abs*/((float) $invoice['total_paid_tax_incl']);
         $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
         $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+
+        $inv->NumeroInstalacion = Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1');
 
         //$inv->InvoiceSeriesCode = "B"; //SERIE??
         //$inv->InvoiceClass = "OR"; //Factura rectificativa

@@ -187,6 +187,18 @@ class Verifactu extends Module
      */
     protected function getConfigForm()
     {
+        $series_options = [];
+
+        // Añadimos las letras de la A a la Z
+        foreach (range('A', 'Z') as $letter) {
+            $series_options[] = ['id_option' => $letter, 'name' => $letter];
+        }
+
+        // Añadimos los números del 0 al 9
+        foreach (range(0, 9) as $number) {
+            $series_options[] = ['id_option' => $number, 'name' => $number];
+        }
+
         return array(
             'form' => array(
                 'legend' => array(
@@ -215,7 +227,7 @@ class Verifactu extends Module
                         'disabled' => true,
                     ),
                     array(
-                        'col' => 3,
+                        'col' => 8,
                         'type' => 'text',
                         'prefix' => '',
                         'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispones de una clave de API, solicita una gratuïta en https://verifactu.infoal.com'),
@@ -241,6 +253,40 @@ class Verifactu extends Module
                             )
                         ),
                     ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '',
+                        'desc' => $this->l('Identificador del punto de emisión del registro de facturación (En el caso de tener más de un punto de emisión: Ej: ecommerce1, tpv1, tpv2, etc...'),
+                        'name' => 'VERIFACTU_NUMERO_INSTALACION',
+                        'label' => $this->l('Id de terminal'),
+                    ),
+                    array(
+                        'col' => 1,
+                        'type' => 'select',
+                        'desc' => $this->l('(Ej:A,B,C,X)'),
+                        'name' => 'VERIFACTU_SERIE_FACTURA',
+                        'label' => $this->l('Serie Factura Alta'),
+                        'options' => array(
+                            'query' => $series_options, // El array que creamos arriba
+                            'id' => 'id_option',        // La clave para el 'value' del option
+                            'name' => 'name',           // La clave para el texto visible del option
+                        ),
+                    ),
+                    array(
+                        'col' => 1,
+                        'type' => 'select',
+                        'desc' => $this->l('Tiene que ser diferente que la serie de Factura de Alta (Ej:A,B,C,X)'),
+                        'name' => 'VERIFACTU_SERIE_FACTURA_ABONO',
+                        'label' => $this->l('Serie Factura Abono'),
+                        'options' => array(
+                            'query' => $series_options, // El array que creamos arriba
+                            'id' => 'id_option',        // La clave para el 'value' del option
+                            'name' => 'name',           // La clave para el texto visible del option
+                        ),
+                    ),
+
+
                 ),
                 'submit' => array(
                     'title' => $this->l('Guardar'),
@@ -257,7 +303,9 @@ class Verifactu extends Module
         return array(
             'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
-            'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', ''),
+            'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
+            'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
+            'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
             //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
             'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
         );
