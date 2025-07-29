@@ -49,12 +49,13 @@ use PrestaShopLogger;
 class Verifactu extends Module
 {
     protected $config_form = false;
+    private static $temp_qr_files = [];
 
     public function __construct()
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.3';
+        $this->version = '1.0.4';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -84,22 +85,15 @@ class Verifactu extends Module
         include(dirname(__FILE__).'/sql/install.php');
 
         return parent::install() 
-            //&& $this->installTabs()
-            //&& $this->registerHook('displayAdminOrderTabContent')
-            //&& $this->registerHook('displayAdminOrderMain')
+
+            
             && $this->registerHook('displayAdminOrderSide')
-            //&& $this->registerHook('displayAdminOrderTop')
             && $this->registerHook('actionAdminControllerSetMedia')
-            //&& $this->registerHook('actionValidateOrder')
-            //Antiguo
-            //&& $this->registerHook('actionAdminOrdersListingFieldsModifier')
-            //Synfony
             && $this->registerHook('actionOrderGridDefinitionModifier')
             && $this->registerHook('actionOrderGridQueryBuilderModifier')
             && $this->registerHook('actionSetInvoice')
-            //&& $this->registerHook('displayAdminOrderTabLink')
-            //&& $this->registerHook('displayAdminProductsMainStepRightColumnBottom')
-            //&& $this->registerHook('actionProductSave')
+            && $this->registerHook('displayPDFInvoice')
+            && $this->registerHook('actionPDFInvoiceRender')
             ;
     }
 
@@ -110,6 +104,83 @@ class Verifactu extends Module
         include(dirname(__FILE__).'/sql/uninstall.php');
 
         return parent::uninstall();
+    }
+
+    /**
+     * Hook para mostrar contenido adicional en el PDF de la factura.
+     *
+     * @param array $params Parámetros del hook, contiene el objeto OrderInvoice
+     * @return string Contenido HTML para inyectar en el PDF
+     */
+    public function hookDisplayPDFInvoice($params)
+    {
+        // 1. Incluimos el archivo principal de la biblioteca de QR que hemos añadido.
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
+        // 2. Obtenemos el objeto OrderInvoice.
+        $order_invoice = $params['object'];
+        if (!Validate::isLoadedObject($order_invoice)) {
+            return '';
+        }
+
+        // 3. Obtenemos la URL para el QR desde nuestra tabla.
+        $sql = new DbQuery();
+        $sql->select('urlQR');
+        $sql->from('verifactu_order_invoice');
+        $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
+        $url_to_encode = Db::getInstance()->getValue($sql);
+
+        // Si no tenemos una URL, no hacemos nada.
+        if (empty($url_to_encode)) {
+            return '';
+        }
+
+        // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
+        $qr_code_path = null;
+        try {
+            // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
+            $qr_code_path = $tmp_dir . $tmp_filename;
+
+            // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
+            // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+
+            // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
+            if (file_exists($qr_code_path)) {
+                self::$temp_qr_files[] = $qr_code_path;
+            } else {
+                $qr_code_path = null; // Si falla la creación, no pasamos la ruta.
+            }
+
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+            $qr_code_path = null;
+        }
+        
+        // 5. Asignamos la ruta a la plantilla.
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qr_code_path,
+            'verifactu_url' => $url_to_encode
+        ]);
+        
+        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+    }
+
+    /**
+     * Hook que se ejecuta después de renderizar el PDF de la factura.
+     * Se usa para borrar los archivos de QR temporales que hemos creado.
+     */
+    public function hookActionPDFInvoiceRender($params)
+    {
+        foreach (self::$temp_qr_files as $path) {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+        // Reseteamos el array
+        self::$temp_qr_files = [];
     }
 
     /**
@@ -703,7 +774,8 @@ class Verifactu extends Module
 
     public function hookDisplayAdminOrderSide($params)
     {
-        //require_once '/home/sandboxmachinepl/public_html/modules/lupiverifactu/libraries/qrcode.php';
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
         $id_order = $params['id_order'];
 
         $result = Db::getInstance()->getRow('SELECT voi.*, oi.id_order_invoice FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
@@ -712,7 +784,39 @@ class Verifactu extends Module
         $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
         $urlQR = $result['urlQR'];
-        $imgQR = $result['imgQR'];
+
+        // Si no tenemos una URL, no hacemos nada.
+
+        if (!empty($urlQR)) {
+            // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
+            $imgQR = null;
+            try {
+                // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
+                $tmp_dir = _PS_TMP_IMG_DIR_;
+                $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
+                $imgQR = $tmp_dir . $tmp_filename;
+
+                // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
+                // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
+                QRcode::png($urlQR, $imgQR, QR_ECLEVEL_L, 4, 2);
+
+                // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
+                if (file_exists($imgQR)) {
+                    self::$temp_qr_files[] = $imgQR;
+                    $imgQR = '/img/tmp/'. $tmp_filename;
+                } else {
+                    $imgQR = null; // Si falla la creación, no pasamos la ruta.
+                }
+
+            } catch (Exception $e) {
+                PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+                $imgQR = null;
+            }
+        }
+
+        
+
+        
 
         $urladmin = Context::getContext()->link->getModuleLink( 'verifactu','ajax', array('ajax'=>true) );
 

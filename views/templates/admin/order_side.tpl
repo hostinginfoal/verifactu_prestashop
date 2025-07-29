@@ -51,11 +51,14 @@
                     {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
                   {/if}
                 {/if}</span>
+
+                
             </div>
+            
             {if $imgQR != ''}
-            <div class="input-group" style="text-align:center;">
-                <a href="{$urlQR}" target="_new"><img src="{$imgQR}" width="200"></a>
-            </div>
+                <div class="" style="width:100%; text-align:center">
+                    <a href="{$urlQR}" target="_new"><img src="{$imgQR}" width="100"></a>
+                </div>
             {/if}
             <div class="input-group">
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}disabled="true"{/if}>

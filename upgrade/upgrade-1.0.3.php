@@ -36,7 +36,6 @@ function upgrade_module_1_0_3($module)
 {
     $sql = array();
     $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` CHANGE COLUMN `id_reg_fact` `id_reg_fact` INT NOT NULL';
-    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` ADD COLUMN `imgQR` TEXT NULL';
 
     foreach ($sql as $query) {
         if (Db::getInstance()->execute($query) == false) {
