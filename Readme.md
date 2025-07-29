@@ -27,24 +27,18 @@ Nuestra solución se integra de forma nativa en el corazón de PrestaShop. Al ge
 
 ***Solicita tu Token de acceso gratuïto a la API Infoal Verifactu en https://verifactu.infoal.com.***
 
-v1.0.1
 - Configuración del token de API InFoAL Veri*Factu
 - Envío manual de los registros de Alta desde la ficha del pedido.
 - Envío manual de los registros de Anulación desde la ficha del pedido.
 - Registro de logs
-
-v1.0.2
 - Envío automático de los registros de facturación cuando se generen las facturas.
 - Listado de los logs de los registros enviados en el formulario de configuración del módulo
 - Ocultamos el botón de enviar registros de Anulación desde la ficha del pedido hasta que quede claro como hay que proceder con las anulaciones según la AEAT.
 - Codigo QR en ficha del producto.
-
-v1.0.3
 - Listado de los registros de facturación enviado en el formulario de configuración del módulo
 - Listado estado de facturas enviadas a verifactu en vista de configuración del módulo
-
-
-- PROXIMAMENTE
-- Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
 - Código QR en la factura generada de prestashop.
+
+  PROXIMAMENTE
+- Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
 - Config: Selector habilitar Anulación de factura en la ficha del pedido
