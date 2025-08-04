@@ -4,7 +4,7 @@ Nuestro módulo conecta tu tienda directamente al sistema Veri*Factu, enviando l
 
 ***NOTA IMPORTANTE: Nuestra API de momento solo envía datos al entorno de PRE-PRODUCCIÓN de VERI*FACTU puesto que la AEAT no ha publicado un entorno real todavía***
 
-
+![Screenshot_3](https://github.com/user-attachments/assets/e18ec69d-97c8-4f41-a153-1282c646a61c)
 
 
 - Envío automático de registros de facturación.
