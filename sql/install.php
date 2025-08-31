@@ -57,6 +57,16 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
+    `id_order_slip` int(11) NOT NULL,
+    `verifactuEstadoEnvio` VARCHAR(100),
+    `verifactuEstadoRegistro` VARCHAR(100),
+    `verifactuCodigoErrorRegistro` VARCHAR(100),
+    `verifactuDescripcionErrorRegistro` TEXT,
+    `urlQR` VARCHAR(255),
+    PRIMARY KEY  (`id_order_slip`)
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) == false) {
         return false;

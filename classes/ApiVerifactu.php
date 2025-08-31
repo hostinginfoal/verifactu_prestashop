@@ -105,13 +105,21 @@ class ApiVerifactu
         return $response;
     }
 
-    public function sendAltaVerifactu($id_order)
+    public function sendAltaVerifactu($id_order,$tipo)
     {
         //$id_order = Tools::getValue('id_order');
         $envioXml = false;
 
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
-        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
+        if ($tipo == 'abono')
+        {
+            $invoice = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'"');
+        }
+        else
+        {
+            $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
+        }
+        
         $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.$order['id_address_invoice'].'"');
         $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.$address['id_state'].'"');
         $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.$address['id_country'].'"');
@@ -174,7 +182,7 @@ class ApiVerifactu
         $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
         $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
 
-        $inv->NumeroInstalacion = Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1');
+        //$inv->NumeroInstalacion = Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1');
 
         //$inv->InvoiceSeriesCode = "B"; //SERIE??
         //$inv->InvoiceClass = "OR"; //Factura rectificativa

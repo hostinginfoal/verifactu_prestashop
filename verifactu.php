@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.4';
+        $this->version = '1.0.5';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -323,15 +323,16 @@ class Verifactu extends Module
                                 'label' => $this->l('Desactivado')
                             )
                         ),
+                        'disabled' => true,
                     ),
-                    array(
+                    /*array(
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '',
                         'desc' => $this->l('Identificador del punto de emisión del registro de facturación (En el caso de tener más de un punto de emisión: Ej: ecommerce1, tpv1, tpv2, etc...'),
                         'name' => 'VERIFACTU_NUMERO_INSTALACION',
                         'label' => $this->l('Id de terminal'),
-                    ),
+                    ),*/
                     array(
                         'col' => 1,
                         'type' => 'select',
@@ -374,7 +375,7 @@ class Verifactu extends Module
         return array(
             'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
-            'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
+            //'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
             'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
             'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
             //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
@@ -681,14 +682,14 @@ class Verifactu extends Module
     public function hookActionSetInvoice($params)
     {
         //Si la configuración de envío automático a verifactu está activada
-        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        {
+        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        //{
             $order = $params['Order'];
             $id_order = $order->id;
             //PrestaShopLogger::addLog('Se ejecuta '.$id_order .' '.$params['OrderInvoice']->id.' '.$params['OrderInvoice']->id_order, 1);
             $av = new ApiVerifactu();
-            $av->sendAltaVerifactu($id_order);
-        }
+            $av->sendAltaVerifactu($id_order,'alta');
+        //}
         
     }
 
@@ -725,7 +726,7 @@ class Verifactu extends Module
         $searchCriteria = $params['search_criteria'];
 
         $searchQueryBuilder->addSelect(
-            'IF(ISNULL(vi.verifactuEstadoRegistro),IF(ISNULL(vi.id_order_invoice),"Sin factura","No enviada"),vi.verifactuEstadoRegistro) AS `verifactu`'
+            'IF(ISNULL(vi.verifactuEstadoRegistro),IF(ISNULL(i.id_order_invoice),"Sin factura","No enviada"),vi.verifactuEstadoRegistro) AS `verifactu`'
         );
 
         $searchQueryBuilder->leftJoin(
