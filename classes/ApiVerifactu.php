@@ -105,11 +105,12 @@ class ApiVerifactu
         return $response;
     }
 
-    public function sendAltaVerifactu($id_order,$tipo)
+    public function sendAltaVerifactu($id_order,$tipo='alta')
     {
         //$id_order = Tools::getValue('id_order');
         $envioXml = false;
 
+        //AQUI, ACABAR DE PROGRAMAR LOS ENVIOS DE FACTURAS DE
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
