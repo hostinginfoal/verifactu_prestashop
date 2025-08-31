@@ -71,13 +71,7 @@
                 <button style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:10px;" id="send_anulacion_verifactu">
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
-                <form action="https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=facturae.get" method="POST" style="display: none;">
-                  <input type="hidden" name="id" value="277">
-                  <input type="hidden" name="token" value="1VmOgu4TJmq7PPZlzZb8lLVB4mnk6susVoKnDBttUDX9KDgL2fpHB00hrRZxSyGLPG2oQLIWMydeKoDBapinLAVtgL3EzAwtOxT7">
-                  <button type="submit" class="boton-descarga">
-                    📄 Descargar Factura Firmada (.xsig)
-                  </button>
-</form>
+                
                 {/if}
             </div>
             
