@@ -323,7 +323,7 @@ class Verifactu extends Module
                                 'label' => $this->l('Desactivado')
                             )
                         ),
-                        'disabled' => true,
+                        'disabled' => false,
                     ),
                     /*array(
                         'col' => 3,
@@ -682,14 +682,14 @@ class Verifactu extends Module
     public function hookActionSetInvoice($params)
     {
         //Si la configuración de envío automático a verifactu está activada
-        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        //{
+        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        {
             $order = $params['Order'];
             $id_order = $order->id;
             //PrestaShopLogger::addLog('Se ejecuta '.$id_order .' '.$params['OrderInvoice']->id.' '.$params['OrderInvoice']->id_order, 1);
             $av = new ApiVerifactu();
             $av->sendAltaVerifactu($id_order,'alta');
-        //}
+        }
         
     }
 

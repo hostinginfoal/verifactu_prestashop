@@ -27,7 +27,6 @@
     <h3><i class="icon icon-credit-card"></i> {l s='VeriFactu by InFoAL' mod='verifactu'}</h3>
     <p>
         <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
-        {l s='Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de VeriFactu' mod='verifactu'}<br />
     </p>
     <br />
     <p>
