@@ -277,7 +277,7 @@ class Verifactu extends Module
                 'icon' => 'icon-cogs',
                 ),
                 'input' => array(
-                    array(
+                    /*array(
                         'type' => 'switch',
                         'label' => $this->l('Entorno Real'),
                         'name' => 'VERIFACTU_ENTORNO_REAL',
@@ -296,7 +296,7 @@ class Verifactu extends Module
                             )
                         ),
                         'disabled' => true,
-                    ),
+                    ),*/
                     array(
                         'col' => 8,
                         'type' => 'text',
@@ -373,7 +373,7 @@ class Verifactu extends Module
     protected function getConfigFormValues()
     {
         return array(
-            'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
+            //'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
             //'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
             'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),

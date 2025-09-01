@@ -68,7 +68,7 @@
                   {l s='Comprobar DNI' mod='lupiverifactu'}
                 </button>
                 {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}
-                <button style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:10px;" id="send_anulacion_verifactu">
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;display:none;" id="send_anulacion_verifactu">
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
                 <form action="https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=facturae.get" method="POST" style="display: none;">

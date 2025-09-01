@@ -153,6 +153,15 @@ class ApiVerifactu
         $data = new \stdClass();
         $buyer = new \stdClass();
         $inv = new \stdClass();
+
+        /*if (!Configuration::get('VERIFACTU_ENTORNO_REAL', false)) //Enviamos el parametro sandbox para peticiones en preprod
+        {
+            $data->sandbox = 1;
+        }
+        else
+        {
+            $data->sandbox = 0;
+        }*/
         
         $buyer->TaxIdentificationNumber = $address['dni'];
         $buyer->CorporateName = $address['company'];
@@ -331,11 +340,6 @@ class ApiVerifactu
 
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
-        /*$address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.$order['id_address_invoice'].'"');
-        $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.$address['id_state'].'"');
-        $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.$address['id_country'].'"');
-        $currency = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'currency WHERE id_currency = "'.$order['id_currency'].'"');
-        $lines = Db::getInstance()->ExecuteS('SELECT * FROM ' . _DB_PREFIX_ . 'order_detail WHERE id_order = "'.$id_order.'"');*/
 
         $curl  = curl_init();
 
@@ -353,9 +357,11 @@ class ApiVerifactu
         $data = new \stdClass();
 
         $data->InvoiceNumber = $invoice['number'];
-        $data->InvoiceSeriesCode = "A"; //SERIE??
+        $data->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
         
         $dataString = json_encode($data);
+
+        //die($dataString);
 
         curl_setopt_array($curl, [
                 CURLOPT_URL            => $url,
