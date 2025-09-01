@@ -2,3 +2,4 @@
 composer.lock
 config.xml
 config_es.xml
+.gitignore
