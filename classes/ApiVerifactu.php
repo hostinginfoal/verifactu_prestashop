@@ -28,6 +28,7 @@ namespace Verifactu\VerifactuClasses;
 
 use Db;
 use Configuration;
+use PrestaShopLogger;
 
 class ApiVerifactu
 {
@@ -114,13 +115,11 @@ class ApiVerifactu
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
-            $invoice = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'"');
+            $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'"');
+
         }
-        else
-        {
-            $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
-        }
-        
+
+        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
         $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.$order['id_address_invoice'].'"');
         $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.$address['id_state'].'"');
         $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.$address['id_country'].'"');
@@ -153,15 +152,6 @@ class ApiVerifactu
         $data = new \stdClass();
         $buyer = new \stdClass();
         $inv = new \stdClass();
-
-        /*if (!Configuration::get('VERIFACTU_ENTORNO_REAL', false)) //Enviamos el parametro sandbox para peticiones en preprod
-        {
-            $data->sandbox = 1;
-        }
-        else
-        {
-            $data->sandbox = 0;
-        }*/
         
         $buyer->TaxIdentificationNumber = $address['dni'];
         $buyer->CorporateName = $address['company'];
@@ -174,34 +164,56 @@ class ApiVerifactu
 
         $data->buyer = $buyer;
 
-        $inv->InvoiceNumber = $invoice['number'];
-        $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
-        $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
-        $inv->InvoiceClass = "OO"; //Factura normal
-        $inv->IssueDate = date('Y-m-d', strtotime($invoice['date_add']));
-        $inv->InvoiceCurrencyCode = $currency['iso_code'];
-        $inv->TaxCurrencyCode = $currency['iso_code'];
-        $inv->LanguageName = 'es';
-        $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
-        $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
-        $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
-        $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
-        $inv->TotalTaxOutputs = /*-abs*/((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
-        $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
-        $inv->InvoiceTotal = /*-abs*/((float) $invoice['total_paid_tax_incl']);
-        $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
-        $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+        $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
+        if ($tipo == 'abono')
+        {
+            $inv->InvoiceNumber = $slip['id_order_slip'];
+            $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B');
+            $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
+            $inv->InvoiceClass = "OR"; //Factura normal
+            $inv->IssueDate = date('Y-m-d', strtotime($slip['date_add']));
+            $inv->InvoiceCurrencyCode = $currency['iso_code'];
+            $inv->TaxCurrencyCode = $currency['iso_code'];
+            $inv->LanguageName = 'es';
+            $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
+            $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
+            $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
+            $inv->TotalGrossAmountBeforeTaxes = -$slip['total_products_tax_excl'];
+            $inv->TotalTaxOutputs = -((float) $slip['total_products_tax_incl'] - (float) $slip['total_products_tax_excl']);
+            $inv->TotalTaxesWithheld = -((float) $slip['total_products_tax_incl'] - (float) $slip['total_products_tax_excl']);
+            $inv->InvoiceTotal = -((float) $slip['total_products_tax_incl']);
+            $inv->TotalOutstandingAmount = -$slip['total_products_tax_incl'];
+            $inv->TotalExecutableAmount = -$slip['total_products_tax_incl'];
 
-        //$inv->NumeroInstalacion = Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1');
+            $inv->CorrectiveCorrectionMethod  = "01";
+            $inv->CorrectiveCorrectionMethodDescription  = "Factura de abono ".$slip['id_order_slip'];
+            $inv->CorrectiveInvoiceNumber = $invoice['number'];
+            $inv->CorrectiveInvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
+            $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
+            //$inv->CorrectiveBaseAmount  = $inv->TotalGrossAmount;
+            //$inv->CorrectiveTaxAmount  = $inv->TotalTaxOutputs;
+        }
+        else
+        {
+            $inv->InvoiceNumber = $invoice['number'];
+            $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
+            $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
+            $inv->InvoiceClass = "OO"; //Factura normal
+            $inv->IssueDate = date('Y-m-d', strtotime($invoice['date_add']));
+            $inv->InvoiceCurrencyCode = $currency['iso_code'];
+            $inv->TaxCurrencyCode = $currency['iso_code'];
+            $inv->LanguageName = 'es';
+            $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
+            $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
+            $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
+            $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
+            $inv->TotalTaxOutputs = /*-abs*/((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
+            $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
+            $inv->InvoiceTotal = /*-abs*/((float) $invoice['total_paid_tax_incl']);
+            $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
+            $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+        }
 
-        //$inv->InvoiceSeriesCode = "B"; //SERIE??
-        //$inv->InvoiceClass = "OR"; //Factura rectificativa
-        //$inv->CorrectiveCorrectionMethod  = "01"; //01 Por Diferencia  //02 Por Sustitución
-        //$inv->CorrectiveCorrectionMethodDescription  = "Factura rectificativa";
-        //$inv->CorrectiveInvoiceNumber  = $invoice['number'];
-        //$inv->CorrectiveInvoiceSeriesCode  = "A";
-        //$inv->BaseRectificada  = $inv->TotalGrossAmount;
-        //$inv->CuotaRectificada  = $inv->TotalTaxOutputs;
 
         $data->invoice = $inv;
 
@@ -239,6 +251,10 @@ class ApiVerifactu
             $dataString = json_encode($data);
         }
         //die($dataString);
+        /*PrestaShopLogger::addLog(
+            'Módulo Verifactu: Envío a api ' . $dataString ,
+            1
+        );*/
 
         curl_setopt_array($curl, [
                 CURLOPT_URL            => $url,
@@ -258,6 +274,10 @@ class ApiVerifactu
         curl_close($curl);
 
         //die($response);
+        PrestaShopLogger::addLog(
+            'Módulo Verifactu: Respuesta de api ' . $response ,
+            1
+        );
 
         //Guardamos el campo verifactuEstadoRegistro y verifactuEstadoEnvio en base de datos si ha sido correcto
         $obj = json_decode($response);

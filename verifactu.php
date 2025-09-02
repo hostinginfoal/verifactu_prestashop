@@ -94,6 +94,7 @@ class Verifactu extends Module
             && $this->registerHook('actionSetInvoice')
             && $this->registerHook('displayPDFInvoice')
             && $this->registerHook('actionPDFInvoiceRender')
+            && $this->registerHook('actionObjectOrderSlipAddAfter')
             ;
     }
 
@@ -691,6 +692,35 @@ class Verifactu extends Module
             $av->sendAltaVerifactu($id_order,'alta');
         }
         
+    }
+
+    public function hookActionObjectOrderSlipAddAfter($params)
+    {
+        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        {
+            // 1. Obtenemos el objeto OrderSlip que se acaba de crear.
+            if (!isset($params['object'])) {
+                return;
+            }
+            $orderSlip = $params['object'];
+
+            // 2. Validamos que el objeto sea correcto.
+            if (!Validate::isLoadedObject($orderSlip)) {
+                return;
+            }
+
+            // 3. A partir de aquí, ya tienes acceso a toda la información de la factura de abono.
+            // Por ejemplo:
+            $id_order_slip = $orderSlip->id;
+            $id_order = $orderSlip->id_order;
+            $av = new ApiVerifactu();
+            $av->sendAltaVerifactu($id_order,'abono');
+
+            /*PrestaShopLogger::addLog(
+                'Módulo Verifactu: Se ha creado la factura de abono ID ' . $id_order_slip . ' para el pedido ID ' . $id_order,
+                1
+            );*/
+        }
     }
 
     public function hookActionOrderGridDefinitionModifier(array $params)
