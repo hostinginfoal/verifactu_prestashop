@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.0.5';
+        $this->version = '1.1.2';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 

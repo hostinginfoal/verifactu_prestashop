@@ -117,7 +117,7 @@ class ApiVerifactu
         if ($tipo == 'abono')
         {
             $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'"');
-
+            /*$slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate FROM ' . _DB_PREFIX_ . 'slip_detail as sd INNER JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.$slip['id_order_slip'].'"');*/ //Esta select esta mal
         }
 
         $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
@@ -168,7 +168,10 @@ class ApiVerifactu
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
-            $inv->InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
+            $InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
+            $totalTaxExcl = ((float) $slip['total_products_tax_excl'] + (float) $slip['total_shipping_tax_excl']);
+            $totalTaxIncl = ((float) $slip['total_products_tax_incl'] + (float) $slip['total_shipping_tax_incl']);
+            $inv->InvoiceNumber = $InvoiceNumber;
             //$inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B');
             $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
             $inv->InvoiceClass = "OR"; //Factura normal
@@ -179,12 +182,12 @@ class ApiVerifactu
             $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
             $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
             $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
-            $inv->TotalGrossAmountBeforeTaxes = -$slip['total_products_tax_excl'];
-            $inv->TotalTaxOutputs = -((float) $slip['total_products_tax_incl'] - (float) $slip['total_products_tax_excl']);
-            $inv->TotalTaxesWithheld = -((float) $slip['total_products_tax_incl'] - (float) $slip['total_products_tax_excl']);
-            $inv->InvoiceTotal = -((float) $slip['total_products_tax_incl']);
-            $inv->TotalOutstandingAmount = -$slip['total_products_tax_incl'];
-            $inv->TotalExecutableAmount = -$slip['total_products_tax_incl'];
+            $inv->TotalGrossAmountBeforeTaxes = -((float) $totalTaxExcl);
+            $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
+            $inv->TotalTaxesWithheld = -((float) $totalTaxIncl - (float) $totalTaxExcl );
+            $inv->InvoiceTotal = -((float) $totalTaxIncl);
+            $inv->TotalOutstandingAmount = -((float) $totalTaxIncl);
+            $inv->TotalExecutableAmount = -((float) $totalTaxIncl);
 
             $inv->CorrectiveCorrectionMethod  = "01";
             $inv->CorrectiveCorrectionMethodDescription  = "Factura de abono ".$slip['id_order_slip'];
@@ -193,10 +196,61 @@ class ApiVerifactu
             $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
             //$inv->CorrectiveBaseAmount  = $inv->TotalGrossAmount;
             //$inv->CorrectiveTaxAmount  = $inv->TotalTaxOutputs;
+
+            $data->invoice = $inv;
+
+            $seq = 1;
+            foreach ($slipLines as $l)
+            {
+                
+                $line = new \stdClass();
+                $line->SequenceNumber = $seq;
+                //$line->DeliveryNoteNumber = $seq; //ESTO QUE ES??
+                //$line->DeliveryNoteDate = $seq; //ESTO QUE ES??
+                $line->ItemDescription = $l['product_name'];
+                $line->Quantity = ((float) $l['product_quantity']);
+                $line->UnitPriceWithoutTax = -((float) $l['unit_price_tax_excl']);
+                $line->TotalCost = -((float) $l['total_price_tax_incl']);
+                $line->GrossAmount = -((float) $l['total_price_tax_incl']);
+                $line->TaxTypeCode = '01';
+                $line->TaxRate = $l['tax_rate'];
+                $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
+                $line->TaxAmountTotal = -((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
+                $line->ArticleCode = $l['product_reference'];
+                $seq++;
+
+                $data->invoice->lines[] = $line;
+            } 
+
+            // Comprobamos si el pedido tiene gastos de envío. Usamos los datos de la factura para mayor precisión.
+            if ((float)$slip['total_shipping_tax_excl'] > 0) {
+                $shipping_line = new \stdClass();
+                
+                $shipping_tax_rate = 0;
+                // Calculamos el tipo de IVA del envío a partir de los totales de la factura para evitar errores de redondeo.
+                if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+                    $shipping_tax_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                }
+
+                $shipping_line->SequenceNumber = $seq;
+                $shipping_line->ItemDescription = 'Gastos de Envío';
+                $shipping_line->Quantity = 1;
+                $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
+                $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
+                $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
+                $shipping_line->TaxTypeCode = '01';
+                $shipping_line->TaxRate = round($shipping_tax_rate, 2);
+                $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
+                $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
+                $shipping_line->ArticleCode = 'ENVIO';
+                
+                $data->invoice->lines[] = $shipping_line;
+            }  
         }
-        else
+        else //Si es factura de alta
         {
-            $inv->InvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); //$invoice['number'];
+            $InvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']);
+            $inv->InvoiceNumber = $InvoiceNumber; //$invoice['number'];
             //$inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
             $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
             $inv->InvoiceClass = "OO"; //Factura normal
@@ -213,33 +267,60 @@ class ApiVerifactu
             $inv->InvoiceTotal = /*-abs*/((float) $invoice['total_paid_tax_incl']);
             $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
             $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+
+            $data->invoice = $inv;
+
+            $seq = 1;
+            foreach ($lines as $l)
+            {
+                
+                $line = new \stdClass();
+                $line->SequenceNumber = $seq;
+                //$line->DeliveryNoteNumber = $seq; //ESTO QUE ES??
+                //$line->DeliveryNoteDate = $seq; //ESTO QUE ES??
+                $line->ItemDescription = $l['product_name'];
+                $line->Quantity = $l['product_quantity'];
+                $line->UnitPriceWithoutTax = $l['product_price'];
+                $line->TotalCost = $l['total_price_tax_incl'];
+                $line->GrossAmount = $l['total_price_tax_incl'];
+                $line->TaxTypeCode = '01';
+                $line->TaxRate = $l['tax_rate'];
+                $line->TaxableBaseAmount = /*-abs*/((float) $l['total_price_tax_excl']);
+                $line->TaxAmountTotal = /*-abs*/((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
+                $line->ArticleCode = $l['product_reference'];
+                $seq++;
+
+                $data->invoice->lines[] = $line;
+            } 
+
+            // Comprobamos si el pedido tiene gastos de envío. Usamos los datos de la factura para mayor precisión.
+            if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+                $shipping_line = new \stdClass();
+                
+                $shipping_tax_rate = 0;
+                // Calculamos el tipo de IVA del envío a partir de los totales de la factura para evitar errores de redondeo.
+                if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+                    $shipping_tax_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                }
+
+                $shipping_line->SequenceNumber = $seq;
+                $shipping_line->ItemDescription = 'Gastos de Envío';
+                $shipping_line->Quantity = 1;
+                $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
+                $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
+                $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
+                $shipping_line->TaxTypeCode = '01';
+                $shipping_line->TaxRate = round($shipping_tax_rate, 2);
+                $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
+                $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
+                $shipping_line->ArticleCode = 'ENVIO';
+                
+                $data->invoice->lines[] = $shipping_line;
+            }  
         }
 
 
-        $data->invoice = $inv;
-
-        $seq = 1;
-        foreach ($lines as $l)
-        {
-            
-            $line = new \stdClass();
-            $line->SequenceNumber = $seq;
-            //$line->DeliveryNoteNumber = $seq; //ESTO QUE ES??
-            //$line->DeliveryNoteDate = $seq; //ESTO QUE ES??
-            $line->ItemDescription = $l['product_name'];
-            $line->Quantity = $l['product_quantity'];
-            $line->UnitPriceWithoutTax = $l['product_price'];
-            $line->TotalCost = $l['total_price_tax_incl'];
-            $line->GrossAmount = $l['total_price_tax_incl'];
-            $line->TaxTypeCode = '01';
-            $line->TaxRate = $l['tax_rate'];
-            $line->TaxableBaseAmount = /*-abs*/((float) $l['total_price_tax_excl']);
-            $line->TaxAmountTotal = /*-abs*/((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
-            $line->ArticleCode = $l['product_reference'];
-            $seq++;
-
-            $data->invoice->lines[] = $line;
-        }      
+       
 
         if ($envioXml)
         {
@@ -285,53 +366,105 @@ class ApiVerifactu
 
         //die($obj->error);
 
-        if (!$obj->error)
+        if ($tipo == 'abono') 
+        {
+            $id_order_invoice = $slip['id_order_slip'];
+        }
+        else
+        {
+            $id_order_invoice = $invoice['id_order_invoice'];
+        }
+
+        if (isset($obj) && !$obj->error)
         {
             $guardar = false;
 
-            if ($invoice['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
+            if ($tipo == 'abono') 
             {
+                if ($slip['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
+                {
 
-            }
-            else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
-            {
-                /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
-                { 
+                }
+                else if ($slip['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
+                {
+                    /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
+                    { 
+                        $guardar = true;
+                    }*/
+                }
+                else //Para lo demás guardamos el estado que sea
+                {
                     $guardar = true;
-                }*/
+                }
+
+                if ($guardar) //Guardamos el verifactu_order_invoice solo si no existe el registro o este ha cambiado
+                {   
+                    //Guardamos o actualizamos el estado de la factura
+                    if($slip['verifactuEstadoRegistro'] != '')
+                    {
+                        $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET verifactuEstadoRegistro = "'.$obj->EstadoRegistro.'",verifactuEstadoEnvio = "'.$obj->EstadoEnvio.'",verifactuCodigoErrorRegistro = "'.$obj->CodigoErrorRegistro.'", verifactuDescripcionErrorRegistro = "'.$obj->DescripcionErrorRegistro.'", urlQR = "'.$obj->urlQR.'" WHERE id_order_slip = "'.$slip['id_order_slip'].'"';
+                        if (!Db::getInstance()->execute($sql)) 
+                        {
+                            $errorMessage = Db::getInstance()->getMsgError();
+                            //echo $errorMessage;
+                        }
+                    }
+                    else
+                    {
+                        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_order_slip (id_order_slip,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$slip['id_order_slip'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; 
+                        if (!Db::getInstance()->execute($sql)) 
+                        {
+                            $errorMessage = Db::getInstance()->getMsgError();
+                            //echo $errorMessage;
+                        }
+                    }
+                }
             }
-            else //Para lo demás guardamos el estado que sea
+            else
             {
-                $guardar = true;
-            }
-
-            if ($guardar) //Guardamos el verifactu_order_invoice solo si no existe el registro o este ha cambiado
-            {   
-                //Guardamos o actualizamos el estado de la factura
-                if($invoice['verifactuEstadoRegistro'] != '')
+                if ($invoice['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
                 {
-                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET verifactuEstadoRegistro = "'.$obj->EstadoRegistro.'",verifactuEstadoEnvio = "'.$obj->EstadoEnvio.'",verifactuCodigoErrorRegistro = "'.$obj->CodigoErrorRegistro.'", verifactuDescripcionErrorRegistro = "'.$obj->DescripcionErrorRegistro.'", urlQR = "'.$obj->urlQR.'" WHERE id_order_invoice = "'.$invoice['id_order_invoice'].'"';
-                    if (!Db::getInstance()->execute($sql)) 
+
+                }
+                else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
+                {
+                    /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
+                    { 
+                        $guardar = true;
+                    }*/
+                }
+                else //Para lo demás guardamos el estado que sea
+                {
+                    $guardar = true;
+                }
+
+                if ($guardar) //Guardamos el verifactu_order_invoice solo si no existe el registro o este ha cambiado
+                {   
+                    //Guardamos o actualizamos el estado de la factura
+                    if($invoice['verifactuEstadoRegistro'] != '')
                     {
-                        $errorMessage = Db::getInstance()->getMsgError();
-                        //echo $errorMessage;
+                        $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET verifactuEstadoRegistro = "'.$obj->EstadoRegistro.'",verifactuEstadoEnvio = "'.$obj->EstadoEnvio.'",verifactuCodigoErrorRegistro = "'.$obj->CodigoErrorRegistro.'", verifactuDescripcionErrorRegistro = "'.$obj->DescripcionErrorRegistro.'", urlQR = "'.$obj->urlQR.'" WHERE id_order_invoice = "'.$invoice['id_order_invoice'].'"';
+                        if (!Db::getInstance()->execute($sql)) 
+                        {
+                            $errorMessage = Db::getInstance()->getMsgError();
+                            //echo $errorMessage;
+                        }
+                    }
+                    else
+                    {
+                        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_order_invoice (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; 
+                        if (!Db::getInstance()->execute($sql)) 
+                        {
+                            $errorMessage = Db::getInstance()->getMsgError();
+                            //echo $errorMessage;
+                        }
                     }
                 }
-                else
-                {
-                    $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_order_invoice (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; 
-                    if (!Db::getInstance()->execute($sql)) 
-                    {
-                        $errorMessage = Db::getInstance()->getMsgError();
-                        //echo $errorMessage;
-                    }
-                }
             }
-
 
             if (isset($obj->id_reg_fact)) //Si se ha guardado un registro de facturación, del tipo que sea
             {
-                $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_reg_fact (id_reg_fact,id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$obj->id_reg_fact.'","'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; 
+                $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_reg_fact (id_reg_fact,id_order_invoice,invoice_number,tipo,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.$obj->id_reg_fact.'","'.$id_order_invoice.'","'.$InvoiceNumber.'","'.$tipo.'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.$obj->urlQR.'")'; 
                 if (!Db::getInstance()->execute($sql)) 
                 {
                     $errorMessage = Db::getInstance()->getMsgError();
@@ -342,7 +475,7 @@ class ApiVerifactu
         }
 
         //Guardamos el log
-        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$invoice['id_order_invoice'].'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
+        $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,invoice_number,tipo,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,fechahora) VALUES ("'.$id_order_invoice.'","'.$InvoiceNumber.'","'.$tipo.'","'.$obj->EstadoRegistro.'","'.$obj->EstadoEnvio.'","'.$obj->CodigoErrorRegistro.'","'.$obj->DescripcionErrorRegistro.'","'.date('Y-m-d H:i:s').'")'; 
         if (!Db::getInstance()->execute($sql)) 
         {
             $errorMessage = Db::getInstance()->getMsgError();

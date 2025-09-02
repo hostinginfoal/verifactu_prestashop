@@ -32,12 +32,19 @@ if (!defined('_PS_VERSION_')) {
  * usefull when you modify your database, or register a new hook ...
  * Don't forget to create one file per version.
  */
-function upgrade_module_1_1_0($module)
+function upgrade_module_1_1_2($module)
 {
-    /*
-     * Do everything you want right there,
-     * You could add a column in one of your module's tables
-     */
+    $sql = array();
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` ADD COLUMN `invoice_number` VARCHAR(100) NULL AFTER `id_order_invoice`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` ADD COLUMN `tipo` VARCHAR(20) NULL AFTER `invoice_number`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `invoice_number` VARCHAR(100) NULL AFTER `id_order_invoice`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `tipo` VARCHAR(20) NULL AFTER `invoice_number`';
+
+    foreach ($sql as $query) {
+        if (Db::getInstance()->execute($query) == false) {
+            return false;
+        }
+    }
 
     return true;
 }

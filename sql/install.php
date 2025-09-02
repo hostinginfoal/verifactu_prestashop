@@ -28,6 +28,8 @@ $sql = array();
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     `id_reg_fact` int(11) NOT NULL,
     `id_order_invoice` int(11) NOT NULL,
+    `invoice_number` VARCHAR(100),
+    `tipo` VARCHAR(20),
     `verifactuEstadoEnvio` VARCHAR(100),
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),
@@ -39,6 +41,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_logs` (
     `id_log` int(11) NOT NULL AUTO_INCREMENT,
     `id_order_invoice` int(11) NOT NULL,
+    `invoice_number` VARCHAR(100),
+    `tipo` VARCHAR(20),
     `verifactuEstadoEnvio` VARCHAR(100),
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),
