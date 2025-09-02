@@ -94,7 +94,7 @@ class Verifactu extends Module
             && $this->registerHook('actionSetInvoice')
             && $this->registerHook('displayPDFInvoice')
             && $this->registerHook('actionPDFInvoiceRender')
-            && $this->registerHook('actionObjectOrderSlipAddAfter')
+            && $this->registerHook('actionOrderSlipAdd')
             ;
     }
 
@@ -326,6 +326,26 @@ class Verifactu extends Module
                         ),
                         'disabled' => false,
                     ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Activar modo debug'),
+                        'name' => 'VERIFACTU_DEBUG_MODE',
+                        'is_bool' => true,
+                        'desc' => $this->l('Activa esta opción si quieres guardar logs de los eventos en los Registros/Logs de prestashop.'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Activado')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Desactivado')
+                            )
+                        ),
+                        'disabled' => false,
+                    ),
                     /*array(
                         'col' => 3,
                         'type' => 'text',
@@ -379,7 +399,7 @@ class Verifactu extends Module
             //'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
             //'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
             //'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
-            //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
+            'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0),
             'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
         );
     }
@@ -687,39 +707,22 @@ class Verifactu extends Module
         {
             $order = $params['Order'];
             $id_order = $order->id;
-            //PrestaShopLogger::addLog('Se ejecuta '.$id_order .' '.$params['OrderInvoice']->id.' '.$params['OrderInvoice']->id_order, 1);
+            //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
             $av = new ApiVerifactu();
             $av->sendAltaVerifactu($id_order,'alta');
         }
         
     }
 
-    public function hookActionObjectOrderSlipAddAfter($params)
+    public function hookActionOrderSlipAdd ($params)
     {
         if (Configuration::get('VERIFACTU_LIVE_SEND', true))
         {
-            // 1. Obtenemos el objeto OrderSlip que se acaba de crear.
-            if (!isset($params['object'])) {
-                return;
-            }
-            $orderSlip = $params['object'];
-
-            // 2. Validamos que el objeto sea correcto.
-            if (!Validate::isLoadedObject($orderSlip)) {
-                return;
-            }
-
-            // 3. A partir de aquí, ya tienes acceso a toda la información de la factura de abono.
-            // Por ejemplo:
-            $id_order_slip = $orderSlip->id;
-            $id_order = $orderSlip->id_order;
+            $order = $params['order'];
+            $id_order = $order->id;
+            //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
             $av = new ApiVerifactu();
             $av->sendAltaVerifactu($id_order,'abono');
-
-            /*PrestaShopLogger::addLog(
-                'Módulo Verifactu: Se ha creado la factura de abono ID ' . $id_order_slip . ' para el pedido ID ' . $id_order,
-                1
-            );*/
         }
     }
 

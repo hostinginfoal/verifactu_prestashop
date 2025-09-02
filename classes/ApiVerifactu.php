@@ -116,11 +116,24 @@ class ApiVerifactu
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
-            $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'"');
-            /*$slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate FROM ' . _DB_PREFIX_ . 'slip_detail as sd INNER JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.$slip['id_order_slip'].'"');*/ //Esta select esta mal
+            $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.$id_order.'" ORDER BY os.id_order_slip DESC');
+            //sleep(5);
+            $slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate,od.product_name FROM ' . _DB_PREFIX_ . 'order_slip_detail as sd LEFT JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.((int)$slip['id_order_slip']).'"'); 
+                
+            if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+            {
+                PrestaShopLogger::addLog(
+                    'Módulo Verifactu: <br>
+                    Factura de abono: '.json_encode($slip).'<br>
+                    Lineas: '.json_encode($slipLines).'<br>
+                    ',
+                    1
+                );
+            }
+                
         }
 
-        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
+        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'" ORDER BY oi.id_order_invoice DESC');
         $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.$order['id_address_invoice'].'"');
         $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.$address['id_state'].'"');
         $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.$address['id_country'].'"');
@@ -228,20 +241,20 @@ class ApiVerifactu
                 
                 $shipping_tax_rate = 0;
                 // Calculamos el tipo de IVA del envío a partir de los totales de la factura para evitar errores de redondeo.
-                if ((float)$invoice['total_shipping_tax_excl'] > 0) {
-                    $shipping_tax_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                if ((float)$slip['total_shipping_tax_excl'] > 0) {
+                    $shipping_tax_rate = (((float)$slip['total_shipping_tax_incl'] / (float)$slip['total_shipping_tax_excl']) - 1) * 100;
                 }
 
                 $shipping_line->SequenceNumber = $seq;
                 $shipping_line->ItemDescription = 'Gastos de Envío';
                 $shipping_line->Quantity = 1;
-                $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
-                $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
-                $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
+                $shipping_line->UnitPriceWithoutTax = $slip['total_shipping_tax_excl'];
+                $shipping_line->TotalCost = $slip['total_shipping_tax_incl'];
+                $shipping_line->GrossAmount = $slip['total_shipping_tax_incl'];
                 $shipping_line->TaxTypeCode = '01';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 2);
-                $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
-                $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
+                $shipping_line->TaxableBaseAmount = (float)$slip['total_shipping_tax_excl'];
+                $shipping_line->TaxAmountTotal = (float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl'];
                 $shipping_line->ArticleCode = 'ENVIO';
                 
                 $data->invoice->lines[] = $shipping_line;
@@ -332,11 +345,15 @@ class ApiVerifactu
         {
             $dataString = json_encode($data);
         }
-        //die($dataString);
-        /*PrestaShopLogger::addLog(
-            'Módulo Verifactu: Envío a api ' . $dataString ,
-            1
-        );*/
+
+        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        {
+            PrestaShopLogger::addLog(
+                'Módulo Verifactu: Envío a api ' . $dataString.'
+                ',
+                1
+            );
+        }
 
         curl_setopt_array($curl, [
                 CURLOPT_URL            => $url,
@@ -356,10 +373,14 @@ class ApiVerifactu
         curl_close($curl);
 
         //die($response);
-        PrestaShopLogger::addLog(
-            'Módulo Verifactu: Respuesta de api ' . $response ,
-            1
-        );
+        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        {
+            PrestaShopLogger::addLog(
+                'Módulo Verifactu: Respuesta de api ' . $response.'
+                ',
+                1
+            );
+        }
 
         //Guardamos el campo verifactuEstadoRegistro y verifactuEstadoEnvio en base de datos si ha sido correcto
         $obj = json_decode($response);
