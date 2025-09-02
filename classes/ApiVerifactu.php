@@ -396,22 +396,21 @@ class ApiVerifactu
             $id_order_invoice = $invoice['id_order_invoice'];
         }
 
-        if (isset($obj) && !$obj->error)
+        if (isset($obj))
         {
-            $guardar = false;
-
             if ($tipo == 'abono') 
             {
+                $guardar = false;
                 if ($slip['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
                 {
 
                 }
                 else if ($slip['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
                 {
-                    /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
+                    if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
                     { 
                         $guardar = true;
-                    }*/
+                    }
                 }
                 else //Para lo demás guardamos el estado que sea
                 {
@@ -443,16 +442,17 @@ class ApiVerifactu
             }
             else
             {
+                $guardar = false;
                 if ($invoice['verifactuEstadoRegistro'] == 'Correcto') //Si está marcada ya como correcto no hacemos nada
                 {
 
                 }
                 else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
                 {
-                    /*if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
+                    if ($obj->EstadoRegistro == 'Correcto' || $obj->EstadoRegistro == 'AceptadoConErrores')
                     { 
                         $guardar = true;
-                    }*/
+                    }
                 }
                 else //Para lo demás guardamos el estado que sea
                 {

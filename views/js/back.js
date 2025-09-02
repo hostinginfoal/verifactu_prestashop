@@ -98,7 +98,7 @@ $( document ).ready(function() {
                     $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
                     $('#estado_envio_verifactu').addClass('alert-warning');
                     $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() {
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
                        window.location.reload();
                     });
                   }
@@ -117,7 +117,7 @@ $( document ).ready(function() {
                     if (obj.EstadoRegistro)
                     {
                       $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
-                      $('#estado_envio_verifactu').fadeIn('slow').delay(3000).fadeOut(function() {
+                      $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
                         window.location.reload();
                       });
                     }
