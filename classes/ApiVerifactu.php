@@ -27,6 +27,7 @@
 namespace Verifactu\VerifactuClasses;
 
 use Db;
+use DbQuery;
 use Configuration;
 use PrestaShopLogger;
 
@@ -167,8 +168,8 @@ class ApiVerifactu
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
-            $inv->InvoiceNumber = $slip['id_order_slip'];
-            $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B');
+            $inv->InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
+            //$inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B');
             $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
             $inv->InvoiceClass = "OR"; //Factura normal
             $inv->IssueDate = date('Y-m-d', strtotime($slip['date_add']));
@@ -187,16 +188,16 @@ class ApiVerifactu
 
             $inv->CorrectiveCorrectionMethod  = "01";
             $inv->CorrectiveCorrectionMethodDescription  = "Factura de abono ".$slip['id_order_slip'];
-            $inv->CorrectiveInvoiceNumber = $invoice['number'];
-            $inv->CorrectiveInvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
+            $inv->CorrectiveInvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); //$invoice['number'];
+            //$inv->CorrectiveInvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
             $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
             //$inv->CorrectiveBaseAmount  = $inv->TotalGrossAmount;
             //$inv->CorrectiveTaxAmount  = $inv->TotalTaxOutputs;
         }
         else
         {
-            $inv->InvoiceNumber = $invoice['number'];
-            $inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
+            $inv->InvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); //$invoice['number'];
+            //$inv->InvoiceSeriesCode = Configuration::get('VERIFACTU_SERIE_FACTURA', 'A');
             $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
             $inv->InvoiceClass = "OO"; //Factura normal
             $inv->IssueDate = date('Y-m-d', strtotime($invoice['date_add']));
@@ -423,6 +424,117 @@ class ApiVerifactu
         
 
         return $response;
+    }
+
+    /**
+     * Genera el número de factura completo y formateado tal como lo hace PrestaShop,
+     * incluyendo el prefijo y el año si está configurado.
+     *
+     * @param int $id_order_invoice El ID de la factura (de la tabla ps_order_invoice).
+     * @return string|null El número de factura formateado o null si no se encuentra.
+     */
+    private function getFormattedInvoiceNumber($id_order_invoice)
+    {
+        // 1. Validamos la entrada.
+        if ($id_order_invoice <= 0) {
+            return null;
+        }
+
+        // 2. Preparamos la consulta para obtener todos los datos necesarios:
+        // el número, la fecha (para el año) y el idioma (para el prefijo).
+        $sql = new DbQuery();
+        $sql->select('oi.number, oi.date_add, o.id_lang');
+        $sql->from('order_invoice', 'oi');
+        $sql->leftJoin('orders', 'o', 'o.id_order = oi.id_order');
+        $sql->where('oi.id_order_invoice = ' . (int)$id_order_invoice);
+
+        $result = Db::getInstance()->getRow($sql);
+
+        if (!$result) {
+            return null;
+        }
+
+        // 3. Obtenemos las variables de configuración de PrestaShop.
+        $prefix = Configuration::get('PS_INVOICE_PREFIX', (int)$result['id_lang']);
+        $year_position = (int)Configuration::get('PS_INVOICE_YEAR_POS');
+
+        // 4. Preparamos los componentes del número.
+        $padded_number = sprintf('%06d', $result['number']);
+        $year = date('Y', strtotime($result['date_add']));
+        
+        $final_invoice_number = $prefix;
+
+        // 5. Construimos el número final basándonos en la configuración del año.
+        switch ($year_position) {
+            case 1: // Año antes del número
+                $final_invoice_number .= $year . $padded_number;
+                break;
+            case 2: // Año después del número
+                $final_invoice_number .= $padded_number . $year;
+                break;
+            case 0: // Sin año
+            default:
+                $final_invoice_number .= $padded_number;
+                break;
+        }
+
+        return $final_invoice_number;
+    }
+
+    /**
+     * Genera el número de factura de abono completo y formateado tal como lo hace PrestaShop,
+     * incluyendo el prefijo y el año si está configurado.
+     *
+     * @param int $id_order_slip El ID de la factura de abono (de la tabla ps_order_slip).
+     * @return string|null El número de abono formateado o null si no se encuentra.
+     */
+    private function getFormattedCreditSlipNumber($id_order_slip)
+    {
+        // 1. Validamos la entrada.
+        if ($id_order_slip <= 0) {
+            return null;
+        }
+
+        // 2. Preparamos la consulta para obtener los datos necesarios:
+        // la fecha (para el año) y el idioma del pedido asociado.
+        $sql = new DbQuery();
+        $sql->select('os.date_add, o.id_lang');
+        $sql->from('order_slip', 'os');
+        $sql->leftJoin('orders', 'o', 'o.id_order = os.id_order');
+        $sql->where('os.id_order_slip = ' . (int)$id_order_slip);
+
+        $result = Db::getInstance()->getRow($sql);
+
+        if (!$result) {
+            return null;
+        }
+
+        // 3. Obtenemos las variables de configuración específicas para las facturas de abono.
+        $prefix = Configuration::get('PS_CREDIT_SLIP_PREFIX', (int)$result['id_lang']);
+        $year_position = (int)Configuration::get('PS_CREDIT_SLIP_YEAR_POS');
+
+        // 4. Preparamos los componentes del número.
+        // En las facturas de abono, el ID se usa como número secuencial.
+        $padded_number = sprintf('%06d', $id_order_slip);
+        $year = date('Y', strtotime($result['date_add']));
+        
+        $final_slip_number = $prefix;
+
+        // 5. Construimos el número final basándonos en la configuración del año.
+        switch ($year_position) {
+            case 1: // Año antes del número
+                $final_slip_number .= $year . $padded_number;
+                break;
+            case 2: // Año después del número
+                $final_slip_number .= $padded_number . $year;
+                break;
+            case 0: // Sin año
+            default:
+                $final_slip_number .= $padded_number;
+                break;
+        }
+
+        return $final_slip_number;
     }
 
     private function xml_encode($mixed, $domElement=null, $DOMDocument=null) 

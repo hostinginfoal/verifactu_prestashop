@@ -334,7 +334,7 @@ class Verifactu extends Module
                         'name' => 'VERIFACTU_NUMERO_INSTALACION',
                         'label' => $this->l('Id de terminal'),
                     ),*/
-                    array(
+                    /*array(
                         'col' => 1,
                         'type' => 'select',
                         'desc' => $this->l('(Ej:A,B,C,X)'),
@@ -357,7 +357,7 @@ class Verifactu extends Module
                             'id' => 'id_option',        // La clave para el 'value' del option
                             'name' => 'name',           // La clave para el texto visible del option
                         ),
-                    ),
+                    ),*/
 
 
                 ),
@@ -377,8 +377,8 @@ class Verifactu extends Module
             //'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
             //'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
-            'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
-            'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
+            //'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
+            //'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
             //'VERIFACTU_ACCOUNT_PASSWORD' => Configuration::get('VERIFACTU_ACCOUNT_PASSWORD', null),
             'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
         );
