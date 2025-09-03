@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.2';
+        $this->version = '1.1.3';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -80,7 +80,7 @@ class Verifactu extends Module
      */
     public function install()
     {
-        //Configuration::updateValue('VERIFACTU_LIVE_MODE', true);
+        Configuration::updateValue('VERIFACTU_LIVE_SEND', true);
 
         include(dirname(__FILE__).'/sql/install.php');
 
@@ -324,7 +324,7 @@ class Verifactu extends Module
                                 'label' => $this->l('Desactivado')
                             )
                         ),
-                        'disabled' => false,
+                        'disabled' => true,
                     ),
                     array(
                         'type' => 'switch',
