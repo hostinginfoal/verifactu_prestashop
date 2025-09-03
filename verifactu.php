@@ -302,7 +302,7 @@ class Verifactu extends Module
                         'col' => 8,
                         'type' => 'text',
                         'prefix' => '',
-                        'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispones de una clave de API, solicita una gratuïta en https://verifactu.infoal.com'),
+                        'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispone de una clave de API, solicitu una gratuïta en https://verifactu.infoal.com'),
                         'name' => 'VERIFACTU_API_TOKEN',
                         'label' => $this->l('InFoAL Veri*Factu API Token'),
                     ),
@@ -324,7 +324,7 @@ class Verifactu extends Module
                                 'label' => $this->l('Desactivado')
                             )
                         ),
-                        'disabled' => true,
+                        'disabled' => false,
                     ),
                     array(
                         'type' => 'switch',
