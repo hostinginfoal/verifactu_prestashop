@@ -133,7 +133,19 @@ class Verifactu extends Module
 
         // Si no tenemos una URL, no hacemos nada.
         if (empty($url_to_encode)) {
-            return '';
+            //return '';
+            //Generamos la url a partir de los datos que sabemos
+            $sql = new DbQuery();
+            $sql->select('*');
+            $sql->from('order_invoice');
+            $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
+            $invoice = Db::getInstance()->getRow($sql);
+
+            $av = new ApiVerifactu();
+            $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
+            $fecha = date('d-m-Y', strtotime($invoice['date_add']));
+            $importe = round((float) $invoice['total_paid_tax_incl'],2);
+            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.Configuration::get('VERIFACTU_NIF_EMISOR').'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
         }
 
         // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
@@ -302,9 +314,17 @@ class Verifactu extends Module
                         'col' => 8,
                         'type' => 'text',
                         'prefix' => '',
-                        'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispone de una clave de API, solicitu una gratuïta en https://verifactu.infoal.com'),
+                        'desc' => $this->l('Token de InFoAL Veri*Factu API (Si no dispone de una clave de API, solicitu una gratuïta en https://verifactu.infoal.com)'),
                         'name' => 'VERIFACTU_API_TOKEN',
                         'label' => $this->l('InFoAL Veri*Factu API Token'),
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '',
+                        'desc' => $this->l('NIF del obligado a expedir las facturas (Para generar los códigos QR offline)'),
+                        'name' => 'VERIFACTU_NIF_EMISOR',
+                        'label' => $this->l('NIF del emisor de las facturas'),
                     ),
                     /*array(
                         'type' => 'switch',
@@ -400,6 +420,7 @@ class Verifactu extends Module
             //'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
             //'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
             'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0),
+            'VERIFACTU_NIF_EMISOR' => Configuration::get('VERIFACTU_NIF_EMISOR', null),
             //'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
         );
     }

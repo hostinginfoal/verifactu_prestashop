@@ -609,7 +609,7 @@ class ApiVerifactu
      * @param int $id_order_invoice El ID de la factura (de la tabla ps_order_invoice).
      * @return string|null El número de factura formateado o null si no se encuentra.
      */
-    private function getFormattedInvoiceNumber($id_order_invoice)
+    public function getFormattedInvoiceNumber($id_order_invoice)
     {
         // 1. Validamos la entrada.
         if ($id_order_invoice <= 0) {
@@ -643,10 +643,10 @@ class ApiVerifactu
         // 5. Construimos el número final basándonos en la configuración del año.
         switch ($year_position) {
             case 1: // Año antes del número
-                $final_invoice_number .= $year . $padded_number;
+                $final_invoice_number .= $year .'/'. $padded_number;
                 break;
             case 2: // Año después del número
-                $final_invoice_number .= $padded_number . $year;
+                $final_invoice_number .= $padded_number .'/'. $year;
                 break;
             case 0: // Sin año
             default:
