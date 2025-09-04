@@ -80,7 +80,7 @@ class Verifactu extends Module
      */
     public function install()
     {
-        Configuration::updateValue('VERIFACTU_LIVE_SEND', true);
+        //Configuration::updateValue('VERIFACTU_LIVE_SEND', true);
 
         include(dirname(__FILE__).'/sql/install.php');
 
@@ -306,7 +306,7 @@ class Verifactu extends Module
                         'name' => 'VERIFACTU_API_TOKEN',
                         'label' => $this->l('InFoAL Veri*Factu API Token'),
                     ),
-                    array(
+                    /*array(
                         'type' => 'switch',
                         'label' => $this->l('Envío automático a Veri*Factu'),
                         'name' => 'VERIFACTU_LIVE_SEND',
@@ -325,7 +325,7 @@ class Verifactu extends Module
                             )
                         ),
                         'disabled' => false,
-                    ),
+                    ),*/
                     array(
                         'type' => 'switch',
                         'label' => $this->l('Activar modo debug'),
@@ -400,7 +400,7 @@ class Verifactu extends Module
             //'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
             //'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
             'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0),
-            'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
+            //'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
         );
     }
 
@@ -703,27 +703,27 @@ class Verifactu extends Module
     public function hookActionSetInvoice($params)
     {
         //Si la configuración de envío automático a verifactu está activada
-        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        {
+        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        //{
             $order = $params['Order'];
             $id_order = $order->id;
             //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
             $av = new ApiVerifactu();
             $av->sendAltaVerifactu($id_order,'alta');
-        }
+        //}
         
     }
 
     public function hookActionOrderSlipAdd ($params)
     {
-        if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        {
+        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
+        //{
             $order = $params['order'];
             $id_order = $order->id;
             //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
             $av = new ApiVerifactu();
             $av->sendAltaVerifactu($id_order,'abono');
-        }
+        //}
     }
 
     public function hookActionOrderGridDefinitionModifier(array $params)
