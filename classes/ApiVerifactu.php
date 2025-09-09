@@ -410,10 +410,17 @@ class ApiVerifactu
             {
                 $id_order_invoice = $slip['id_order_slip'];
 
-                $sql = 'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'verifactu_order_slip` 
-                        (`id_order_slip`, `estado`, `api_id_queue`, `urlQR`) 
-                    VALUES 
-                        (' . (int)$slip['id_order_slip'] . ', "pendiente", "'.$api_id_queue.'", "'.$urlQR.'")';
+                //Miramos si a se habia enviado previamente para actualizar el estado o insertar uno nuevo
+                $vos = Db::getInstance()->getRow('SELECT id_order_slip FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_order_slip = "'.$slip['id_order_slip'].'"');
+                if ($vos['id_order_slip'] != '')
+                {
+                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado="pendiente", api_id_queue="'.$api_id_queue.'" WHERE id_order_slip = "'.(int) $vos['id_order_slip'].'"';
+                }
+                else
+                {
+                    $sql = 'INSERT IGNORE INTO '. _DB_PREFIX_ .'verifactu_order_slip (id_order_slip, estado, api_id_queue, urlQR) VALUES ("'. (int)$slip['id_order_slip'] .'", "pendiente", "'.$api_id_queue.'", "'.$urlQR.'")';
+                }
+                
                 
                 if (!Db::getInstance()->execute($sql)) {
                     $errorMessage = Db::getInstance()->getMsgError();
@@ -431,10 +438,15 @@ class ApiVerifactu
             {
                 $id_order_invoice = $invoice['id_order_invoice'];
 
-                $sql = 'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'verifactu_order_invoice` 
-                        (`id_order_invoice`, `estado`, `api_id_queue`, `urlQR`) 
-                    VALUES 
-                        (' . (int)$invoice['id_order_invoice'] . ', "pendiente", "'.$api_id_queue.'", "'.$urlQR.'")';
+                $voi = Db::getInstance()->getRow('SELECT id_order_invoice FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_order_invoice = "'.$invoice['id_order_invoice'].'"');
+                if ($voi['id_order_invoice'] != '')
+                {
+                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado="pendiente", api_id_queue="'.$api_id_queue.'" WHERE id_order_invoice = "'.(int) $voi['id_order_invoice'].'"';
+                }
+                else
+                {
+                    $sql = 'INSERT IGNORE INTO '. _DB_PREFIX_ .'verifactu_order_invoice (id_order_invoice, estado, api_id_queue, urlQR) VALUES ("'. (int)$invoice['id_order_invoice'] .'", "pendiente", "'.$api_id_queue.'", "'.$urlQR.'")';
+                }
 
                 // 4. Ejecutamos la consulta.
                 if (!Db::getInstance()->execute($sql)) {

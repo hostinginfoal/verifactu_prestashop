@@ -60,10 +60,10 @@ if (typeof verifactu_ajax_url !== 'undefined') {
   }
 
   // Ejecutamos la función una vez al cargar la página.
-  //checkPendingStatus();
+  checkPendingStatus();
 
   // ejecutamos pasados 5 segundos.
-  setTimeout(checkPendingStatus, 5000);
+  //setTimeout(checkPendingStatus, 5000);
 
   // Y luego la ejecutamos cada 60 segundos.
   setInterval(checkPendingStatus, 60000);
