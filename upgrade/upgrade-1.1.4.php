@@ -32,13 +32,15 @@ if (!defined('_PS_VERSION_')) {
  * usefull when you modify your database, or register a new hook ...
  * Don't forget to create one file per version.
  */
-function upgrade_module_1_1_2($module)
+function upgrade_module_1_1_4($module)
 {
     $sql = array();
-    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` ADD COLUMN `invoice_number` VARCHAR(100) NULL AFTER `id_order_invoice`';
-    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` ADD COLUMN `tipo` VARCHAR(20) NULL AFTER `invoice_number`';
-    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `invoice_number` VARCHAR(100) NULL AFTER `id_order_invoice`';
-    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `tipo` VARCHAR(20) NULL AFTER `invoice_number`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_invoice` ADD COLUMN `estado` VARCHAR(45) NULL DEFAULT AFTER `id_order_invoice`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_slip` ADD COLUMN `estado` VARCHAR(45) NULL DEFAULT AFTER `id_order_slip`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_invoice` ADD COLUMN `api_id_queue` INT NOT NULL DEFAULT AFTER `estado`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_slip` ADD COLUMN `api_id_queue` INT NOT NULL DEFAULT AFTER `estado`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `api_id_queue` INT NOT NULL DEFAULT AFTER `id_log`';
+    $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_logs` ADD COLUMN `api_estado_queue` VARCHAR(45) NULL DEFAULT AFTER `api_id_queue`';
 
     foreach ($sql as $query) {
         if (Db::getInstance()->execute($query) == false) {

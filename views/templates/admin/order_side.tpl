@@ -32,7 +32,7 @@
 
 <!--<div class="col-md-4 left-column">-->
     <div class="card" id="formVerifactu">
-        <div class="card-header" style="color:white; background-color:{if $verifactuEstadoRegistro == "Correcto"}#cbf2d4;{elseif $verifactuEstadoRegistro == "AceptadoConErrores"}#fab000{else}#fbc6c3;{/if}">
+        <div class="card-header" style="color:white; background-color:{if $estado == 'pendiente' || $verifactuEstadoRegistro == "Correcto"}#cbf2d4;{elseif $verifactuEstadoRegistro == "AceptadoConErrores"}#fab000{else}#fbc6c3;{/if}">
             <h3 class="card-header-title">
               Verifactu
             </h3>
@@ -42,15 +42,21 @@
                 
                 Registro de facturación: 
                 <span id="estado-verifactu" style="font-weight:bold;margin-left:20px;">
-                {if $verifactuEstadoRegistro == ""}
-                  No enviado
+                {if $estado == "pendiente"}
+                    Enviado correctamente. En espera de respuesta de Veri*Factu
                 {else}
-                  {if $verifactuEstadoRegistro == "Correcto"}
-                    {$verifactuEstadoRegistro}
-                  {else}
-                    {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
-                  {/if}
-                {/if}</span>
+                    {if $verifactuEstadoRegistro == ""}
+                      No enviado
+                    {else}
+                      {if $verifactuEstadoRegistro == "Correcto"}
+                        {$verifactuEstadoRegistro}
+                      {else}
+                        {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
+                      {/if}
+                    {/if}
+                {/if}
+                
+                </span>
 
                 
             </div>
@@ -61,7 +67,7 @@
                 </div>
             {/if}
             <div class="input-group">
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $verifactuEstadoRegistro == "Correcto" }disabled="true"{/if}>
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $estado == "pendiente" || $verifactuEstadoRegistro == "Correcto" }disabled="true"{/if}>
                   {l s='Enviar registro de Alta' mod='lupiverifactu'}
                 </button>
                 <button  style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">

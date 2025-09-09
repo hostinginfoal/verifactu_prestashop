@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.3';
+        $this->version = '1.1.4';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -825,6 +825,11 @@ class Verifactu extends Module
         Media::addJsDef(array('verifactu' => array('lang' => $lang)));
 
         $this->context->controller->addJS('modules/'.$this->name.'/views/js/back.js');
+
+        Media::addJsDef([
+            'verifactu_ajax_url' => $this->context->link->getAdminLink('AdminVerifactuAjax'),
+            'verifactu_token' => Tools::getAdminTokenLite('AdminVerifactuAjax')
+        ]);
     }
 
     public function hookDisplayAdminOrderSide($params)
@@ -838,6 +843,7 @@ class Verifactu extends Module
         $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
         $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
+        $estado = $result['estado'];
         $urlQR = $result['urlQR'];
 
         // Si no tenemos una URL, no hacemos nada.
@@ -869,18 +875,12 @@ class Verifactu extends Module
             }
         }
 
-        
-
-        
-
-        $urladmin = Context::getContext()->link->getModuleLink( 'verifactu','ajax', array('ajax'=>true) );
-
          $this->context->smarty->assign(array(
-            'urladmin' => $urladmin,
             'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
             'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
             'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
             'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
+            'estado' => $estado,
             'id_order' => $id_order,
             'imgQR' => $imgQR,
             'urlQR' => $urlQR,
