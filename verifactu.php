@@ -82,13 +82,7 @@ class Verifactu extends Module
     {
         //Configuration::updateValue('VERIFACTU_LIVE_SEND', true);
 
-        if (include(dirname(__FILE__).'/sql/install.php') === false) {
-            PrestaShopLogger::addLog(
-                'VeriFactu Module: El script SQL (sql/install.php) falló durante la instalación.',
-                3
-            );
-            return false;
-        }
+        include(dirname(__FILE__).'/sql/install.php');
 
         return parent::install() 
 
