@@ -48,7 +48,7 @@ class ApiVerifactu
         $lines = Db::getInstance()->ExecuteS('SELECT * FROM ' . _DB_PREFIX_ . 'order_detail WHERE id_order = "'.$id_order.'"');
 
         $curl  = curl_init();
-        $url   = 'https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=CDI.CHECK';
+        $url   = 'https://verifactu.infoal.com/index.php?option=com_verifactu&format=raw&task=CDI.CHECK';
         $token = Configuration::get('VERIFACTU_API_TOKEN', null);
 
         // HTTP request headers
@@ -155,7 +155,8 @@ class ApiVerifactu
 
         $curl  = curl_init();
 
-        $url   = 'https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=verifactu.alta';
+        $url   = 'https://verifactu.infoal.com/index.php?option=com_apiverifactu&format=raw&task=verifactu.alta';
+        //$url   = 'https://verifactu.infoal.com/api/verifactu/alta';
 
         $token = Configuration::get('VERIFACTU_API_TOKEN', null);
 
@@ -535,7 +536,7 @@ class ApiVerifactu
         if ($queue) 
         {
             $curl  = curl_init();
-            $url   = 'https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=verifactu.check';
+            $url   = 'https://verifactu.infoal.com/index.php?option=com_apiverifactu&format=raw&task=verifactu.check';
             $token = Configuration::get('VERIFACTU_API_TOKEN', null);
 
             // HTTP request headers
@@ -758,7 +759,7 @@ class ApiVerifactu
 
         $curl  = curl_init();
 
-        $url   = 'https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=verifactu.anulacion';
+        $url   = 'https://verifactu.infoal.com/index.php?option=com_apiverifactu&format=raw&task=verifactu.anulacion';
 
         $token = Configuration::get('VERIFACTU_API_TOKEN', null);
 
