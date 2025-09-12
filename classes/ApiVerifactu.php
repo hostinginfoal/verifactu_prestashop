@@ -33,6 +33,22 @@ use PrestaShopLogger;
 
 class ApiVerifactu
 {
+    /** @var string|null El token de la API específico de la tienda. */
+    private $apiToken;
+
+    /** @var bool Indica si el modo debug está activo para la tienda. */
+    private $debugMode;
+
+    /** @var int El ID de la tienda para la que se está trabajando. */
+    private $id_shop;
+
+    public function __construct($apiToken, $debugMode, $id_shop)
+    {
+        $this->apiToken = $apiToken;
+        $this->debugMode = (bool)$debugMode;
+        $this->id_shop = (int)$id_shop;
+    }
+
     public function checkDNI($id_order)
     {
         $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
@@ -45,7 +61,7 @@ class ApiVerifactu
 
         $curl  = curl_init();
         $url   = 'https://verifactu.infoal.io/api_v2/cdi/check';
-        $token = Configuration::get('VERIFACTU_API_TOKEN', null);
+        $token = $this->apiToken;
 
         // HTTP request headers
         $headers = [
@@ -58,12 +74,12 @@ class ApiVerifactu
         $data->nombre = $address['firstname'].' '.$address['lastname'];
         $dataString = json_encode($data);
 
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: CDI - Envío a api ' . $dataString.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
@@ -84,12 +100,12 @@ class ApiVerifactu
         $response = curl_exec($curl);
         curl_close($curl);
 
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: CDI - Respuesta api ' . $response.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
@@ -102,24 +118,33 @@ class ApiVerifactu
     {
         $reply = array();
 
-        $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+        $order_data = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+
+        if (!$order_data) 
+        {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Pedido no encontrado.']);
+        }
+
         if ($tipo == 'abono')
         {
             $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro, vos.estado FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.(int) $id_order.'" ORDER BY os.id_order_slip DESC');
             $slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate,od.product_name FROM ' . _DB_PREFIX_ . 'order_slip_detail as sd LEFT JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.((int)$slip['id_order_slip']).'"'); 
                 
-            if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+            if ($this->debugMode)
             {
                 PrestaShopLogger::addLog(
                     'Módulo Verifactu: <br>
                     Factura de abono: '.json_encode($slip).'<br>
                     Lineas: '.json_encode($slipLines).'<br>
                     ',
-                    1
+                    1, null, null, null, true, $this->id_shop
                 );
             }
 
-            if ($slip->estado == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
+            if (isset($slip['estado']) && $slip['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
             {
                 $reply['response'] = 'pendiente';
                 return json_encode($reply);
@@ -128,22 +153,57 @@ class ApiVerifactu
         }
 
         $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro, voi.estado FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.(int)$id_order.'" ORDER BY oi.id_order_invoice DESC');
-        if ($invoice->estado == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
+        if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
         {
             $reply['response'] = 'pendiente';
             return json_encode($reply);
         }
 
-        $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.(int) $order['id_address_invoice'].'"');
+        $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.(int) $order_data['id_address_invoice'].'"');
+
+        if (!$address) {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontró dirección de facturación para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+        }
+
         $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.(int) $address['id_state'].'"');
+        if (!$prov) {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron provincias para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+        }
+
         $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.(int) $address['id_country'].'"');
-        $currency = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'currency WHERE id_currency = "'.(int) $order['id_currency'].'"');
+        if (!$pais) {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron paises para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+        }
+
+        $currency = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'currency WHERE id_currency = "'.(int) $order_data['id_currency'].'"');
+        if (!$currency) {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron monedas para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+        }
+
         $lines = Db::getInstance()->ExecuteS('SELECT * FROM ' . _DB_PREFIX_ . 'order_detail WHERE id_order = "'.(int) $id_order.'"');
+        if (!$lines) {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron lineas de pedido para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+        }
 
         $curl  = curl_init();
 
         $url   = 'https://verifactu.infoal.io/api_v2/verifactu/alta';
-        $token = Configuration::get('VERIFACTU_API_TOKEN', null);
+        $token = $this->apiToken;
 
         // HTTP request headers
         $headers = [
@@ -168,7 +228,7 @@ class ApiVerifactu
 
         $data->buyer = $buyer;
 
-        $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
+        //$order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
             $InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
@@ -319,12 +379,12 @@ class ApiVerifactu
 
         $dataString = json_encode($data);
 
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: Alta - Envío a api ' . $dataString.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
@@ -346,12 +406,12 @@ class ApiVerifactu
         curl_close($curl);
 
         //die($response);
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: Alta - Respuesta de api ' . $response.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
@@ -360,10 +420,10 @@ class ApiVerifactu
 
         //die($obj->error);
 
-        if ($obj->response == 'OK')
+        if (isset($obj, $obj->response) && $obj->response == 'OK')
         {  
-            $urlQR = $obj->urlQR;
-            $api_id_queue = (int) $obj->id_queue;
+            $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
+            $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
             $api_estado_queue = 'pendiente';
 
             if ($tipo == 'abono') 
@@ -372,7 +432,8 @@ class ApiVerifactu
 
                 //Miramos si a se habia enviado previamente para actualizar el estado o insertar uno nuevo
                 $vos = Db::getInstance()->getRow('SELECT id_order_slip FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_order_slip = "'.(int) $slip['id_order_slip'].'"');
-                if ($vos['id_order_slip'] != '')
+
+                if (isset($vos,$vos['id_order_slip']) && $vos['id_order_slip'] != '')
                 {
                     $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_slip = "'.(int) $vos['id_order_slip'].'"';
                 }
@@ -384,12 +445,12 @@ class ApiVerifactu
                 
                 if (!Db::getInstance()->execute($sql)) {
                     $errorMessage = Db::getInstance()->getMsgError();
-                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                    if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
                             'Módulo Verifactu: Alta - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
                             ',
-                            1
+                            1, null, null, null, true, $this->id_shop
                         );
                     }
                 }
@@ -399,7 +460,8 @@ class ApiVerifactu
                 $id_order_invoice = $invoice['id_order_invoice'];
 
                 $voi = Db::getInstance()->getRow('SELECT id_order_invoice FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_order_invoice = "'.(int) $invoice['id_order_invoice'].'"');
-                if ($voi['id_order_invoice'] != '')
+
+                if (isset($voi,$voi['id_order_invoice']) && $voi['id_order_invoice'] != '')
                 {
                     $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_invoice = "'.(int) $voi['id_order_invoice'].'"';
                 }
@@ -411,12 +473,12 @@ class ApiVerifactu
                 // 4. Ejecutamos la consulta.
                 if (!Db::getInstance()->execute($sql)) {
                     $errorMessage = Db::getInstance()->getMsgError();
-                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                    if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
                             'Módulo Verifactu: Alta - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
                             ',
-                            1
+                            1, null, null, null, true, $this->id_shop
                         );
                     }
                 }
@@ -444,14 +506,23 @@ class ApiVerifactu
 
     public function sendAnulacionVerifactu($id_order,$tipo='alta')
     {
-        $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+        $order_data = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+
+        if (!$order_data) 
+        {
+            if ($this->debugMode) {
+                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+            }
+            return json_encode(['response' => 'KO', 'error' => 'Pedido no encontrado.']);
+        }
+
         if ($tipo == 'abono')
         {
             $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro, vos.estado FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.(int) $id_order.'" ORDER BY os.id_order_slip DESC');
             $slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate,od.product_name FROM ' . _DB_PREFIX_ . 'order_slip_detail as sd LEFT JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.((int) $slip['id_order_slip']).'"'); 
                 
 
-            if ($slip->estado == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
+            if (isset($slip['estado']) && $slip['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
             {
                 $reply['response'] = 'pendiente';
                 return json_encode($reply);
@@ -460,7 +531,7 @@ class ApiVerifactu
         }
 
         $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro, voi.estado FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.(int) $id_order.'" ORDER BY oi.id_order_invoice DESC');
-        if ($invoice->estado == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
+        if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
         {
             $reply['response'] = 'pendiente';
             return json_encode($reply);
@@ -470,7 +541,7 @@ class ApiVerifactu
 
         $url   = 'https://verifactu.infoal.io/api_v2/verifactu/anulacion';
 
-        $token = Configuration::get('VERIFACTU_API_TOKEN', null);
+        $token = $this->apiToken;
 
 
         // HTTP request headers
@@ -486,12 +557,12 @@ class ApiVerifactu
         
         $dataString = json_encode($data);
 
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: Anulación - Envío a api ' . $dataString.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
@@ -513,22 +584,22 @@ class ApiVerifactu
         curl_close($curl);
 
         //die($response);
-        if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+        if ($this->debugMode)
         {
             PrestaShopLogger::addLog(
                 'Módulo Verifactu: Anulación - Respuesta de api ' . $response.'
                 ',
-                1
+                1, null, null, null, true, $this->id_shop
             );
         }
 
         //Guardamos el campo verifactuEstadoRegistro y verifactuEstadoEnvio en base de datos si ha sido correcto
         $obj = json_decode($response);
 
-        if ($obj->response == 'OK')
+        if (isset($obj, $obj->response) && $obj->response == 'OK')
         {  
-            $urlQR = $obj->urlQR;
-            $api_id_queue = (int) $obj->id_queue;
+            $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
+            $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
             $api_estado_queue = 'pendiente';
 
             if ($tipo == 'abono') 
@@ -537,7 +608,7 @@ class ApiVerifactu
 
                 //Miramos si a se habia enviado previamente para actualizar el estado o insertar uno nuevo
                 $vos = Db::getInstance()->getRow('SELECT id_order_slip FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_order_slip = "'.(int) $slip['id_order_slip'].'"');
-                if ($vos['id_order_slip'] != '') //Solo actualizamos, tiene que existir previamente
+                if (isset($vos,$vos['id_order_slip']) && $vos['id_order_slip'] != '') //Solo actualizamos, tiene que existir previamente
                 {
                     $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_slip = "'.(int) $vos['id_order_slip'].'"';
                 }
@@ -545,12 +616,12 @@ class ApiVerifactu
                 
                 if (!Db::getInstance()->execute($sql)) {
                     $errorMessage = Db::getInstance()->getMsgError();
-                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                    if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
                             'Módulo Verifactu: Anulación - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
                             ',
-                            1
+                            1, null, null, null, true, $this->id_shop
                         );
                     }
                 }
@@ -560,7 +631,7 @@ class ApiVerifactu
                 $id_order_invoice = $invoice['id_order_invoice'];
 
                 $voi = Db::getInstance()->getRow('SELECT id_order_invoice FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_order_invoice = "'.(int) $invoice['id_order_invoice'].'"');
-                if ($voi['id_order_invoice'] != '') //Solo actualizamos, tiene que existir previamente
+                if (isset($voi,$voi['id_order_invoice']) && $voi['id_order_invoice'] != '') //Solo actualizamos, tiene que existir previamente
                 {
                     $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_invoice = "'.(int) $voi['id_order_invoice'].'"';
                 }
@@ -569,12 +640,12 @@ class ApiVerifactu
                 // 4. Ejecutamos la consulta.
                 if (!Db::getInstance()->execute($sql)) {
                     $errorMessage = Db::getInstance()->getMsgError();
-                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                    if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
                             'Módulo Verifactu: Anulación - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
                             ',
-                            1
+                            1, null, null, null, true, $this->id_shop
                         );
                     }
                 }
@@ -652,7 +723,7 @@ class ApiVerifactu
         {
             $curl  = curl_init();
             $url   = 'https://verifactu.infoal.io/api_v2/verifactu/check';
-            $token = Configuration::get('VERIFACTU_API_TOKEN', null);
+            $token = $this->apiToken;
 
             // HTTP request headers
             $headers = [
@@ -663,12 +734,12 @@ class ApiVerifactu
             $dataString = json_encode($data);
 
 
-            if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+            if ($this->debugMode)
             {
                 PrestaShopLogger::addLog(
                     'Módulo Verifactu: Update pendientes: Envío a api ' . $dataString.'
                     ',
-                    1
+                    1, null, null, null, true, $this->id_shop
                 );
             }
 
@@ -690,12 +761,12 @@ class ApiVerifactu
             curl_close($curl);
 
             //die($response);
-            if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+            if ($this->debugMode)
             {
                 PrestaShopLogger::addLog(
                     'Módulo Verifactu: Update pendientes: Respuesta de api ' . $response.'
                     ',
-                    1
+                    1, null, null, null, true, $this->id_shop
                 );
             }
 
@@ -706,21 +777,22 @@ class ApiVerifactu
             {
                 foreach ($obj as $o)
                 {
-                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                    if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
                             'Procesando:'.$o->id_queue.'
                             ',
-                            1
+                            1, null, null, null, true, $this->id_shop
                         );
                     }
+
+                    $guardar = false;
 
                     if (in_array($o->id_queue, $inv))
                     {
                         if ($o->estado_queue != 'pendiente' && $o->estado_queue != 'procesando')
                         {
                             //Es factura de venta
-                            $guardar = false;
                             $invoice = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE api_id_queue = "'.(int) $o->id_queue.'"');
                             
                             if ($o->tipo == 'anulacion') //Guardamos siempre
@@ -754,17 +826,17 @@ class ApiVerifactu
                                 if (!Db::getInstance()->execute($sql)) 
                                 {
                                     $errorMessage = Db::getInstance()->getMsgError();
-                                    if (Configuration::get('VERIFACTU_DEBUG_MODE') == '1')
+                                    if ($this->debugMode)
                                     {
                                         PrestaShopLogger::addLog(
                                             'Módulo Verifactu: Error al actualizar en verifactu_order_invoice ' . $errorMessage.'
                                             ',
-                                            1
+                                            1, null, null, null, true, $this->id_shop
                                         );
                                     }
                                 }
                                 //Guardamos parámetros para el log
-                                $id_order_invoice = $slip['id_order_invoice'];
+                                $id_order_invoice = $invoice['id_order_invoice'];
                                 $tipo = 'alta';
                             }
                         }
@@ -776,8 +848,6 @@ class ApiVerifactu
                         if ($o->estado_queue != 'pendiente' && $o->estado_queue != 'procesando')
                         {
                             $slip = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE api_id_queue = "'.(int) $o->id_queue.'"');
-
-                            $guardar = false;
 
                             if ($o->tipo == 'anulacion') //Guardamos siempre
                             {
@@ -882,21 +952,22 @@ class ApiVerifactu
         // 2. Preparamos la consulta para obtener todos los datos necesarios:
         // el número, la fecha (para el año) y el idioma (para el prefijo).
         $sql = new DbQuery();
-        $sql->select('oi.number, oi.date_add, o.id_lang');
+        $sql->select('oi.number, oi.date_add, o.id_lang, o.id_shop');
         $sql->from('order_invoice', 'oi');
         $sql->leftJoin('orders', 'o', 'o.id_order = oi.id_order');
         $sql->where('oi.id_order_invoice = ' . (int)$id_order_invoice);
-
         $result = Db::getInstance()->getRow($sql);
 
         if (!$result) {
             return null;
         }
 
+        $id_shop = (int)$result['id_shop'];
+
         // 3. Obtenemos las variables de configuración de PrestaShop.
-        $prefix = Configuration::get('PS_INVOICE_PREFIX', (int)$result['id_lang']);
-        $use_year = (int)Configuration::get('PS_INVOICE_USE_YEAR');
-        $year_position = (int)Configuration::get('PS_INVOICE_YEAR_POS');
+        $prefix = Configuration::get('PS_INVOICE_PREFIX', (int)$result['id_lang'], null, $id_shop);
+        $use_year = (int)Configuration::get('PS_INVOICE_USE_YEAR', null, $id_shop);
+        $year_position = (int)Configuration::get('PS_INVOICE_YEAR_POS', null, $id_shop);
 
         // 4. Preparamos los componentes del número.
         $padded_number = sprintf('%06d', $result['number']);
@@ -942,7 +1013,7 @@ class ApiVerifactu
         // 2. Preparamos la consulta para obtener los datos necesarios:
         // la fecha (para el año) y el idioma del pedido asociado.
         $sql = new DbQuery();
-        $sql->select('os.date_add, o.id_lang');
+        $sql->select('os.date_add, o.id_lang, o.id_shop');
         $sql->from('order_slip', 'os');
         $sql->leftJoin('orders', 'o', 'o.id_order = os.id_order');
         $sql->where('os.id_order_slip = ' . (int)$id_order_slip);
@@ -953,9 +1024,11 @@ class ApiVerifactu
             return null;
         }
 
+        $id_shop = (int)$result['id_shop'];
+
         // 3. Obtenemos las variables de configuración específicas para las facturas de abono.
-        $prefix = Configuration::get('PS_CREDIT_SLIP_PREFIX', (int)$result['id_lang']);
-        $year_position = (int)Configuration::get('PS_CREDIT_SLIP_YEAR_POS');
+        $prefix = Configuration::get('PS_CREDIT_SLIP_PREFIX', (int)$result['id_lang'], null, $id_shop);
+        $year_position = (int)Configuration::get('PS_CREDIT_SLIP_YEAR_POS', null, $id_shop);
 
         // 4. Preparamos los componentes del número.
         // En las facturas de abono, el ID se usa como número secuencial.

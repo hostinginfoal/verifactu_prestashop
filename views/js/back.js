@@ -69,7 +69,10 @@ if (typeof verifactu_ajax_url !== 'undefined') {
   setInterval(checkPendingStatus, 60000);
 
   $('#check_dni').on('click', function(){
+      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+      $(this).prop('disabled', true);
       $('#estado_envio_verifactu').hide();
+
         $.ajax({ 
             type: 'POST', 
             cache: false, 
@@ -114,6 +117,9 @@ if (typeof verifactu_ajax_url !== 'undefined') {
 
 	//Para actualizar el comercial con el selector
     $('#send_verifactu').on('click', function(){
+      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+      $(this).prop('disabled', true);
+
     	$('#estado_envio_verifactu').hide();
         $.ajax({ 
             type: 'POST', 
@@ -184,6 +190,8 @@ if (typeof verifactu_ajax_url !== 'undefined') {
         // Si el usuario hace clic en "Sí, enviar anulación"
         if (result.isConfirmed) {
             
+            // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+            $('#send_anulacion_verifactu').prop('disabled', true);
             // --- Aquí va tu código AJAX original ---
             $('#estado_envio_verifactu').hide();
             $.ajax({

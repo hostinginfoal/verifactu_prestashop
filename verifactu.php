@@ -44,12 +44,12 @@ use PrestaShopBundle\Form\Admin\Type\SearchAndResetType;
 use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Verifactu\VerifactuClasses\ApiVerifactu;
-use PrestaShopLogger;
 
 class Verifactu extends Module
 {
     protected $config_form = false;
     private static $temp_qr_files = [];
+    public $is_configurable;
 
     public function __construct()
     {
@@ -58,6 +58,7 @@ class Verifactu extends Module
         $this->version = '1.1.6';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
+        $this->is_configurable = true;
 
         /**
          * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
@@ -80,7 +81,16 @@ class Verifactu extends Module
      */
     public function install()
     {
-        //Configuration::updateValue('VERIFACTU_LIVE_SEND', true);
+        $config_keys = array(
+            'VERIFACTU_API_TOKEN',
+            'VERIFACTU_NIF_EMISOR',
+            'VERIFACTU_DEBUG_MODE',
+        );
+        foreach ($config_keys as $key) {
+            if (!Configuration::hasKey($key)) {
+                Configuration::updateValue($key, null);
+            }
+        }
 
         include(dirname(__FILE__).'/sql/install.php');
 
@@ -100,7 +110,15 @@ class Verifactu extends Module
 
     public function uninstall()
     {
-        //Configuration::deleteByName('VERIFACTU_LIVE_MODE');
+        //No borramos los campos de configuración al desinstalar
+        /*$config_keys = array(
+            'VERIFACTU_API_TOKEN',
+            'VERIFACTU_NIF_EMISOR',
+            'VERIFACTU_DEBUG_MODE',
+        );
+        foreach ($config_keys as $key) {
+            Configuration::deleteByName($key);
+        }*/
 
         include(dirname(__FILE__).'/sql/uninstall.php');
 
@@ -115,16 +133,20 @@ class Verifactu extends Module
      */
     public function hookDisplayPDFInvoice($params)
     {
-        // 1. Incluimos el archivo principal de la biblioteca de QR que hemos añadido.
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
 
-        // 2. Obtenemos el objeto OrderInvoice.
         $order_invoice = $params['object'];
         if (!Validate::isLoadedObject($order_invoice)) {
             return '';
         }
 
-        // 3. Obtenemos la URL para el QR desde nuestra tabla.
+        $order = new Order($order_invoice->id_order);
+        if (!Validate::isLoadedObject($order)) {
+            return ''; // No se pudo cargar el pedido, salimos.
+        }
+        // Ahora obtenemos el id_shop desde el pedido, que sí es una propiedad pública.
+        $id_shop = (int) $order->id_shop;
+
         $sql = new DbQuery();
         $sql->select('urlQR');
         $sql->from('verifactu_order_invoice');
@@ -141,11 +163,14 @@ class Verifactu extends Module
             $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
             $invoice = Db::getInstance()->getRow($sql);
 
-            $av = new ApiVerifactu();
+            $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
             $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
             $fecha = date('d-m-Y', strtotime($invoice['date_add']));
             $importe = round((float) $invoice['total_paid_tax_incl'],2);
-            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.Configuration::get('VERIFACTU_NIF_EMISOR').'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
+            $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.$nif_emisor.'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
         }
 
         // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
@@ -168,7 +193,7 @@ class Verifactu extends Module
             }
 
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
             $qr_code_path = null;
         }
         
@@ -203,6 +228,13 @@ class Verifactu extends Module
     {
         $output = '';
 
+        // Si se cambia de tienda en el selector, PrestaShop recarga la página.
+        if (Tools::isSubmit('changeShopContext')) {
+            $this->context->cookie->shopContext = Tools::getValue('shop_id');
+            // Redirigir para aplicar el nuevo contexto
+            Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name);
+        }
+
         if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
             $this->postProcess();
             $output .= $this->displayConfirmation($this->l('Settings updated'));
@@ -225,6 +257,8 @@ class Verifactu extends Module
         
         $output .= $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
 
+        $output .= $this->renderShopList();
+
         if ($tab == 'configure') {
             $output .= $this->renderForm();
         } elseif ($tab == 'invoices') {
@@ -236,6 +270,46 @@ class Verifactu extends Module
         }
 
         return $output;
+    }
+
+    public function renderShopList()
+    {
+        if (!Shop::isFeatureActive() || Shop::getTotalShops(false, null) < 2) {
+            return '';
+        }
+
+        $helper = new HelperForm();
+        $helper->module = $this;
+        $helper->table = 'configuration';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->show_toolbar = false;
+        
+        return $helper->generateForm(array($this->getShopContextForm()));
+    }
+
+    // CAMBIO MULTITIENDA: Nuevo método para definir el formulario del selector de tiendas.
+    public function getShopContextForm()
+    {
+        $shops = Shop::getShops(true, null, true);
+        $shop_context = $this->context->shop->getContext();
+
+        return array(
+            'form' => array(
+                'legend' => array(
+                    'title' => $this->l('Shop context'),
+                    'icon' => 'icon-cogs'
+                ),
+                'input' => array(
+                    array(
+                        'type' => 'shop',
+                        'label' => $this->l('Shop context'),
+                        'name' => 'shop_id',
+                        'values' => $shops,
+                    ),
+                ),
+            ),
+        );
     }
 
     /**
@@ -271,17 +345,6 @@ class Verifactu extends Module
      */
     protected function getConfigForm()
     {
-        $series_options = [];
-
-        // Añadimos las letras de la A a la Z
-        foreach (range('A', 'Z') as $letter) {
-            $series_options[] = ['id_option' => $letter, 'name' => $letter];
-        }
-
-        // Añadimos los números del 0 al 9
-        foreach (range(0, 9) as $number) {
-            $series_options[] = ['id_option' => $number, 'name' => $number];
-        }
 
         return array(
             'form' => array(
@@ -290,26 +353,6 @@ class Verifactu extends Module
                 'icon' => 'icon-cogs',
                 ),
                 'input' => array(
-                    /*array(
-                        'type' => 'switch',
-                        'label' => $this->l('Entorno Real'),
-                        'name' => 'VERIFACTU_ENTORNO_REAL',
-                        'is_bool' => true,
-                        'desc' => $this->l('Envía los registros de facturación al entorno real o al entorno de pruebas de Veri*Factu (Por el momento solo se pueden enviar registros al entorno de pruebas ya que todavía no existe el entorno real de Veri*Factu)'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Activado')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Desactivado')
-                            )
-                        ),
-                        'disabled' => true,
-                    ),*/
                     array(
                         'col' => 8,
                         'type' => 'text',
@@ -326,26 +369,6 @@ class Verifactu extends Module
                         'name' => 'VERIFACTU_NIF_EMISOR',
                         'label' => $this->l('NIF del emisor de las facturas'),
                     ),
-                    /*array(
-                        'type' => 'switch',
-                        'label' => $this->l('Envío automático a Veri*Factu'),
-                        'name' => 'VERIFACTU_LIVE_SEND',
-                        'is_bool' => true,
-                        'desc' => $this->l('Activa esta opción si quieres que los registros de facturación se envíen automáticamente a Veri*Factu en el momento que se generen las facturas de venta.'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Activado')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Desactivado')
-                            )
-                        ),
-                        'disabled' => false,
-                    ),*/
                     array(
                         'type' => 'switch',
                         'label' => $this->l('Activar modo debug'),
@@ -366,38 +389,6 @@ class Verifactu extends Module
                         ),
                         'disabled' => false,
                     ),
-                    /*array(
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '',
-                        'desc' => $this->l('Identificador del punto de emisión del registro de facturación (En el caso de tener más de un punto de emisión: Ej: ecommerce1, tpv1, tpv2, etc...'),
-                        'name' => 'VERIFACTU_NUMERO_INSTALACION',
-                        'label' => $this->l('Id de terminal'),
-                    ),*/
-                    /*array(
-                        'col' => 1,
-                        'type' => 'select',
-                        'desc' => $this->l('(Ej:A,B,C,X)'),
-                        'name' => 'VERIFACTU_SERIE_FACTURA',
-                        'label' => $this->l('Serie Factura Alta'),
-                        'options' => array(
-                            'query' => $series_options, // El array que creamos arriba
-                            'id' => 'id_option',        // La clave para el 'value' del option
-                            'name' => 'name',           // La clave para el texto visible del option
-                        ),
-                    ),
-                    array(
-                        'col' => 1,
-                        'type' => 'select',
-                        'desc' => $this->l('Tiene que ser diferente que la serie de Factura de Alta (Ej:A,B,C,X)'),
-                        'name' => 'VERIFACTU_SERIE_FACTURA_ABONO',
-                        'label' => $this->l('Serie Factura Abono'),
-                        'options' => array(
-                            'query' => $series_options, // El array que creamos arriba
-                            'id' => 'id_option',        // La clave para el 'value' del option
-                            'name' => 'name',           // La clave para el texto visible del option
-                        ),
-                    ),*/
 
 
                 ),
@@ -413,15 +404,13 @@ class Verifactu extends Module
      */
     protected function getConfigFormValues()
     {
+        $id_shop_group = Shop::getContextShopGroupID();
+        $id_shop = Shop::getContextShopID();
+
         return array(
-            //'VERIFACTU_ENTORNO_REAL' => Configuration::get('VERIFACTU_ENTORNO_REAL', false),
-            'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null),
-            //'VERIFACTU_NUMERO_INSTALACION' => Configuration::get('VERIFACTU_NUMERO_INSTALACION', '1'),
-            //'VERIFACTU_SERIE_FACTURA' => Configuration::get('VERIFACTU_SERIE_FACTURA', 'A'),
-            //'VERIFACTU_SERIE_FACTURA_ABONO' => Configuration::get('VERIFACTU_SERIE_FACTURA_ABONO', 'B'),
-            'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0),
-            'VERIFACTU_NIF_EMISOR' => Configuration::get('VERIFACTU_NIF_EMISOR', null),
-            //'VERIFACTU_LIVE_SEND' => Configuration::get('VERIFACTU_LIVE_SEND', true),
+            'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null, $id_shop_group, $id_shop),
+            'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_NIF_EMISOR' => Configuration::get('VERIFACTU_NIF_EMISOR', null, $id_shop_group, $id_shop),
         );
     }
 
@@ -432,8 +421,23 @@ class Verifactu extends Module
     {
         $form_values = $this->getConfigFormValues();
 
-        foreach (array_keys($form_values) as $key) {
-            Configuration::updateValue($key, Tools::getValue($key));
+        $shops = Tools::getValue('checkBoxShopAsso_configuration');
+        
+        if (empty($shops)) {
+            // Si no se selecciona ninguna tienda, se guarda en el contexto actual.
+            $id_shop_group = Shop::getContextShopGroupID();
+            $id_shop = Shop::getContextShopID();
+            foreach (array_keys($form_values) as $key) {
+                Configuration::updateValue($key, Tools::getValue($key), false, $id_shop_group, $id_shop);
+            }
+        } else {
+            // Si se seleccionan tiendas específicas.
+            foreach ($shops as $id_shop) {
+                $id_shop_group = Shop::getGroupFromShop($id_shop);
+                foreach (array_keys($form_values) as $key) {
+                    Configuration::updateValue($key, Tools::getValue($key), false, $id_shop_group, $id_shop);
+                }
+            }
         }
     }
 
@@ -484,7 +488,6 @@ class Verifactu extends Module
     $sql->select('*');
     $sql->from($table, 't');
 
-    // --- CORRECCIÓN DE ORDENACIÓN ---
     // Validamos que los campos de ordenación estén en una lista blanca.
     $allowedOrderBy = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro'];
     if (!in_array($orderBy, $allowedOrderBy)) {
@@ -492,7 +495,6 @@ class Verifactu extends Module
     }
     $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC'; // Validar dirección
     $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-    // --- FIN CORRECCIÓN ---
 
     $whereClauses = [];
     $filters = Tools::getAllValues();
@@ -586,14 +588,12 @@ class Verifactu extends Module
         $sql->select('*');
         $sql->from($table, 't');
 
-        // --- CORRECCIÓN DE ORDENACIÓN (LISTA BLANCA) ---
         $allowedOrderBy = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro', 'verifactuCodigoErrorRegistro'];
         if (!in_array($orderBy, $allowedOrderBy)) {
             $orderBy = 'id_reg_fact'; // Valor por defecto seguro
         }
         $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC'; // Validar dirección
         $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-        // --- FIN CORRECCIÓN ---
 
         $whereClauses = [];
         $filters = Tools::getAllValues();
@@ -601,13 +601,11 @@ class Verifactu extends Module
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen($table . 'Filter_'));
                 
-                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
                 $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
                 if (in_array($field, $allowedFilters)) {
                     // Usamos pSQL() para escapar el valor de forma segura para la cláusula LIKE
                     $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
                 }
-                // --- FIN CORRECCIÓN ---
             }
         }
         if (!empty($whereClauses)) {
@@ -632,12 +630,10 @@ class Verifactu extends Module
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen($table . 'Filter_'));
                 
-                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
                 $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
                 if (in_array($field, $allowedFilters)) {
                     $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
                 }
-                // --- FIN CORRECCIÓN ---
             }
         }
         if (!empty($whereClauses)) {
@@ -706,14 +702,12 @@ class Verifactu extends Module
         $sql->select('*');
         $sql->from('verifactu_logs', 'vl');
 
-        // --- CORRECCIÓN DE ORDENACIÓN (LISTA BLANCA) ---
         $allowedOrderBy = ['id_log', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro', 'verifactuCodigoErrorRegistro', 'fechahora'];
         if (!in_array($orderBy, $allowedOrderBy)) {
             $orderBy = 'id_log'; // Valor por defecto seguro
         }
         $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC';
         $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-        // --- FIN CORRECCIÓN ---
 
         $whereClauses = [];
         $filters = Tools::getAllValues();
@@ -721,12 +715,10 @@ class Verifactu extends Module
             if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen('verifactu_logsFilter_'));
                 
-                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
                 $allowedFilters = ['id_log', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
                 if (in_array($field, $allowedFilters)) {
                     $whereClauses[] = 'vl.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
                 }
-                // --- FIN CORRECCIÓN ---
             }
         }
         if (!empty($whereClauses)) {
@@ -751,12 +743,10 @@ class Verifactu extends Module
             if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen('verifactu_logsFilter_'));
                 
-                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
                 $allowedFilters = ['id_log', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
                 if (in_array($field, $allowedFilters)) {
                     $whereClauses[] = 'vl.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
                 }
-                // --- FIN CORRECCIÓN ---
             }
         }
         if (!empty($whereClauses)) {
@@ -784,28 +774,47 @@ class Verifactu extends Module
 
     public function hookActionSetInvoice($params)
     {
-        //Si la configuración de envío automático a verifactu está activada
-        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        //{
-            $order = $params['Order'];
-            $id_order = $order->id;
-            //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
-            $av = new ApiVerifactu();
-            $av->sendAltaVerifactu($id_order,'alta');
-        //}
+
+        $order = $params['Order'];
+        $id_shop = (int)$order->id_shop;
+        $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+        
+        if (!empty($api_token) && !empty($nif_emisor)) {
+             $id_order = $order->id;
+             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+             $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+             $av->sendAltaVerifactu($id_order, 'alta');
+        } else {
+             PrestaShopLogger::addLog(
+                'Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop,
+                2, null, null, null, true, $id_shop
+            );
+        }
+
         
     }
 
     public function hookActionOrderSlipAdd ($params)
     {
-        //if (Configuration::get('VERIFACTU_LIVE_SEND', true))
-        //{
-            $order = $params['order'];
+
+        $order = $params['order'];
+        $id_shop = (int)$order->id_shop;
+        $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+
+        if (!empty($api_token) && !empty($nif_emisor)) {
             $id_order = $order->id;
-            //PrestaShopLogger::addLog('Se ejecuta '.$id_order , 1);
-            $av = new ApiVerifactu();
-            $av->sendAltaVerifactu($id_order,'abono');
-        //}
+            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av->sendAltaVerifactu($id_order, 'abono');
+        } else {
+             PrestaShopLogger::addLog(
+                'Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop,
+                2, null, null, null, true, $id_shop
+            );
+        }
+
     }
 
     public function hookActionOrderGridDefinitionModifier(array $params)
@@ -864,12 +873,8 @@ class Verifactu extends Module
 
         foreach ($searchCriteria->getFilters() as $filterName => $filterValue) {
         if ('verifactu' === $filterName) {
-            // --- CORRECCIÓN ---
-            // Se utiliza un marcador de posición (:verifactu_filter) y se enlaza el valor
-            // con setParameter. Esto previene la inyección SQL.
             $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
             $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
-            // --- FIN CORRECCIÓN ---
         }
     }
     }
@@ -898,70 +903,79 @@ class Verifactu extends Module
     }
 
     public function hookDisplayAdminOrderSide($params)
-    {
-        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+{
+    require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
 
-        $id_order = (int) $params['id_order']; // Forzar el valor a entero es la mejor protección.
+    $id_order = (int) $params['id_order'];
 
-        $sql = new DbQuery();
-        $sql->select('voi.*, oi.id_order_invoice');
-        $sql->from('order_invoice', 'oi');
-        $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
-        $sql->where('oi.id_order = ' . $id_order); // Ahora es seguro porque $id_order es un entero.
-        $result = Db::getInstance()->getRow($sql);
+    // 1. La consulta a la base de datos
+    $sql = new DbQuery();
+    $sql->select('voi.*, oi.id_order_invoice');
+    $sql->from('order_invoice', 'oi');
+    $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+    $sql->where('oi.id_order = ' . $id_order);
+    $result = Db::getInstance()->getRow($sql);
 
+    // 2. La comprobación CLAVE: verificamos si $result NO es false
+    if ($result) {
+        // El pedido SÍ tiene una factura, asignamos los valores desde la base de datos.
+        $urlQR = $result['urlQR'];
         $verifactuEstadoEnvio = $result['verifactuEstadoEnvio'];
         $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
         $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
         $anulacion = $result['anulacion'];
         $estado = $result['estado'];
-        $urlQR = $result['urlQR'];
-
-        // Si no tenemos una URL, no hacemos nada.
-
-        if (!empty($urlQR)) {
-            // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
-            $imgQR = null;
-            try {
-                // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
-                $tmp_dir = _PS_TMP_IMG_DIR_;
-                $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
-                $imgQR = $tmp_dir . $tmp_filename;
-
-                // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
-                // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
-                QRcode::png($urlQR, $imgQR, QR_ECLEVEL_L, 4, 2);
-
-                // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
-                if (file_exists($imgQR)) {
-                    self::$temp_qr_files[] = $imgQR;
-                    $imgQR = '/img/tmp/'. $tmp_filename;
-                } else {
-                    $imgQR = null; // Si falla la creación, no pasamos la ruta.
-                }
-
-            } catch (Exception $e) {
-                PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
-                $imgQR = null;
-            }
-        }
-
-         $this->context->smarty->assign(array(
-            'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
-            'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
-            'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
-            'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
-            'anulacion' => $anulacion,
-            'estado' => $estado,
-            'id_order' => $id_order,
-            'imgQR' => $imgQR,
-            'urlQR' => $urlQR,
-            'id_order_invoice' => $result['id_order_invoice'],
-            'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
-        ));
-
-
-        return $this->display(dirname(__FILE__), '/views/templates/admin/order_side.tpl');
+        $id_order_invoice = $result['id_order_invoice'];
+    } else {
+        // El pedido NO tiene factura, asignamos valores por defecto seguros.
+        $urlQR = null;
+        $verifactuEstadoEnvio = 'Sin factura';
+        $verifactuEstadoRegistro = 'N/A';
+        $verifactuCodigoErrorRegistro = null;
+        $verifactuDescripcionErrorRegistro = null;
+        $anulacion = null;
+        $estado = null;
+        $id_order_invoice = null;
     }
+
+    // 3. Inicialización segura de la variable del QR
+    $imgQR = null;
+    
+    // 4. Esta lógica solo se ejecuta si encontramos una URL en el paso 2
+    if (!empty($urlQR)) {
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
+            $imgQR_path = $tmp_dir . $tmp_filename;
+
+            QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
+
+            if (file_exists($imgQR_path)) {
+                self::$temp_qr_files[] = $imgQR_path;
+                $imgQR = '/img/tmp/'. $tmp_filename;
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+            $imgQR = null; // Nos aseguramos de que siga siendo null en caso de error
+        }
+    }
+
+    // 5. Asignación a la plantilla. Todas las variables tienen un valor definido.
+     $this->context->smarty->assign(array(
+        'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
+        'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
+        'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
+        'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
+        'anulacion' => $anulacion,
+        'estado' => $estado,
+        'id_order' => $id_order,
+        'imgQR' => $imgQR,
+        'urlQR' => $urlQR,
+        'id_order_invoice' => $id_order_invoice,
+        'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
+    ));
+
+    return $this->display(dirname(__FILE__), '/views/templates/admin/order_side.tpl');
+}
 }

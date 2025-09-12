@@ -26,7 +26,6 @@
 {if $id_order_invoice != ""}
 
 <script>
-    var urladmin = '{$urladmin}';
     var id_order = '{$id_order}';
 </script>
 
