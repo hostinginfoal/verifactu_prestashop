@@ -2,15 +2,13 @@
 
 Nuestro módulo conecta tu tienda directamente al sistema Veri*Factu, enviando los registros de facturación de forma automática y segura.
 
-***NOTA IMPORTANTE: Nuestra API de momento solo envía datos al entorno de PRE-PRODUCCIÓN de VERI*FACTU puesto que la AEAT no ha publicado un entorno real todavía***
-
 ![Screenshot_3](https://github.com/user-attachments/assets/e18ec69d-97c8-4f41-a153-1282c646a61c)
 
 
 - Envío automático de registros de facturación.
 - Respuesta de verifactu con código QR y enlace.
 - Sin necesidad de certificado digital.
-- Compatible con PrestaShop 8.x y versiones anteriores.
+- Compatible con PrestaShop 1.7 y versiones posteriores.
 - Panel de gestión y visualización de logs.
 - Cumplimiento con la normativa VeriFactu.
 
@@ -24,22 +22,13 @@ Nuestra solución se integra de forma nativa en el corazón de PrestaShop. Al ge
 - Recopila los Datos: Captura toda la información necesaria de la factura.
 - Genera el Registro: Construye el fichero XML con el formato exigido por la AEAT.
 - Envía de Forma Segura: Transmite el registro al sistema VeriFactu a través de una conexión segura (Infoal Verifactu API).
+- Envío automático de los registros de facturación cuando se generen las facturas.
+- Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
 - Recibe Confirmación: Almacena la respuesta y el código de validación, garantizando la trazabilidad.
+- Codigo QR en la factura y en la ficha del producto.
+- Listado de registros de facturación enviados y gestión de errores.
+- Registro de logs
 
 ***Solicita tu Token de acceso gratuïto a la API Infoal Verifactu en https://verifactu.infoal.com.***
 
-- Configuración del token de API InFoAL Veri*Factu
-- Envío manual de los registros de Alta desde la ficha del pedido.
-- Envío manual de los registros de Anulación desde la ficha del pedido.
-- Registro de logs
-- Envío automático de los registros de facturación cuando se generen las facturas.
-- Listado de los logs de los registros enviados en el formulario de configuración del módulo
-- Ocultamos el botón de enviar registros de Anulación desde la ficha del pedido hasta que quede claro como hay que proceder con las anulaciones según la AEAT.
-- Codigo QR en ficha del producto.
-- Listado de los registros de facturación enviado en el formulario de configuración del módulo
-- Listado estado de facturas enviadas a verifactu en vista de configuración del módulo
-- Código QR en la factura generada de prestashop.
 
-  PROXIMAMENTE
-- Envío automático de los registros de facturación de las facturas rectificativas al generar las facturas de abono.
-- Config: Selector habilitar Anulación de factura en la ficha del pedido
