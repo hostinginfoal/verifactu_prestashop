@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.5';
+        $this->version = '1.1.6';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
 
@@ -478,29 +478,45 @@ class Verifactu extends Module
     }
 
     private function getInvoicesListContent($table, $page, $pagination, $orderBy, $orderWay)
-    {
-        //INNER JOIN AQUIIIIIIIIIIIIII
-        $sql = new DbQuery();
-        $sql->select('*');
-        $sql->from($table, 't');
-        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
-        
-        $where = '';
-        $filters = Tools::getAllValues();
-        foreach ($filters as $key => $value) {
-            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
-                $field = substr($key, strlen($table . 'Filter_'));
-                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
-            }
-        }
-        if ($where) {
-            $sql->where(ltrim($where, ' AND'));
-        }
+{
+    $db = Db::getInstance();
+    $sql = new DbQuery();
+    $sql->select('*');
+    $sql->from($table, 't');
 
-        $sql->limit($pagination, ($page - 1) * $pagination);
-
-        return Db::getInstance()->executeS($sql);
+    // --- CORRECCIÓN DE ORDENACIÓN ---
+    // Validamos que los campos de ordenación estén en una lista blanca.
+    $allowedOrderBy = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro'];
+    if (!in_array($orderBy, $allowedOrderBy)) {
+        $orderBy = 'id_order_invoice'; // Valor por defecto seguro
     }
+    $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC'; // Validar dirección
+    $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
+    // --- FIN CORRECCIÓN ---
+
+    $whereClauses = [];
+    $filters = Tools::getAllValues();
+    foreach ($filters as $key => $value) {
+        if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
+            $field = substr($key, strlen($table . 'Filter_'));
+            // --- CORRECCIÓN DE FILTRADO ---
+            // Validamos el campo contra una lista blanca.
+            $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro'];
+            if (in_array($field, $allowedFilters)) {
+                // Usamos pSQL para escapar el valor, que es seguro para cláusulas LIKE.
+                $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+            }
+            // --- FIN CORRECCIÓN ---
+        }
+    }
+    if (!empty($whereClauses)) {
+        $sql->where(implode(' AND ', $whereClauses));
+    }
+
+    $sql->limit($pagination, ($page - 1) * $pagination);
+
+    return $db->executeS($sql);
+}
 
     private function getTotalInvoicesListContent($table)
     {
@@ -565,47 +581,70 @@ class Verifactu extends Module
 
     private function getListContent($table, $page, $pagination, $orderBy, $orderWay)
     {
+        $db = Db::getInstance();
         $sql = new DbQuery();
         $sql->select('*');
         $sql->from($table, 't');
-        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
-        
-        $where = '';
+
+        // --- CORRECCIÓN DE ORDENACIÓN (LISTA BLANCA) ---
+        $allowedOrderBy = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro', 'verifactuCodigoErrorRegistro'];
+        if (!in_array($orderBy, $allowedOrderBy)) {
+            $orderBy = 'id_reg_fact'; // Valor por defecto seguro
+        }
+        $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC'; // Validar dirección
+        $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
+        // --- FIN CORRECCIÓN ---
+
+        $whereClauses = [];
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen($table . 'Filter_'));
-                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                
+                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
+                $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
+                if (in_array($field, $allowedFilters)) {
+                    // Usamos pSQL() para escapar el valor de forma segura para la cláusula LIKE
+                    $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                }
+                // --- FIN CORRECCIÓN ---
             }
         }
-        if ($where) {
-            $sql->where(ltrim($where, ' AND'));
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
         }
 
         $sql->limit($pagination, ($page - 1) * $pagination);
 
-        return Db::getInstance()->executeS($sql);
+        return $db->executeS($sql);
     }
 
     private function getTotalListContent($table)
     {
+        $db = Db::getInstance();
         $sql = new DbQuery();
         $sql->select('COUNT(*)');
         $sql->from($table, 't');
 
-        $where = '';
+        $whereClauses = [];
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen($table . 'Filter_'));
-                $where .= ' AND t.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                
+                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
+                $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
+                if (in_array($field, $allowedFilters)) {
+                    $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                }
+                // --- FIN CORRECCIÓN ---
             }
         }
-        if ($where) {
-            $sql->where(ltrim($where, ' AND'));
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
         }
 
-        return (int)Db::getInstance()->getValue($sql);
+        return (int)$db->getValue($sql);
     }
 
     //Listado de logs-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -662,47 +701,69 @@ class Verifactu extends Module
     
     private function getLogsListContent($page, $pagination, $orderBy, $orderWay)
     {
+        $db = Db::getInstance();
         $sql = new DbQuery();
         $sql->select('*');
         $sql->from('verifactu_logs', 'vl');
-        $sql->orderBy('`' . bqSQL($orderBy) . '` ' . pSQL($orderWay));
-    
-        $where = '';
+
+        // --- CORRECCIÓN DE ORDENACIÓN (LISTA BLANCA) ---
+        $allowedOrderBy = ['id_log', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro', 'verifactuCodigoErrorRegistro', 'fechahora'];
+        if (!in_array($orderBy, $allowedOrderBy)) {
+            $orderBy = 'id_log'; // Valor por defecto seguro
+        }
+        $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC';
+        $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
+        // --- FIN CORRECCIÓN ---
+
+        $whereClauses = [];
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen('verifactu_logsFilter_'));
-                $where .= ' AND vl.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                
+                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
+                $allowedFilters = ['id_log', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
+                if (in_array($field, $allowedFilters)) {
+                    $whereClauses[] = 'vl.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                }
+                // --- FIN CORRECCIÓN ---
             }
         }
-        if ($where) {
-            $sql->where(ltrim($where, ' AND'));
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
         }
     
         $sql->limit($pagination, ($page - 1) * $pagination);
     
-        return Db::getInstance()->executeS($sql);
+        return $db->executeS($sql);
     }
     
     private function getTotalLogsListContent()
     {
+        $db = Db::getInstance();
         $sql = new DbQuery();
         $sql->select('COUNT(*)');
         $sql->from('verifactu_logs', 'vl');
     
-        $where = '';
+        $whereClauses = [];
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, 'verifactu_logsFilter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen('verifactu_logsFilter_'));
-                $where .= ' AND vl.`' . bqSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                
+                // --- CORRECCIÓN DE FILTRADO (LISTA BLANCA) ---
+                $allowedFilters = ['id_log', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
+                if (in_array($field, $allowedFilters)) {
+                    $whereClauses[] = 'vl.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                }
+                // --- FIN CORRECCIÓN ---
             }
         }
-        if ($where) {
-            $sql->where(ltrim($where, ' AND'));
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
         }
     
-        return (int)Db::getInstance()->getValue($sql);
+        return (int)$db->getValue($sql);
     }
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -802,12 +863,15 @@ class Verifactu extends Module
         }
 
         foreach ($searchCriteria->getFilters() as $filterName => $filterValue) {
-            if ('verifactu' === $filterName) {
-                $searchQueryBuilder->andWhere('(vi.`verifactuEstadoRegistro` LIKE "%'.$filterValue.'%")');
-                $searchQueryBuilder->setParameter('verifactu', $filterValue);
-
-            }
+        if ('verifactu' === $filterName) {
+            // --- CORRECCIÓN ---
+            // Se utiliza un marcador de posición (:verifactu_filter) y se enlaza el valor
+            // con setParameter. Esto previene la inyección SQL.
+            $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
+            $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
+            // --- FIN CORRECCIÓN ---
         }
+    }
     }
     
 
@@ -825,6 +889,7 @@ class Verifactu extends Module
         Media::addJsDef(array('verifactu' => array('lang' => $lang)));
 
         $this->context->controller->addJS('modules/'.$this->name.'/views/js/back.js');
+        $this->context->controller->addJS('https://cdn.jsdelivr.net/npm/sweetalert2@11');
 
         Media::addJsDef([
             'verifactu_ajax_url' => $this->context->link->getAdminLink('AdminVerifactuAjax'),
@@ -836,13 +901,20 @@ class Verifactu extends Module
     {
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
 
-        $id_order = $params['id_order'];
+        $id_order = (int) $params['id_order']; // Forzar el valor a entero es la mejor protección.
 
-        $result = Db::getInstance()->getRow('SELECT voi.*, oi.id_order_invoice FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.$id_order.'"');
+        $sql = new DbQuery();
+        $sql->select('voi.*, oi.id_order_invoice');
+        $sql->from('order_invoice', 'oi');
+        $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+        $sql->where('oi.id_order = ' . $id_order); // Ahora es seguro porque $id_order es un entero.
+        $result = Db::getInstance()->getRow($sql);
+
         $verifactuEstadoEnvio = $result['verifactuEstadoEnvio'];
         $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
         $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
+        $anulacion = $result['anulacion'];
         $estado = $result['estado'];
         $urlQR = $result['urlQR'];
 
@@ -880,6 +952,7 @@ class Verifactu extends Module
             'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
             'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
             'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
+            'anulacion' => $anulacion,
             'estado' => $estado,
             'id_order' => $id_order,
             'imgQR' => $imgQR,

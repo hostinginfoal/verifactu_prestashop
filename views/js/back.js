@@ -167,76 +167,67 @@ if (typeof verifactu_ajax_url !== 'undefined') {
     });
 
 
-    $('#send_anulacion_verifactu').on('click', function(){
-      $('#estado_envio_verifactu').hide();
-        $.ajax({ 
-            type: 'POST', 
-            cache: false, 
-            dataType: 'json', 
-            url: verifactu_ajax_url, 
-            data: { 
-              ajax: true, 
-              action: 'AnularVerifactu',
-              token: verifactu_token,
-              id_order: id_order
-            }, 
-              success : function (data) { 
-                  //obj = JSON.parse(data);
-                  obj = data;
-                  //$('#estado_envio_verifactu .alert-text').html(data);
-                  if (obj.EstadoRegistro == 'Correcto')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-danger');
-                    $('#estado_envio_verifactu').addClass('alert-success');
-                    $('#estado_envio_verifactu .alert-text').html('Registro de anulación enviado a verifactu correctamente');
-                    $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    })*/;
-                  }
-                  else if (obj.EstadoRegistro == 'AceptadoConErrores')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-warning');
-                    $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
-                    $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
-                       window.location.reload();
-                    })*/;
-                  }
-                  else
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    if (obj.CodigoErrorRegistro >= 3000 && obj.CodigoErrorRegistro < 4000)
-                    {
-                      $('#estado_envio_verifactu').addClass('alert-info');
-                    }
-                    else
-                    {
-                      $('#estado_envio_verifactu').addClass('alert-danger');
-                    }
-                    
-                    if (obj.EstadoRegistro)
-                    {
-                      $('#estado_envio_verifactu .alert-text').html(obj.DescripcionErrorRegistro + ' (' + obj.CodigoErrorRegistro   + ')');
-                      $('#estado_envio_verifactu').fadeIn('slow')/*.delay(3000).fadeOut(function() {
-                        window.location.reload();
-                      })*/;
-                    }
-                    else //Es un error sql o genérico
-                    {
-                      $('#estado_envio_verifactu .alert-text').html(obj.error);
-                      $('#estado_envio_verifactu').fadeIn('slow');
-                    }
-                    
-                  }
+    $('#send_anulacion_verifactu').on('click', function(e) {
+    e.preventDefault(); // Prevenimos la acción por defecto del botón
 
-                  
-                  
-              }, 
-              error : function (data){ 
-              console.log(data); 
-              } 
-        });
+    // Usamos Swal (SweetAlert) para mostrar un modal de confirmación
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Vas a enviar un registro de anulación a VeriFactu. Esta acción no se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, enviar anulación',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        // Si el usuario hace clic en "Sí, enviar anulación"
+        if (result.isConfirmed) {
+            
+            // --- Aquí va tu código AJAX original ---
+            $('#estado_envio_verifactu').hide();
+            $.ajax({
+                type: 'POST',
+                cache: false,
+                dataType: 'json',
+                url: verifactu_ajax_url,
+                data: {
+                    ajax: true,
+                    action: 'AnularVerifactu',
+                    token: verifactu_token,
+                    id_order: id_order
+                },
+                success: function (data) {
+                    var obj = data;
+                    if (obj.response == 'OK') {
+                        $('#estado_envio_verifactu').removeClass('alert-danger alert-warning').addClass('alert-success');
+                        $('#estado_envio_verifactu .alert-text').html('Registro de anulación enviado correctamente.<br>En espera de respuesta de VeriFactu...');
+                    } else if (obj.response == 'pendiente') {
+                        $('#estado_envio_verifactu').removeClass('alert-danger alert-success').addClass('alert-warning');
+                        $('#estado_envio_verifactu .alert-text').html('El registro de anulación ya está pendiente de respuesta.');
+                    } else {
+                        $('#estado_envio_verifactu').removeClass('alert-success alert-warning').addClass('alert-danger');
+                        $('#estado_envio_verifactu .alert-text').html('Error enviando el registro de anulación.<br>Vuelve a intentarlo más tarde...');
+                    }
+
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() {
+                        window.location.reload();
+                    });
+                },
+                error: function (data) {
+                    console.log(data);
+                    // Muestra un error más claro si la llamada AJAX falla
+                    Swal.fire(
+                        '¡Error!',
+                        'No se pudo comunicar con el servidor.',
+                        'error'
+                    );
+                }
+            });
+            // --- Fin del código AJAX ---
+        }
     });
+});
 
   }
 

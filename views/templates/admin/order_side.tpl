@@ -42,20 +42,23 @@
                 
                 Registro de facturación: 
                 <span id="estado-verifactu" style="font-weight:bold;margin-left:20px;">
-                {if $estado == "pendiente"}
-                    Enviado correctamente. En espera de respuesta de Veri*Factu
+                {if $anulacion == "1"}
+                    Registro Anulado
                 {else}
-                    {if $verifactuEstadoRegistro == ""}
-                      No enviado
+                    {if $estado == "pendiente"}
+                        Enviado correctamente. En espera de respuesta de Veri*Factu
                     {else}
-                      {if $verifactuEstadoRegistro == "Correcto"}
-                        {$verifactuEstadoRegistro}
-                      {else}
-                        {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
-                      {/if}
+                        {if $verifactuEstadoRegistro == ""}
+                          No enviado
+                        {else}
+                          {if $verifactuEstadoRegistro == "Correcto"}
+                            {$verifactuEstadoRegistro}
+                          {else}
+                            {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
+                          {/if}
+                        {/if}
                     {/if}
                 {/if}
-                
                 </span>
 
                 
@@ -70,11 +73,11 @@
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $estado == "pendiente" || $verifactuEstadoRegistro == "Correcto" }disabled="true"{/if}>
                   {l s='Reenviar registro de facturación' mod='lupiverifactu'}
                 </button>
-                <button  style="display:none;" class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
                   {l s='Comprobar DNI' mod='lupiverifactu'}
                 </button>
-                {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;display:none;" id="send_anulacion_verifactu">
+                
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_anulacion_verifactu" {if $estado == "pendiente" ||  $anulacion == "1" || $verifactuEstadoRegistro == "Incorrecto" || !$verifactuEstadoRegistro}disabled="true"{/if}>
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
                 <form action="https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=facturae.get" method="POST" style="display: none;">
@@ -84,7 +87,7 @@
                     📄 Descargar Factura-e
                   </button>
                 </form>
-                {/if}
+                
             </div>
             
             <div id="estado_envio_verifactu" style="display:none;" class="alert alert-success d-print-none">

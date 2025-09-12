@@ -62,6 +62,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     `verifactuCodigoErrorRegistro` VARCHAR(100),
     `verifactuDescripcionErrorRegistro` TEXT,
     `urlQR` VARCHAR(255),
+    `anulacion` int(11) NOT NULL,
     
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
@@ -74,6 +75,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),
     `verifactuDescripcionErrorRegistro` TEXT,
+    `anulacion` int(11) NOT NULL,
     
     PRIMARY KEY  (`id_order_slip`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
