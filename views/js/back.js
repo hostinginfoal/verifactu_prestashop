@@ -87,20 +87,32 @@ if (typeof verifactu_ajax_url !== 'undefined') {
               success : function (data) { 
                   //obj = JSON.parse(data);
                   obj = data;
-                  if (obj.result == 'true')
+                  if (!obj.error)
                   {
-                    $('#estado_envio_verifactu').removeClass('alert-danger');
-                    $('#estado_envio_verifactu').addClass('alert-success');
-                    $('#estado_envio_verifactu .alert-text').html('DNI Correcto');
-                    $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    })*/;
+                    if (obj.result == 'true')
+                    {
+                      $('#estado_envio_verifactu').removeClass('alert-danger');
+                      $('#estado_envio_verifactu').addClass('alert-success');
+                      $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es correcto y se encuentra registrado correctamente en el censo de la AEAT');
+                      $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1000).fadeOut(function() {
+                         window.location.reload();
+                      })*/;
+                    }
+                    else
+                    {
+                      $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                      $('#estado_envio_verifactu').addClass('alert-danger');
+                      $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es incorrecto o no se encuentra registrado en el censo de la AEAT con este Nombre de cliente / Empresa');
+                      $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
+                         window.location.reload();
+                      })*/;
+                    }
                   }
                   else
                   {
                     $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
                     $('#estado_envio_verifactu').addClass('alert-danger');
-                    $('#estado_envio_verifactu .alert-text').html('DNI Incorrecto');
+                    $('#estado_envio_verifactu .alert-text').html(obj.error);
                     $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
                        window.location.reload();
                     })*/;
@@ -113,9 +125,7 @@ if (typeof verifactu_ajax_url !== 'undefined') {
         });
     });
 
-  //console.log("VeriFactu: Iniciando sondeo en segundo plano...");
 
-	//Para actualizar el comercial con el selector
     $('#send_verifactu').on('click', function(){
       // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
       $(this).prop('disabled', true);
@@ -157,7 +167,72 @@ if (typeof verifactu_ajax_url !== 'undefined') {
                   {
                     $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
                     $('#estado_envio_verifactu').addClass('alert-danger');
-                    $('#estado_envio_verifactu .alert-text').html('Error enviando el registro.<br>Vuelve a intentarlo más tarde...');
+                    $('#estado_envio_verifactu .alert-text').html('Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                       window.location.reload();
+                    });
+                  }
+
+                  
+                  
+              }, 
+              error : function (data){ 
+              console.log(data); 
+              } 
+        });
+    });
+
+    $('#send_sustitutiva_verifactu').on('click', function(){
+      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+      $(this).prop('disabled', true);
+
+      $('#estado_envio_verifactu').hide();
+        $.ajax({ 
+            type: 'POST', 
+            cache: false, 
+            dataType: 'json', 
+            url: verifactu_ajax_url, 
+            data: { 
+              ajax: true, 
+              action: 'enviarSustitutivaVerifactu',
+              token: verifactu_token,
+              id_order: id_order
+            }, 
+              success : function (data) { 
+                  //obj = JSON.parse(data);
+                  obj = data;
+                  if (obj.response == 'OK')
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-danger');
+                    $('#estado_envio_verifactu').addClass('alert-success');
+                    $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                       window.location.reload();
+                    });
+                  }
+                  else if (obj.response == 'noTaxIdentificationNumber')
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                    $('#estado_envio_verifactu').addClass('alert-warning');
+                    $('#estado_envio_verifactu .alert-text').html('Error al enviar la factura sustitutiva de simplificada. El DNI/NIF no puede estar vacío.');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(5000).fadeOut(function() {
+                       window.location.reload();
+                    });
+                  }
+                  else if (obj.response == 'pendiente')
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                    $('#estado_envio_verifactu').addClass('alert-warning');
+                    $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                       window.location.reload();
+                    });
+                  }
+                  else
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                    $('#estado_envio_verifactu').addClass('alert-danger');
+                    $('#estado_envio_verifactu .alert-text').html('Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...');
                     $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
                        window.location.reload();
                     });

@@ -26,19 +26,61 @@
 $sql = array();
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
-    `id_reg_fact` int(11) NOT NULL,
-    `id_order_invoice` int(11) NOT NULL,
-    `invoice_number` VARCHAR(100),
-    `tipo` VARCHAR(20),
-    `verifactuEstadoEnvio` VARCHAR(100),
-    `verifactuEstadoRegistro` VARCHAR(100),
-    `verifactuCodigoErrorRegistro` VARCHAR(100),
-    `verifactuDescripcionErrorRegistro` TEXT,
-    `urlQR` VARCHAR(255),
+    `id_reg_fact` int NOT NULL,
+    `id_order_invoice` int NOT NULL,
+    `invoice_number` varchar(100) DEFAULT NULL,
+    `tipo` varchar(20) DEFAULT NULL,
+    `EstadoEnvio` varchar(100) DEFAULT NULL,
+    `EstadoRegistro` varchar(100) DEFAULT NULL,
+    `CodigoErrorRegistro` varchar(100) DEFAULT NULL,
+    `DescripcionErrorRegistro` text,
+    `urlQR` varchar(255) DEFAULT NULL,
+    `id_queue` int NOT NULL,
+    `estado_queue` varchar(20) NOT NULL DEFAULT "pendiente",
+    `InvoiceNumber` varchar(50) DEFAULT NULL,
+    `IssueDate` date DEFAULT NULL,
+    `TipoOperacion` varchar(45) DEFAULT NULL,
+    `EmpresaNombreRazon` varchar(45) DEFAULT NULL,
+    `EmpresaNIF` varchar(20) DEFAULT NULL,
+    `hash` varchar(255) DEFAULT NULL,
+    `cadena` text,
+    `AnteriorHash` varchar(255) DEFAULT NULL,
+    `TipoFactura` varchar(45) DEFAULT NULL,
+    `FacturaSimplificadaArt7273` varchar(45) DEFAULT NULL,
+    `FacturaSinIdentifDestinatarioArt61d` varchar(45) DEFAULT NULL,
+    `CalificacionOperacion` varchar(45) DEFAULT NULL,
+    `Macrodato` varchar(45) DEFAULT NULL,
+    `Cupon` varchar(45) DEFAULT NULL,
+    `TotalTaxOutputs` decimal(15,2) DEFAULT NULL,
+    `InvoiceTotal` decimal(15,2) DEFAULT NULL,
+    `BuyerName` varchar(255) DEFAULT NULL,
+    `BuyerCorporateName` varchar(255) DEFAULT NULL,
+    `BuyerTaxIdentificationNumber` varchar(45) DEFAULT NULL,
+    `BuyerCountryCode` varchar(10) DEFAULT NULL,
+    `IDOtroIDType` varchar(45) DEFAULT NULL,
+    `IDOtroID` varchar(45) DEFAULT NULL,
+    `TipoRectificativa` varchar(10) DEFAULT NULL,
+    `CorrectiveInvoiceNumber` varchar(50) DEFAULT NULL,
+    `CorrectiveInvoiceSeriesCode` varchar(10) DEFAULT NULL,
+    `CorrectiveIssueDate` date DEFAULT NULL,
+    `CorrectiveBaseAmount` decimal(15,2) DEFAULT NULL,
+    `CorrectiveTaxAmount` decimal(15,2) DEFAULT NULL,
+    `FechaHoraHusoGenRegistro` varchar(45) DEFAULT NULL,
+    `fechaHoraRegistro` datetime DEFAULT NULL,
+    `SIFNombreRazon` varchar(255) DEFAULT NULL,
+    `SIFNIF` varchar(45) DEFAULT NULL,
+    `SIFNombreSIF` varchar(45) DEFAULT NULL,
+    `SIFIdSIF` varchar(45) DEFAULT NULL,
+    `SIFVersion` varchar(45) DEFAULT NULL,
+    `SIFNumeroInstalacion` varchar(45) DEFAULT NULL,
+    `SIFTipoUsoPosibleSoloVerifactu` varchar(45) DEFAULT NULL,
+    `SIFTipoUsoPosibleMultiOT` varchar(45) DEFAULT NULL,
+    `SIFIndicadorMultiplesOT` varchar(45) DEFAULT NULL,
+    `id_shop` int NOT NULL,
     PRIMARY KEY  (`id_reg_fact`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_logs` (
+/*$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_logs` (
     `id_log` int(11) NOT NULL AUTO_INCREMENT,
     `api_id_queue` int(11) NOT NULL,
     `api_estado_queue` VARCHAR(40),
@@ -51,7 +93,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_logs` (
     `verifactuDescripcionErrorRegistro` TEXT,
     `fechahora` DATETIME,
     PRIMARY KEY  (`id_log`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';*/
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice` (
     `id_order_invoice` int(11) NOT NULL,
@@ -63,7 +105,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     `verifactuDescripcionErrorRegistro` TEXT,
     `urlQR` VARCHAR(255),
     `anulacion` int(11) NOT NULL,
-    
+    `TipoFactura` VARCHAR(100),
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
@@ -76,7 +118,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `verifactuCodigoErrorRegistro` VARCHAR(100),
     `verifactuDescripcionErrorRegistro` TEXT,
     `anulacion` int(11) NOT NULL,
-    
+    `TipoFactura` VARCHAR(100),
     PRIMARY KEY  (`id_order_slip`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 

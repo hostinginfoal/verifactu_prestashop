@@ -58,10 +58,12 @@
             <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
         </a>
     </li>
+    {if 1==2}
     <li class="{if $active_tab == 'logs'}active{/if}">
         <a href="{$current}&tab_module_verifactu=logs">
             <i class="icon-send"></i> {l s='Logs' mod='verifactu'}
         </a>
     </li>
+    {/if}
 </ul>
 

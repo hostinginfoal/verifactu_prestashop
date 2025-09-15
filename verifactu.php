@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.6';
+        $this->version = '1.1.7';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -105,6 +105,8 @@ class Verifactu extends Module
             && $this->registerHook('displayPDFInvoice')
             && $this->registerHook('actionPDFInvoiceRender')
             && $this->registerHook('actionOrderSlipAdd')
+            && $this->registerHook('displayPDFCreditSlip')      // Hook para mostrar el QR
+            && $this->registerHook('actionPDFCreditSlipRender');
             ;
     }
 
@@ -222,6 +224,83 @@ class Verifactu extends Module
     }
 
     /**
+     * Hook para mostrar contenido adicional en el PDF de la factura de abono.
+     *
+     * @param array $params Parámetros del hook, contiene el objeto OrderSlip
+     * @return string Contenido HTML para inyectar en el PDF
+     */
+    public function hookDisplayPDFCreditSlip($params)
+    {
+        // 1. Incluimos la biblioteca de QR.
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
+        // 2. Obtenemos el objeto OrderSlip (factura de abono).
+        $order_slip = $params['object'];
+        if (!Validate::isLoadedObject($order_slip)) {
+            return '';
+        }
+
+        $id_shop = (int) $order_slip->id_shop;
+
+        PrestaShopLogger::addLog('Pasa por aqui', 3, null, null, null, true, $id_shop);
+
+        // 3. Obtenemos la URL del QR desde nuestra tabla de abonos.
+        $sql = new DbQuery();
+        $sql->select('urlQR');
+        $sql->from('verifactu_order_slip');
+        $sql->where('id_order_slip = ' . (int)$order_slip->id);
+        $url_to_encode = Db::getInstance()->getValue($sql);
+
+        if (empty($url_to_encode)) {
+            return '';
+        }
+
+        // 4. Generamos el archivo de imagen QR temporal.
+        $qr_code_path = null;
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            // Usamos un prefijo 'slip' para evitar conflictos con los QR de facturas.
+            $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
+            $qr_code_path = $tmp_dir . $tmp_filename;
+
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+
+            if (file_exists($qr_code_path)) {
+                self::$temp_qr_files[] = $qr_code_path;
+            } else {
+                $qr_code_path = null;
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            $qr_code_path = null;
+        }
+        
+        // 5. Asignamos la ruta a la misma plantilla que ya usas.
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qr_code_path
+        ]);
+        
+        // Reutilizamos la plantilla existente.
+        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+    }
+
+    /**
+     * Hook que se ejecuta después de renderizar el PDF del abono.
+     * Se usa para borrar los archivos de QR temporales que hemos creado.
+     */
+    public function hookActionPDFCreditSlipRender($params)
+    {
+        // Esta lógica es idéntica a la del hook de facturas y limpiará los QR de ambas.
+        foreach (self::$temp_qr_files as $path) {
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+        // Reseteamos el array para la siguiente ejecución.
+        self::$temp_qr_files = [];
+    }
+
+    /**
      * Load the configuration form
      */
     public function getContent()
@@ -259,15 +338,22 @@ class Verifactu extends Module
 
         $output .= $this->renderShopList();
 
-        if ($tab == 'configure') {
+        if ($tab == 'configure') 
+        {
             $output .= $this->renderForm();
-        } elseif ($tab == 'invoices') {
+        } 
+        elseif ($tab == 'invoices') 
+        {
             $output .= $this->renderInvoicesList();
-        } elseif ($tab == 'reg_facts') {
+        } 
+        elseif ($tab == 'reg_facts') 
+        {
             $output .= $this->renderList();
-        } elseif ($tab == 'logs') {
+        } 
+        /*elseif ($tab == 'logs') 
+        {
             $output .= $this->renderLogsList();
-        }
+        }*/
 
         return $output;
     }
@@ -645,7 +731,7 @@ class Verifactu extends Module
 
     //Listado de logs-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    public function renderLogsList()
+    /*public function renderLogsList()
     {
         $fields_list = array(
             'id_log' => array('title' => $this->l('ID'), 'type' => 'number'),
@@ -681,7 +767,7 @@ class Verifactu extends Module
         $helper->listTotal = $this->getTotalLogsListContent();
     
         return $helper->generateList($content, $fields_list);
-    }
+    }*/
 
     /*public function getRowClass($row)
     {
@@ -695,7 +781,7 @@ class Verifactu extends Module
         }
     }*/
     
-    private function getLogsListContent($page, $pagination, $orderBy, $orderWay)
+    /*private function getLogsListContent($page, $pagination, $orderBy, $orderWay)
     {
         $db = Db::getInstance();
         $sql = new DbQuery();
@@ -754,7 +840,7 @@ class Verifactu extends Module
         }
     
         return (int)$db->getValue($sql);
-    }
+    }*/
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -926,6 +1012,7 @@ class Verifactu extends Module
         $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
         $anulacion = $result['anulacion'];
         $estado = $result['estado'];
+        $TipoFactura = $result['TipoFactura'];
         $id_order_invoice = $result['id_order_invoice'];
     } else {
         // El pedido NO tiene factura, asignamos valores por defecto seguros.
@@ -936,6 +1023,7 @@ class Verifactu extends Module
         $verifactuDescripcionErrorRegistro = null;
         $anulacion = null;
         $estado = null;
+        $TipoFactura = null;
         $id_order_invoice = null;
     }
 
@@ -970,6 +1058,7 @@ class Verifactu extends Module
         'anulacion' => $anulacion,
         'estado' => $estado,
         'id_order' => $id_order,
+        'TipoFactura' => $TipoFactura,
         'imgQR' => $imgQR,
         'urlQR' => $urlQR,
         'id_order_invoice' => $id_order_invoice,

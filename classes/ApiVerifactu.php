@@ -51,13 +51,13 @@ class ApiVerifactu
 
     public function checkDNI($id_order)
     {
-        $order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
-        $invoice = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'order_invoice WHERE id_order = "'.(int) $id_order.'"');
-        $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.(int) $order['id_address_invoice'].'"');
-        $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.(int) $address['id_state'].'"');
-        $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.(int) $address['id_country'].'"');
-        $currency = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'currency WHERE id_currency = "'.(int) $order['id_currency'].'"');
-        $lines = Db::getInstance()->ExecuteS('SELECT * FROM ' . _DB_PREFIX_ . 'order_detail WHERE id_order = "'.(int) $id_order.'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('orders')->where('id_order = ' . (int)$id_order);
+        $order = Db::getInstance()->getRow($sql);
+
+        $sql = new DbQuery();
+        $sql->select('*')->from('address')->where('id_address = ' . (int)$order['id_address_invoice']);
+        $address = Db::getInstance()->getRow($sql);
 
         $curl  = curl_init();
         $url   = 'https://verifactu.infoal.io/api_v2/cdi/check';
@@ -70,7 +70,8 @@ class ApiVerifactu
         ];
 
         $data = new \stdClass();
-        $data->dni = $address['dni'];
+        $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
+        $data->dni = $taxIdentificationNumber;
         $data->nombre = $address['firstname'].' '.$address['lastname'];
         $dataString = json_encode($data);
 
@@ -88,7 +89,7 @@ class ApiVerifactu
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING       => 'utf-8',
                 CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_TIMEOUT        => 10,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                 CURLOPT_CUSTOMREQUEST  => 'POST',
@@ -118,7 +119,9 @@ class ApiVerifactu
     {
         $reply = array();
 
-        $order_data = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('orders')->where('id_order = ' . (int)$id_order);
+        $order_data = Db::getInstance()->getRow($sql);
 
         if (!$order_data) 
         {
@@ -130,8 +133,20 @@ class ApiVerifactu
 
         if ($tipo == 'abono')
         {
-            $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro, vos.estado FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.(int) $id_order.'" ORDER BY os.id_order_slip DESC');
-            $slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate,od.product_name FROM ' . _DB_PREFIX_ . 'order_slip_detail as sd LEFT JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.((int)$slip['id_order_slip']).'"'); 
+            $sql = new DbQuery();
+            $sql->select('os.*, vos.verifactuEstadoRegistro, vos.estado')
+                ->from('order_slip', 'os')
+                ->leftJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip')
+                ->where('os.id_order = ' . (int)$id_order)
+                ->orderBy('os.id_order_slip DESC');
+            $slip = Db::getInstance()->getRow($sql);
+
+            $sql = new DbQuery();
+            $sql->select('sd.*, od.product_reference, od.tax_rate, od.product_name')
+                ->from('order_slip_detail', 'sd')
+                ->leftJoin('order_detail', 'od', 'sd.id_order_detail = od.id_order_detail')
+                ->where('sd.id_order_slip = ' . (int)$slip['id_order_slip']);
+            $slipLines = Db::getInstance()->executeS($sql);
                 
             if ($this->debugMode)
             {
@@ -152,14 +167,23 @@ class ApiVerifactu
                 
         }
 
-        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro, voi.estado FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.(int)$id_order.'" ORDER BY oi.id_order_invoice DESC');
+        $sql = new DbQuery();
+        $sql->select('oi.*, voi.verifactuEstadoRegistro, voi.estado')
+            ->from('order_invoice', 'oi')
+            ->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice')
+            ->where('oi.id_order = ' . (int)$id_order)
+            ->orderBy('oi.id_order_invoice DESC');
+        $invoice = Db::getInstance()->getRow($sql);
+
         if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
         {
             $reply['response'] = 'pendiente';
             return json_encode($reply);
         }
 
-        $address = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'address WHERE id_address = "'.(int) $order_data['id_address_invoice'].'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('address')->where('id_address = ' . (int)$order_data['id_address_invoice']);
+        $address = Db::getInstance()->getRow($sql);
 
         if (!$address) {
             if ($this->debugMode) {
@@ -168,36 +192,48 @@ class ApiVerifactu
             return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
         }
 
-        $prov = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'state WHERE id_state = "'.(int) $address['id_state'].'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('state')->where('id_state = ' . (int)$address['id_state']);
+        $prov = Db::getInstance()->getRow($sql);
+
         if (!$prov) {
             if ($this->debugMode) {
                 PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron provincias para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
             }
-            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+            //return json_encode(['response' => 'KO', 'error' => 'Provincia no encontrada.']);
         }
 
-        $pais = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'country WHERE id_country = "'.(int) $address['id_country'].'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('country')->where('id_country = ' . (int)$address['id_country']);
+        $pais = Db::getInstance()->getRow($sql);
+
         if (!$pais) {
             if ($this->debugMode) {
                 PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron paises para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
             }
-            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+            //return json_encode(['response' => 'KO', 'error' => 'País no encontrado.']);
         }
 
-        $currency = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'currency WHERE id_currency = "'.(int) $order_data['id_currency'].'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('currency')->where('id_currency = ' . (int)$order_data['id_currency']);
+        $currency = Db::getInstance()->getRow($sql);
+
         if (!$currency) {
             if ($this->debugMode) {
                 PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron monedas para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
             }
-            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+            //return json_encode(['response' => 'KO', 'error' => 'Moneda no encontrada.']);
         }
 
-        $lines = Db::getInstance()->ExecuteS('SELECT * FROM ' . _DB_PREFIX_ . 'order_detail WHERE id_order = "'.(int) $id_order.'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('order_detail')->where('id_order = ' . (int)$id_order);
+        $lines = Db::getInstance()->executeS($sql);
+
         if (!$lines) {
             if ($this->debugMode) {
                 PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron lineas de pedido para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
             }
-            return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
+            //return json_encode(['response' => 'KO', 'error' => 'Lineas de factura no encontradas.']);
         }
 
         $curl  = curl_init();
@@ -217,7 +253,9 @@ class ApiVerifactu
         $buyer = new \stdClass();
         $inv = new \stdClass();
         
-        $buyer->TaxIdentificationNumber = $address['dni'];
+        // Comprueba si 'vat_number' tiene contenido. Si lo tiene, lo usamos. Si no, usamos 'dni'.
+        $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
+        $buyer->TaxIdentificationNumber = $taxIdentificationNumber;
         $buyer->CorporateName = $address['company'];
         $buyer->Name = $address['firstname'].' '.$address['lastname'];
         $buyer->Address = $address['address1'];
@@ -235,7 +273,7 @@ class ApiVerifactu
             $totalTaxExcl = ((float) $slip['total_products_tax_excl'] + (float) $slip['total_shipping_tax_excl']);
             $totalTaxIncl = ((float) $slip['total_products_tax_incl'] + (float) $slip['total_shipping_tax_incl']);
             $inv->InvoiceNumber = $InvoiceNumber;
-            $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
+            $inv->InvoiceDocumentType = ($taxIdentificationNumber != ''?"FC":"FA");
             $inv->InvoiceClass = "OR"; //Factura normal
             $inv->IssueDate = date('Y-m-d', strtotime($slip['date_add']));
             $inv->InvoiceCurrencyCode = $currency['iso_code'];
@@ -310,7 +348,7 @@ class ApiVerifactu
         {
             $InvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']);
             $inv->InvoiceNumber = $InvoiceNumber;
-            $inv->InvoiceDocumentType = ($address['dni'] != ''?"FC":"FA");
+            $inv->InvoiceDocumentType = ($taxIdentificationNumber != ''?"FC":"FA");
             $inv->InvoiceClass = "OO"; //Factura normal
             $inv->IssueDate = date('Y-m-d', strtotime($invoice['date_add']));
             $inv->InvoiceCurrencyCode = $currency['iso_code'];
@@ -393,7 +431,7 @@ class ApiVerifactu
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING       => 'utf-8',
                 CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_TIMEOUT        => 10,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                 CURLOPT_CUSTOMREQUEST  => 'POST',
@@ -425,6 +463,7 @@ class ApiVerifactu
             $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
             $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
             $api_estado_queue = 'pendiente';
+            $id_order_invoice = 0;
 
             if ($tipo == 'abono') 
             {
@@ -435,23 +474,28 @@ class ApiVerifactu
 
                 if (isset($vos,$vos['id_order_slip']) && $vos['id_order_slip'] != '')
                 {
-                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_slip = "'.(int) $vos['id_order_slip'].'"';
+                    $update_data = [
+                        'estado' => 'pendiente',
+                        'api_id_queue' => $api_id_queue,
+                    ];
+                    if (!Db::getInstance()->update('verifactu_order_slip', $update_data, 'id_order_slip = ' . $id_order_invoice)) {
+                        if ($this->debugMode) {
+                            PrestaShopLogger::addLog('Módulo Verifactu: Alta Abono - Error al actualizar verifactu_order_slip: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                        }
+                    }
                 }
                 else
                 {
-                    $sql = 'INSERT IGNORE INTO '. _DB_PREFIX_ .'verifactu_order_slip (id_order_slip, estado, api_id_queue, urlQR) VALUES ("'. (int) $slip['id_order_slip'] .'", "pendiente", "'.(int) $api_id_queue.'", "'.pSQL($urlQR).'")';
-                }
-                
-                
-                if (!Db::getInstance()->execute($sql)) {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    if ($this->debugMode)
-                    {
-                        PrestaShopLogger::addLog(
-                            'Módulo Verifactu: Alta - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
-                            ',
-                            1, null, null, null, true, $this->id_shop
-                        );
+                    $insert_data = [
+                        'id_order_slip' => $id_order_invoice,
+                        'estado' => 'pendiente',
+                        'api_id_queue' => $api_id_queue,
+                        'urlQR' => $urlQR,
+                    ];
+                    if (!Db::getInstance()->insert('verifactu_order_slip', $insert_data)) {
+                         if ($this->debugMode) {
+                            PrestaShopLogger::addLog('Módulo Verifactu: Alta Abono - Error al insertar en verifactu_order_slip: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                        }
                     }
                 }
             }
@@ -463,34 +507,54 @@ class ApiVerifactu
 
                 if (isset($voi,$voi['id_order_invoice']) && $voi['id_order_invoice'] != '')
                 {
-                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_invoice = "'.(int) $voi['id_order_invoice'].'"';
+                    $update_data = [
+                        'estado' => 'pendiente',
+                        'api_id_queue' => $api_id_queue,
+                    ];
+                    if (!Db::getInstance()->update('verifactu_order_invoice', $update_data, 'id_order_invoice = ' . $id_order_invoice)) {
+                        if ($this->debugMode) {
+                            PrestaShopLogger::addLog('Módulo Verifactu: Alta Factura - Error al actualizar verifactu_order_invoice: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                        }
+                    }
                 }
                 else
                 {
-                    $sql = 'INSERT IGNORE INTO '. _DB_PREFIX_ .'verifactu_order_invoice (id_order_invoice, estado, api_id_queue, urlQR) VALUES ("'. (int) $invoice['id_order_invoice'] .'", "pendiente", "'.(int) $api_id_queue.'", "'.pSQL($urlQR).'")';
-                }
-
-                // 4. Ejecutamos la consulta.
-                if (!Db::getInstance()->execute($sql)) {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    if ($this->debugMode)
-                    {
-                        PrestaShopLogger::addLog(
-                            'Módulo Verifactu: Alta - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
-                            ',
-                            1, null, null, null, true, $this->id_shop
-                        );
+                    $insert_data = [
+                        'id_order_invoice' => $id_order_invoice,
+                        'estado' => 'pendiente',
+                        'api_id_queue' => $api_id_queue,
+                        'urlQR' => $urlQR,
+                    ];
+                    if (!Db::getInstance()->insert('verifactu_order_invoice', $insert_data)) {
+                        if ($this->debugMode) {
+                           PrestaShopLogger::addLog('Módulo Verifactu: Alta Factura - Error al insertar en verifactu_order_invoice: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                        }
                     }
                 }
             }
 
-            //Guardamos el log
-            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,invoice_number,tipo,api_id_queue,api_estado_queue,fechahora) VALUES ("'.(int) $id_order_invoice.'","'.pSQL($InvoiceNumber).'","'.pSQL($tipo).'","'.(int) $api_id_queue.'","'.pSQL($api_estado_queue).'","'.date('Y-m-d H:i:s').'")'; 
-            if (!Db::getInstance()->execute($sql)) 
+            if (isset($obj->id_reg_fact)) //Si se ha guardado un registro de facturación, del tipo que sea
             {
-                $errorMessage = Db::getInstance()->getMsgError();
-                //echo $errorMessage;
+
+                $insert_data = [
+                'id_reg_fact' => (int)$obj->id_reg_fact,
+                'id_queue' => (int)$api_id_queue,
+                'estado_queue' => pSQL($api_estado_queue),
+                'id_order_invoice' => (int)$id_order_invoice,
+                'invoice_number' => pSQL($obj->InvoiceNumber),
+                'urlQR' => pSQL($obj->urlQR),
+                'id_shop' => (int)$this->id_shop
+                ];
+                if (!Db::getInstance()->insert('verifactu_reg_fact', $insert_data)) {
+                     if ($this->debugMode) {
+                        PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al insertar en verifactu_reg_fact: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                    }
+
+                }
+
             }
+
+            
             
             $reply['response'] = 'OK';
         }
@@ -506,7 +570,9 @@ class ApiVerifactu
 
     public function sendAnulacionVerifactu($id_order,$tipo='alta')
     {
-        $order_data = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.(int) $id_order.'"');
+        $sql = new DbQuery();
+        $sql->select('*')->from('orders')->where('id_order = ' . (int)$id_order);
+        $order_data = Db::getInstance()->getRow($sql);
 
         if (!$order_data) 
         {
@@ -518,8 +584,20 @@ class ApiVerifactu
 
         if ($tipo == 'abono')
         {
-            $slip = Db::getInstance()->getRow('SELECT os.*,vos.verifactuEstadoRegistro, vos.estado FROM ' . _DB_PREFIX_ . 'order_slip as os LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_slip as vos ON os.id_order_slip = vos.id_order_slip WHERE os.id_order = "'.(int) $id_order.'" ORDER BY os.id_order_slip DESC');
-            $slipLines = Db::getInstance()->ExecuteS('SELECT sd.*,od.product_reference,od.tax_rate,od.product_name FROM ' . _DB_PREFIX_ . 'order_slip_detail as sd LEFT JOIN ' . _DB_PREFIX_ . 'order_detail as od ON sd.id_order_detail = od.id_order_detail WHERE sd.id_order_slip = "'.((int) $slip['id_order_slip']).'"'); 
+            $sql = new DbQuery();
+            $sql->select('os.*, vos.verifactuEstadoRegistro, vos.estado')
+                ->from('order_slip', 'os')
+                ->leftJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip')
+                ->where('os.id_order = ' . (int)$id_order)
+                ->orderBy('os.id_order_slip DESC');
+            $slip = Db::getInstance()->getRow($sql);
+
+            $sql = new DbQuery();
+            $sql->select('sd.*, od.product_reference, od.tax_rate, od.product_name')
+                ->from('order_slip_detail', 'sd')
+                ->leftJoin('order_detail', 'od', 'sd.id_order_detail = od.id_order_detail')
+                ->where('sd.id_order_slip = ' . (int)$slip['id_order_slip']);
+            $slipLines = Db::getInstance()->executeS($sql);
                 
 
             if (isset($slip['estado']) && $slip['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
@@ -530,7 +608,14 @@ class ApiVerifactu
                 
         }
 
-        $invoice = Db::getInstance()->getRow('SELECT oi.*,voi.verifactuEstadoRegistro, voi.estado FROM ' . _DB_PREFIX_ . 'order_invoice as oi LEFT JOIN ' . _DB_PREFIX_ . 'verifactu_order_invoice as voi ON oi.id_order_invoice = voi.id_order_invoice WHERE oi.id_order = "'.(int) $id_order.'" ORDER BY oi.id_order_invoice DESC');
+        $sql = new DbQuery();
+        $sql->select('oi.*, voi.verifactuEstadoRegistro, voi.estado')
+            ->from('order_invoice', 'oi')
+            ->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice')
+            ->where('oi.id_order = ' . (int)$id_order)
+            ->orderBy('oi.id_order_invoice DESC');
+        $invoice = Db::getInstance()->getRow($sql);
+
         if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
         {
             $reply['response'] = 'pendiente';
@@ -571,7 +656,7 @@ class ApiVerifactu
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING       => 'utf-8',
                 CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_TIMEOUT        => 10,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                 CURLOPT_CUSTOMREQUEST  => 'POST',
@@ -597,67 +682,73 @@ class ApiVerifactu
         $obj = json_decode($response);
 
         if (isset($obj, $obj->response) && $obj->response == 'OK')
-        {  
-            $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
+        {
             $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
             $api_estado_queue = 'pendiente';
+            $InvoiceNumber = '';
 
-            if ($tipo == 'abono') 
+            $update_data = [
+                'estado' => 'pendiente',
+                'api_id_queue' => $api_id_queue,
+            ];
+
+            if ($tipo == 'abono')
             {
-                $id_order_invoice = $slip['id_order_slip'];
-
-                //Miramos si a se habia enviado previamente para actualizar el estado o insertar uno nuevo
-                $vos = Db::getInstance()->getRow('SELECT id_order_slip FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_order_slip = "'.(int) $slip['id_order_slip'].'"');
-                if (isset($vos,$vos['id_order_slip']) && $vos['id_order_slip'] != '') //Solo actualizamos, tiene que existir previamente
-                {
-                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_slip = "'.(int) $vos['id_order_slip'].'"';
-                }
-                
-                
-                if (!Db::getInstance()->execute($sql)) {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    if ($this->debugMode)
-                    {
-                        PrestaShopLogger::addLog(
-                            'Módulo Verifactu: Anulación - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
-                            ',
-                            1, null, null, null, true, $this->id_shop
-                        );
+                $id_order_invoice = (int)$slip['id_order_slip'];
+                $InvoiceNumber = $this->getFormattedCreditSlipNumber($id_order_invoice);
+                if (!Db::getInstance()->update('verifactu_order_slip', $update_data, 'id_order_slip = ' . $id_order_invoice)) {
+                    if ($this->debugMode) {
+                        PrestaShopLogger::addLog('Módulo Verifactu: Anulación Abono - Error al actualizar verifactu_order_slip: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
                     }
                 }
             }
             else
             {
-                $id_order_invoice = $invoice['id_order_invoice'];
-
-                $voi = Db::getInstance()->getRow('SELECT id_order_invoice FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_order_invoice = "'.(int) $invoice['id_order_invoice'].'"');
-                if (isset($voi,$voi['id_order_invoice']) && $voi['id_order_invoice'] != '') //Solo actualizamos, tiene que existir previamente
-                {
-                    $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado="pendiente", api_id_queue="'.(int) $api_id_queue.'" WHERE id_order_invoice = "'.(int) $voi['id_order_invoice'].'"';
-                }
-                
-
-                // 4. Ejecutamos la consulta.
-                if (!Db::getInstance()->execute($sql)) {
-                    $errorMessage = Db::getInstance()->getMsgError();
-                    if ($this->debugMode)
-                    {
-                        PrestaShopLogger::addLog(
-                            'Módulo Verifactu: Anulación - Error al insertar en verifactu_order_invoice ' . $errorMessage.'
-                            ',
-                            1, null, null, null, true, $this->id_shop
-                        );
+                $id_order_invoice = (int)$invoice['id_order_invoice'];
+                $InvoiceNumber = $this->getFormattedInvoiceNumber($id_order_invoice);
+                if (!Db::getInstance()->update('verifactu_order_invoice', $update_data, 'id_order_invoice = ' . $id_order_invoice)) {
+                    if ($this->debugMode) {
+                        PrestaShopLogger::addLog('Módulo Verifactu: Anulación Factura - Error al actualizar verifactu_order_invoice: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
                     }
                 }
             }
 
-            //Guardamos el log
-            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_logs (id_order_invoice,invoice_number,tipo,api_id_queue,api_estado_queue,fechahora) VALUES ("'.(int) $id_order_invoice.'","'.pSQL($InvoiceNumber).'","'.pSQL($tipo).'","'.(int) $api_id_queue.'","'.pSQL($api_estado_queue).'","'.date('Y-m-d H:i:s').'")'; 
-            if (!Db::getInstance()->execute($sql)) 
+            if (isset($obj->id_reg_fact)) //Si se ha guardado un registro de facturación, del tipo que sea
             {
-                $errorMessage = Db::getInstance()->getMsgError();
-                //echo $errorMessage;
+                $reg_fact_data = [
+                'id_reg_fact' => (int)$obj->id_reg_fact,
+                'id_queue' => (int)$obj->id_queue,
+                'estado_queue' => pSQL($api_estado_queue),
+                'id_invoice' => (int)$obj->id_invoice,
+                'id_order_invoice' => $id_order_invoice,
+                'invoice_number' => pSQL($obj->InvoiceNumber),
+                'urlQR' => pSQL($o->urlQR),
+                'id_shop' => (int)$this->id_shop,
+                ];
+                if (!Db::getInstance()->insert('verifactu_reg_fact', $reg_fact_data)) {
+                     if ($this->debugMode) {
+                        PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al insertar en verifactu_reg_fact: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                    }
+                }
+
+                // Guardamos el log
+                /*$log_data = [
+                    'id_order_invoice' => $id_order_invoice,
+                    'invoice_number' => pSQL($InvoiceNumber),
+                    'tipo' => pSQL($tipo),
+                    'api_id_queue' => $api_id_queue,
+                    'api_estado_queue' => pSQL($api_estado_queue),
+                    'fechahora' => date('Y-m-d H:i:s'),
+                ];
+                if (!Db::getInstance()->insert('verifactu_logs', $log_data)) {
+                     if ($this->debugMode) {
+                        PrestaShopLogger::addLog('Módulo Verifactu: Anulación - Error al insertar en verifactu_logs: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                    }
+                }*/
+
             }
+
+            
             
             $reply['response'] = 'OK';
         }
@@ -677,15 +768,13 @@ class ApiVerifactu
         // Por ahora, simularemos una respuesta y actualizaremos la BD.
         
         // 1. Buscar facturas pendientes en nuestra base de datos.
-        $pending_invoices = Db::getInstance()->executeS(
-            'SELECT id_order_invoice,api_id_queue FROM `'._DB_PREFIX_.'verifactu_order_invoice`
-             WHERE `estado` = "pendiente"'
-        );
+        $sql = new DbQuery();
+        $sql->select('id_order_invoice, api_id_queue')->from('verifactu_order_invoice')->where('estado = "pendiente"');
+        $pending_invoices = Db::getInstance()->executeS($sql);
 
-        $pending_slips = Db::getInstance()->executeS(
-            'SELECT id_order_slip,api_id_queue FROM `'._DB_PREFIX_.'verifactu_order_slip`
-             WHERE `estado` = "pendiente"'
-        );
+        $sql = new DbQuery();
+        $sql->select('id_order_slip, api_id_queue')->from('verifactu_order_slip')->where('estado = "pendiente"');
+        $pending_slips = Db::getInstance()->executeS($sql);
 
         $updated_count = 0;
 
@@ -748,7 +837,7 @@ class ApiVerifactu
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_ENCODING       => 'utf-8',
                     CURLOPT_MAXREDIRS      => 10,
-                    CURLOPT_TIMEOUT        => 30,
+                    CURLOPT_TIMEOUT        => 10,
                     CURLOPT_FOLLOWLOCATION => true,
                     CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                     CURLOPT_CUSTOMREQUEST  => 'POST',
@@ -822,17 +911,19 @@ class ApiVerifactu
 
                             if ($guardar) //Actualizamos
                             {   
-                                $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_invoice SET estado = "sincronizado", verifactuEstadoRegistro = "'.pSQL($o->EstadoRegistro).'",verifactuEstadoEnvio = "'.pSQL($o->EstadoEnvio).'",verifactuCodigoErrorRegistro = "'.pSQL($o->CodigoErrorRegistro).'", verifactuDescripcionErrorRegistro = "'.pSQL($o->DescripcionErrorRegistro).'", urlQR = "'.pSQL($o->urlQR).'",anulacion = "'.(int) $anulacion.'" WHERE id_order_invoice = "'.(int) $invoice['id_order_invoice'].'"';
-                                if (!Db::getInstance()->execute($sql)) 
-                                {
-                                    $errorMessage = Db::getInstance()->getMsgError();
-                                    if ($this->debugMode)
-                                    {
-                                        PrestaShopLogger::addLog(
-                                            'Módulo Verifactu: Error al actualizar en verifactu_order_invoice ' . $errorMessage.'
-                                            ',
-                                            1, null, null, null, true, $this->id_shop
-                                        );
+                                $update_data = [
+                                'estado' => 'sincronizado',
+                                'verifactuEstadoRegistro' => pSQL($o->EstadoRegistro),
+                                'verifactuEstadoEnvio' => pSQL($o->EstadoEnvio),
+                                'verifactuCodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
+                                'verifactuDescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+                                'TipoFactura' => pSQL($o->TipoFactura),
+                                'urlQR' => pSQL($o->urlQR),
+                                'anulacion' => (int)$anulacion,
+                                ];
+                                if (!Db::getInstance()->update('verifactu_order_invoice', $update_data, 'id_order_invoice = ' . (int)$invoice['id_order_invoice'])) {
+                                    if ($this->debugMode) {
+                                        PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al actualizar verifactu_order_invoice: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
                                     }
                                 }
                                 //Guardamos parámetros para el log
@@ -876,11 +967,20 @@ class ApiVerifactu
 
                             if ($guardar) //Guardamos el verifactu_order_invoice solo si no existe el registro o este ha cambiado
                             {   
-                                $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_order_slip SET estado = "sincronizado", verifactuEstadoRegistro = "'.pSQL($o->EstadoRegistro).'",verifactuEstadoEnvio = "'.pSQL($o->EstadoEnvio).'",verifactuCodigoErrorRegistro = "'.pSQL($o->CodigoErrorRegistro).'", verifactuDescripcionErrorRegistro = "'.pSQL($o->DescripcionErrorRegistro).'", urlQR = "'.pSQL($o->urlQR).'",anulacion = "'.(int) $anulacion.'" WHERE id_order_slip = "'.(int) $slip['id_order_slip'].'"';
-                                if (!Db::getInstance()->execute($sql)) 
-                                {
-                                    $errorMessage = Db::getInstance()->getMsgError();
-                                    //echo $errorMessage;
+                                $update_data = [
+                                'estado' => 'sincronizado',
+                                'verifactuEstadoRegistro' => pSQL($o->EstadoRegistro),
+                                'verifactuEstadoEnvio' => pSQL($o->EstadoEnvio),
+                                'verifactuCodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
+                                'verifactuDescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+                                'TipoFactura' => pSQL($o->TipoFactura),
+                                'urlQR' => pSQL($o->urlQR),
+                                'anulacion' => (int)$anulacion,
+                                ];
+                                if (!Db::getInstance()->update('verifactu_order_slip', $update_data, 'id_order_slip = ' . (int)$slip['id_order_slip'])) {
+                                    if ($this->debugMode) {
+                                        PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al actualizar verifactu_order_slip: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                                    }
                                 }
 
                                 //Guardamos parámetros para el log
@@ -896,22 +996,105 @@ class ApiVerifactu
                     { 
                         if (isset($o->id_reg_fact)) //Si se ha guardado un registro de facturación, del tipo que sea
                         {
-                            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'verifactu_reg_fact (id_reg_fact,id_order_invoice,invoice_number,tipo,verifactuEstadoRegistro,verifactuEstadoEnvio,verifactuCodigoErrorRegistro,verifactuDescripcionErrorRegistro,urlQR) VALUES ("'.(int) $o->id_reg_fact.'","'.(int) $id_order_invoice.'","'.pSQL($o->InvoiceNumber).'","'.pSQL($tipo).'","'.pSQL($o->EstadoRegistro).'","'.pSQL($o->EstadoEnvio).'","'.pSQL($o->CodigoErrorRegistro).'","'.pSQL($o->DescripcionErrorRegistro).'","'.pSQL($o->urlQR).'")'; 
-                            if (!Db::getInstance()->execute($sql)) 
-                            {
-                                $errorMessage = Db::getInstance()->getMsgError();
-                                //echo $errorMessage;
-                            }
+                            $update_data = [
+
+                                //Cola
+                                'estado_queue' => pSQL($o->estado_queue),
+
+                                //Factura
+                                'InvoiceNumber' => pSQL($o->InvoiceNumber),
+                                'IssueDate' => pSQL($o->IssueDate),
+
+                                //Respuesta verifactu
+                                'EstadoEnvio' => pSQL($o->EstadoEnvio),
+                                'EstadoRegistro' => pSQL($o->EstadoRegistro),
+                                'CodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
+                                'DescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+
+                                //Registro de facturación - Registro
+                                'TipoOperacion' => pSQL($o->TipoOperacion),
+                                'EmpresaNombreRazon' => pSQL($o->EmpresaNombreRazon),
+                                'EmpresaNIF' => pSQL($o->EmpresaNIF),
+                                'hash' => pSQL($o->hash),
+                                'cadena' => pSQL($o->cadena),
+                                'AnteriorHash' => pSQL($o->AnteriorHash),
+
+                                'TipoFactura' => pSQL($o->TipoFactura),
+                                'FacturaSimplificadaArt7273' => pSQL($o->FacturaSimplificadaArt7273),
+                                'FacturaSinIdentifDestinatarioArt61d' => pSQL($o->FacturaSinIdentifDestinatarioArt61d),
+                                'CalificacionOperacion' => pSQL($o->CalificacionOperacion),
+                                'Macrodato' => pSQL($o->Macrodato),
+                                'Cupon' => pSQL($o->Cupon),
+                                'TotalTaxOutputs' => pSQL($o->TotalTaxOutputs),
+                                'InvoiceTotal' => pSQL($o->InvoiceTotal),
+
+                                //Fechas registro
+                                'FechaHoraHusoGenRegistro' => pSQL($o->FechaHoraHusoGenRegistro),
+                                'fechaHoraRegistro' => pSQL($o->fechaHoraRegistro),
+
+                                //SIF
+                                'SIFNombreRazon' => pSQL($o->SIFNombreRazon),
+                                'SIFNIF' => pSQL($o->SIFNIF),
+                                'SIFNombreSIF' => pSQL($o->SIFNombreSIF),
+                                'SIFIdSIF' => pSQL($o->SIFIdSIF),
+                                'SIFVersion' => pSQL($o->SIFVersion),
+                                'SIFNumeroInstalacion' => pSQL($o->SIFNumeroInstalacion),
+                                'SIFTipoUsoPosibleSoloVerifactu' => pSQL($o->SIFTipoUsoPosibleSoloVerifactu),
+                                'SIFTipoUsoPosibleMultiOT' => pSQL($o->SIFTipoUsoPosibleMultiOT),
+                                'SIFIndicadorMultiplesOT' => pSQL($o->SIFIndicadorMultiplesOT),
+                                ];
+
+                                //Comprador
+                                if ($o->FacturaSimplificadaArt7273 != 'S')
+                                {
+                                    $update_data['BuyerName'] = pSQL($o->BuyerName);
+                                    $update_data['BuyerCorporateName'] = pSQL($o->BuyerCorporateName);
+                                    $update_data['BuyerCountryCode'] = pSQL($o->BuyerCountryCode);
+                                    if ($o->BuyerCountryCode != 'ES')
+                                    {
+                                        $update_data['IDOtroIDType'] = pSQL($o->IDOtroIDType);
+                                        $update_data['IDOtroID'] = pSQL($o->IDOtroID);
+                                    }
+                                    else
+                                    {
+                                        $update_data['BuyerTaxIdentificationNumber'] = pSQL($o->BuyerTaxIdentificationNumber);
+                                    }
+                                    
+                                }
+
+                                //Factura rectificativa
+                                if (substr($o->TipoFactura,0,1) == 'R') 
+                                {
+                                    $update_data['TipoRectificativa'] = pSQL($o->TipoRectificativa);
+                                    $update_data['CorrectiveInvoiceNumber'] = pSQL($o->CorrectiveInvoiceNumber);
+                                    $update_data['CorrectiveInvoiceSeriesCode'] = pSQL($o->CorrectiveInvoiceSeriesCode);
+                                    $update_data['CorrectiveIssueDate'] = pSQL($o->CorrectiveIssueDate);
+                                    $update_data['CorrectiveBaseAmount'] = pSQL($o->CorrectiveBaseAmount);
+                                    $update_data['CorrectiveTaxAmount'] = pSQL($o->CorrectiveTaxAmount);
+                                }
+
+                                if (!Db::getInstance()->update('verifactu_reg_fact', $update_data, 'id_reg_fact = ' . (int)$o->id_reg_fact)) {
+                                    if ($this->debugMode) {
+                                        PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al actualizar verifactu_order_slip: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                                    }
+                                }
 
                         }
 
                         //Actualizamos el log
-                        $sql = 'UPDATE ' . _DB_PREFIX_ . 'verifactu_logs SET api_estado_queue="'.(int) $o->estado_queue.'",verifactuEstadoRegistro="'.pSQL($o->EstadoRegistro).'",verifactuEstadoEnvio="'.pSQL($o->EstadoEnvio).'",verifactuCodigoErrorRegistro="'.pSQL($o->CodigoErrorRegistro).'",verifactuDescripcionErrorRegistro="'.pSQL($o->DescripcionErrorRegistro).'",fechahora="'.date('Y-m-d H:i:s').'" WHERE api_id_queue = "'.(int) $o->id_queue.'"';
-                        if (!Db::getInstance()->execute($sql)) 
-                        {
-                            $errorMessage = Db::getInstance()->getMsgError();
-                            //echo $errorMessage;
-                        }
+                        /*$log_update_data = [
+                        'api_estado_queue' => pSQL($o->estado_queue),
+                        'verifactuEstadoRegistro' => pSQL($o->EstadoRegistro),
+                        'verifactuEstadoEnvio' => pSQL($o->EstadoEnvio),
+                        'verifactuCodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
+                        'verifactuDescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+                            'fechahora' => date('Y-m-d H:i:s'),
+                        ];
+                        if (!Db::getInstance()->update('verifactu_logs', $log_update_data, 'api_id_queue = ' . (int)$o->id_queue)) {
+                             if ($this->debugMode) {
+                                PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al actualizar verifactu_logs: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                            }
+                        }*/
                     }
 
                     

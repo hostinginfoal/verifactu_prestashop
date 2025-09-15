@@ -38,27 +38,40 @@
         </div>
         <div class="card-body">
             <div class="input-group">
-                
-                Registro de facturación: 
-                <span id="estado-verifactu" style="font-weight:bold;margin-left:20px;">
-                {if $anulacion == "1"}
-                    Registro Anulado
-                {else}
-                    {if $estado == "pendiente"}
-                        Enviado correctamente. En espera de respuesta de Veri*Factu
+                <div style="width:100%;">
+                    Registro de facturación: 
+                    <span id="estado-verifactu" style="font-weight:bold;margin-left:20px;">
+                    {if $anulacion == "1"}
+                        Registro Anulado
                     {else}
-                        {if $verifactuEstadoRegistro == ""}
-                          No enviado
+                        {if $estado == "pendiente"}
+                            Enviado correctamente. En espera de respuesta de Veri*Factu
                         {else}
-                          {if $verifactuEstadoRegistro == "Correcto"}
-                            {$verifactuEstadoRegistro}
-                          {else}
-                            {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
-                          {/if}
+                            {if $verifactuEstadoRegistro == ""}
+                              No enviado
+                            {else}
+                              {if $verifactuEstadoRegistro == "Correcto"}
+                                Enviado correctamente a Veri*Factu
+                              {else}
+                                {$verifactuEstadoRegistro} - {$verifactuDescripcionErrorRegistro} ({$verifactuCodigoErrorRegistro})
+                              {/if}
+                            {/if}
                         {/if}
                     {/if}
+                    </span>
+                </div>
+
+                {if $verifactuEstadoRegistro == "Correcto" || $verifactuEstadoRegistro == "AceptadoConErrores"}
+                <div style="width:100%;">
+                Tipo de factura: <span id="estado-verifactu" style="font-weight:bold;margin-left:20px;">
+                    {if $TipoFactura == "F2"}
+                        Factura Simplificada
+                    {else}
+                        Factura Completa {$TipoFactura}
+                    {/if}
+                    </span>
+                </div>
                 {/if}
-                </span>
 
                 
             </div>
@@ -72,10 +85,11 @@
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_verifactu" {if $estado == "pendiente" || $verifactuEstadoRegistro == "Correcto" }disabled="true"{/if}>
                   {l s='Reenviar registro de facturación' mod='lupiverifactu'}
                 </button>
-                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni">
+                {if $verifactuEstadoRegistro == "Incorrecto"}
+                <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="check_dni" {if $estado == "pendiente" }disabled="true"{/if}>
                   {l s='Comprobar DNI' mod='lupiverifactu'}
                 </button>
-                
+                {/if}
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_anulacion_verifactu" {if $estado == "pendiente" ||  $anulacion == "1" || $verifactuEstadoRegistro == "Incorrecto" || !$verifactuEstadoRegistro}disabled="true"{/if}>
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
