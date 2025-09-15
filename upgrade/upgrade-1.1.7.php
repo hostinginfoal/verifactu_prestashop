@@ -76,7 +76,7 @@ ADD COLUMN `SIFVersion` VARCHAR(45) NULL AFTER `SIFIdSIF`,
 ADD COLUMN `SIFNumeroInstalacion` VARCHAR(45) NULL AFTER `SIFVersion`,
 ADD COLUMN `SIFTipoUsoPosibleSoloVerifactu` VARCHAR(45) NULL AFTER `SIFNumeroInstalacion`,
 ADD COLUMN `SIFTipoUsoPosibleMultiOT` VARCHAR(45) NULL AFTER `SIFTipoUsoPosibleSoloVerifactu`,
-ADD COLUMN `SIFIndicadorMultiplesOT` VARCHAR(45) NULL AFTER `SIFTipoUsoPosibleMultiOT`
+ADD COLUMN `SIFIndicadorMultiplesOT` VARCHAR(45) NULL AFTER `SIFTipoUsoPosibleMultiOT`,
 ADD COLUMN `id_shop` int(11) NOT NULL AFTER `SIFIndicadorMultiplesOT`';
 
 $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` CHANGE COLUMN `verifactuEstadoEnvio` `EstadoEnvio` VARCHAR(100) NULL ,
