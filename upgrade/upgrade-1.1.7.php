@@ -37,7 +37,7 @@ function upgrade_module_1_1_7($module)
     $sql = array();
     $sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` 
 ADD COLUMN `id_queue` int(11) NOT NULL AFTER `urlQR`
-ADD COLUMN `estado_queue` VARCHAR(20) NOT NULL DEFAULT  "pendiente" AFTER `id_queue`,
+ADD COLUMN `estado_queue` VARCHAR(20) NOT NULL AFTER `id_queue`,
 ADD COLUMN `InvoiceNumber` VARCHAR(50) NULL AFTER `estado_queue`,
 ADD COLUMN `IssueDate` DATE NULL AFTER `InvoiceNumber`,
 ADD COLUMN `TipoOperacion` VARCHAR(45) NULL AFTER `IssueDate`,
