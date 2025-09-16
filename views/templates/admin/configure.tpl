@@ -40,6 +40,14 @@
 		&raquo;
         {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop" target="_blank">https://github.com/hostinginfoal/verifactu_prestashop</a>
 	</p>
+	<p>
+		&raquo;
+        {l s='Puedes descargar la última versión del módulo desde aquí: ' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip">https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip</a>
+	</p>
+	<p>
+		&raquo;
+        {l s='Si necesitas soporte puedes ponerte en contacto con nosotros, abriendo un ticket de soporte en el siguiente enlace: ' mod='verifactu'} : <a href="https://hosting.infoal.com/submitticket.php?step=2&deptid=1" target="_blank">https://hosting.infoal.com/submitticket.php?step=2&deptid=1</a>
+	</p>
 </div>
 
 <ul class="nav nav-tabs">

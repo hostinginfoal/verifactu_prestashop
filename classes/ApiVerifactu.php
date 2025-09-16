@@ -749,12 +749,8 @@ class ApiVerifactu
 
             
             
-            $reply['response'] = 'OK';
         }
-        else
-        {
-            $reply['response'] = 'KO';
-        }
+        
         
 
         return $response;

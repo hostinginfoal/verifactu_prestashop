@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.7';
+        $this->version = '1.1.8';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -316,7 +316,7 @@ class Verifactu extends Module
 
         if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
             $this->postProcess();
-            $output .= $this->displayConfirmation($this->l('Settings updated'));
+            $output .= $this->displayConfirmation($this->l('Configuración actualizada'));
         }
 
         $this->context->smarty->assign('module_dir', $this->_path);
@@ -336,7 +336,7 @@ class Verifactu extends Module
         
         $output .= $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
 
-        $output .= $this->renderShopList();
+        //$output .= $this->renderShopList();
 
         if ($tab == 'configure') 
         {
@@ -505,6 +505,24 @@ class Verifactu extends Module
      */
     protected function postProcess()
     {
+        // 1. Obtenemos el nuevo token que el usuario ha introducido en el formulario.
+        $apiToken = Tools::getValue('VERIFACTU_API_TOKEN');
+
+        if (!empty($apiToken)) {
+            $validation = $this->validateApiToken($apiToken);
+
+            if ($validation['success']) {
+                // CORRECTO: Añadimos el mensaje al array 'confirmations' del controlador.
+                $this->context->controller->confirmations[] = $this->l('¡Perfecto! La conexión con la API de VeriFactu se ha realizado correctamente.');
+            } else {
+                // CORRECTO: Añadimos el mensaje al array 'errors' del controlador.
+                $this->context->controller->errors[] = $this->l('Error de conexión: No se pudo validar la clave de API. Por favor, compruebe que sea correcta. Detalle: ') . $validation['message'];
+            }
+        } else {
+             // CORRECTO: Añadimos el mensaje al array 'warnings' del controlador.
+            $this->context->controller->warnings[] = $this->l('El campo "API Token" está vacío. El módulo no podrá comunicarse con VeriFactu.');
+        }
+
         $form_values = $this->getConfigFormValues();
 
         $shops = Tools::getValue('checkBoxShopAsso_configuration');
@@ -524,6 +542,56 @@ class Verifactu extends Module
                     Configuration::updateValue($key, Tools::getValue($key), false, $id_shop_group, $id_shop);
                 }
             }
+        }
+    }
+
+    /**
+     * Valida un token de API contra el endpoint TESTKEY.
+     *
+     * @param string $apiToken El token a validar.
+     * @return array Un array con el resultado ['success' => bool, 'message' => string].
+     */
+    private function validateApiToken($apiToken)
+    {
+        // La URL de tu nuevo endpoint.
+        $apiUrl = 'https://verifactu.infoal.io/api_v2/verifactu/testkey';
+
+        // Inicializamos cURL para hacer la petición.
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true); // Es una petición POST
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $apiToken, // Cabecera de autorización.
+            'Content-Type: application/json'
+        ]);
+        // Aunque no enviemos cuerpo, es buena práctica especificarlo para peticiones POST.
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([])); 
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        // Comprobamos si hubo un error de cURL (p.ej., no se pudo conectar al servidor).
+        if ($error) {
+            return ['success' => false, 'message' => 'Error de cURL: ' . $error];
+        }
+
+        // Decodificamos la respuesta JSON.
+        $responseData = json_decode($response, true);
+
+        // Verificamos si la respuesta es la esperada (HTTP 200 y response=OK).
+        if ($httpCode === 200 && isset($responseData['response']) && $responseData['response'] === 'OK') {
+            return ['success' => true, 'message' => 'Token válido.'];
+        } else {
+            // Si no, construimos un mensaje de error a partir de la respuesta de la API.
+            $errorMessage = 'Código de respuesta HTTP: ' . $httpCode;
+            if (isset($responseData['error'])) {
+                $errorMessage .= ' - ' . $responseData['error'];
+            }
+            return ['success' => false, 'message' => $errorMessage];
         }
     }
 
@@ -629,16 +697,66 @@ class Verifactu extends Module
 
     //Listado de registros de facturación-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     
+    /**
+     * Renderiza la lista de Registros de Facturación (Versión Corregida).
+     */
     public function renderList()
     {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // 1. Definimos la nueva estructura de columnas.
         $fields_list = array(
-            'id_reg_fact' => array('title' => $this->l('ID'),'type' => 'number'),
-            'id_order_invoice' => array('title' => $this->l('ID Factura'), 'type' => 'number'),
-            'verifactuEstadoEnvio' => array('title' => $this->l('Estado Envío')),
-            'verifactuEstadoRegistro' => array('title' => $this->l('Estado Registro')),
-            'verifactuCodigoErrorRegistro' => array('title' => $this->l('Código Error')),
-            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Descripción Error')),
-            'urlQR' => array('title' => $this->l('URL QR')),
+            'InvoiceNumber' => array(
+                'title' => $this->l('Nº Factura'),
+                'type' => 'text',
+                'search' => true,
+                'orderby' => true,
+            ),
+            'TipoOperacion' => array(
+                'title' => $this->l('Operación'),
+                'type' => 'text',
+            ),
+            'TipoFactura' => array(
+                'title' => $this->l('Tipo'),
+                'type' => 'text',
+                'align' => 'center',
+            ),
+            'FacturaSinIdentifDestinatarioArt61d' => array(
+                'title' => $this->l('Simplif.'),
+                'type' => 'bool',
+                'active' => 'status',
+                'align' => 'center',
+            ),
+            'BuyerName' => array(
+                'title' => $this->l('Cliente'),
+                'type' => 'text',
+            ),
+            'TotalTaxOutputs' => array(
+                'title' => $this->l('Impuestos'),
+                'type' => 'price',
+            ),
+            'InvoiceTotal' => array(
+                'title' => $this->l('Total'),
+                'type' => 'price',
+            ),
+            'EstadoRegistro' => array(
+                'title' => $this->l('Estado'),
+                'type' => 'text',
+            ),
+            'error' => array(
+                'title' => $this->l('Error'),
+                'type' => 'text',
+                'search' => false,
+                'orderby' => false,
+                'callback' => 'printErrorColumn',
+            ),
+            // 2. Añadimos la columna de acciones con su propio callback.
+            'actions' => array(
+                'title' => $this->l('Acciones'),
+                'type' => 'text',
+                'search' => false,
+                'orderby' => false,
+                'callback' => 'printActionsColumn',
+            )
         );
 
         $helper = new HelperList();
@@ -646,39 +764,115 @@ class Verifactu extends Module
         $helper->table = 'verifactu_reg_fact';
         $helper->identifier = 'id_reg_fact';
         $helper->simple_header = false;
-        $helper->actions = array();
+        
+        // 3. Ya no se usan 'actions' ni 'setRowActionCallback'.
+        $helper->actions = array(); 
+        
         $helper->show_toolbar = true;
         $helper->module = $this;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=reg_facts';
         
-        $page = (int) Tools::getValue('submitFilter' . $helper->table);
-        $page = $page ? $page : 1;
+        $page = (int) Tools::getValue('submitFilter' . $helper->table, 1);
         $pagination = (int) Tools::getValue('pagination', 20);
-        $pagination = $pagination ? $pagination : 20;
-
         $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_reg_fact');
         $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
 
         $content = $this->getListContent($helper->table, $page, $pagination, $orderBy, $orderWay);
         $helper->listTotal = $this->getTotalListContent($helper->table);
 
-
         return $helper->generateList($content, $fields_list);
+        // --- FIN DE LA MODIFICACIÓN ---
     }
 
+    /**
+     * Función callback para renderizar la columna de error.
+     * @param string $value El valor del campo (no se usa directamente aquí).
+     * @param array $row La fila completa de datos.
+     * @return string El HTML para la celda.
+     */
+    public function printErrorColumn($value, $row)
+    {
+        $errorCode = $row['CodigoErrorRegistro'];
+        $errorDesc = $row['DescripcionErrorRegistro'];
+
+        if (!empty($errorCode) || !empty($errorDesc)) {
+            return trim($errorCode . ' - ' . $errorDesc);
+        }
+        return '--';
+    }
+
+    /**
+     * Función callback para generar los botones de acción para cada fila.
+     * @param int $id El ID del registro actual (no se usa directamente, lo obtenemos de la fila).
+     * @param array $row La fila completa de datos.
+     * @return string El HTML para los botones.
+     */
+    public function printActionsColumn($id, $row)
+    {
+        $actions = '';
+        $id_reg_fact = (int)$row['id_reg_fact'];
+
+        // Botón Ver Detalle
+        $detailUrl = '#'; // TODO: Reemplazar con el enlace real al detalle.
+        $actions .= '<a class="btn btn-default" href="' . $detailUrl . '" title="' . $this->l('Ver detalle') . '" onclick="alert(\'Detalle del registro ID: ' . $id_reg_fact . '\'); return false;"><i class="icon-eye-open"></i></a> ';
+
+        // Botón Enlace QR (condicional)
+        if (!empty($row['urlQR'])) {
+            $actions .= '<a class="btn btn-default" href="' . Tools::safeOutput($row['urlQR']) . '" title="' . $this->l('Enlace QR') . '" target="_blank"><i class="icon-qrcode"></i></a>';
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Función callback para generar los botones de acción para cada fila.
+     * @param int $id El ID del registro actual.
+     * @param array $row La fila completa de datos.
+     * @return string El HTML para los botones.
+     */
+    public function displayActionsColumn($id, $row)
+    {
+        $actions = '';
+
+        // Botón Ver Detalle (enlace de ejemplo, podrías apuntar a un controlador específico)
+        $detailUrl = '#'; // TODO: Reemplazar con el enlace real al detalle si lo implementas.
+        $actions .= '<a class="btn btn-default" href="' . $detailUrl . '" title="' . $this->l('Ver detalle') . '" onclick="alert(\'Detalle del registro ID: ' . (int)$id . '\'); return false;"><i class="icon-eye-open"></i></a> ';
+
+        // Botón Enlace QR
+        if (!empty($row['urlQR'])) {
+            $actions .= '<a class="btn btn-default" href="' . $row['urlQR'] . '" title="' . $this->l('Enlace QR') . '" target="_blank"><i class="icon-qrcode"></i></a>';
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Obtiene los datos para el HelperList.
+     */
     private function getListContent($table, $page, $pagination, $orderBy, $orderWay)
     {
         $db = Db::getInstance();
         $sql = new DbQuery();
-        $sql->select('*');
+        // --- INICIO MODIFICACIÓN QUERY ---
+        // Seleccionamos solo los campos que necesitamos.
+        $sql->select('
+            t.id_reg_fact, t.InvoiceNumber, t.TipoOperacion, t.TipoFactura, 
+            t.FacturaSinIdentifDestinatarioArt61d, t.BuyerName, 
+            t.TotalTaxOutputs, t.InvoiceTotal, t.EstadoRegistro,
+            t.CodigoErrorRegistro, t.DescripcionErrorRegistro, t.urlQR'
+        );
+        // --- FIN MODIFICACIÓN QUERY ---
         $sql->from($table, 't');
 
-        $allowedOrderBy = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoEnvio', 'verifactuEstadoRegistro', 'verifactuCodigoErrorRegistro'];
+        // Lista blanca de campos permitidos para ordenar
+        $allowedOrderBy = [
+            'id_reg_fact', 'InvoiceNumber', 'BuyerName', 'InvoiceTotal', 'EstadoRegistro'
+        ];
         if (!in_array($orderBy, $allowedOrderBy)) {
             $orderBy = 'id_reg_fact'; // Valor por defecto seguro
         }
-        $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC'; // Validar dirección
+        $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC';
         $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
 
         $whereClauses = [];
@@ -687,9 +881,9 @@ class Verifactu extends Module
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
                 $field = substr($key, strlen($table . 'Filter_'));
                 
-                $allowedFilters = ['id_reg_fact', 'id_order_invoice', 'verifactuEstadoRegistro', 'verifactuDescripcionErrorRegistro'];
+                // Lista blanca de campos permitidos para filtrar
+                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro'];
                 if (in_array($field, $allowedFilters)) {
-                    // Usamos pSQL() para escapar el valor de forma segura para la cláusula LIKE
                     $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
                 }
             }
