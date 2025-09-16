@@ -36,7 +36,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     `DescripcionErrorRegistro` text,
     `urlQR` varchar(255) DEFAULT NULL,
     `id_queue` int NOT NULL,
-    `estado_queue` varchar(20) NOT NULL DEFAULT,
+    `estado_queue` varchar(20) DEFAULT NULL,
     `InvoiceNumber` varchar(50) DEFAULT NULL,
     `IssueDate` date DEFAULT NULL,
     `TipoOperacion` varchar(45) DEFAULT NULL,
