@@ -719,7 +719,6 @@ class ApiVerifactu
                 'id_reg_fact' => (int)$obj->id_reg_fact,
                 'id_queue' => (int)$obj->id_queue,
                 'estado_queue' => pSQL($api_estado_queue),
-                'id_invoice' => (int)$obj->id_invoice,
                 'id_order_invoice' => $id_order_invoice,
                 'invoice_number' => pSQL($obj->InvoiceNumber),
                 'urlQR' => pSQL($o->urlQR),
