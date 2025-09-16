@@ -539,6 +539,7 @@ class ApiVerifactu
                 $insert_data = [
                 'id_reg_fact' => (int)$obj->id_reg_fact,
                 'id_queue' => (int)$api_id_queue,
+                'tipo' => pSQL($tipo),
                 'estado_queue' => pSQL($api_estado_queue),
                 'id_order_invoice' => (int)$id_order_invoice,
                 'invoice_number' => pSQL($obj->InvoiceNumber),
@@ -717,12 +718,12 @@ class ApiVerifactu
             {
                 $reg_fact_data = [
                 'id_reg_fact' => (int)$obj->id_reg_fact,
+                'tipo' => pSQL($tipo),
                 'id_queue' => (int)$obj->id_queue,
                 'estado_queue' => pSQL($api_estado_queue),
-                'id_order_invoice' => $id_order_invoice,
+                'id_order_invoice' => (int)$id_order_invoice,
                 'invoice_number' => pSQL($obj->InvoiceNumber),
-                'urlQR' => pSQL($o->urlQR),
-                'id_shop' => (int)$this->id_shop,
+                'id_shop' => (int)$this->id_shop
                 ];
                 if (!Db::getInstance()->insert('verifactu_reg_fact', $reg_fact_data)) {
                      if ($this->debugMode) {

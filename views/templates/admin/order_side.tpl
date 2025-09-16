@@ -67,7 +67,7 @@
                     {if $TipoFactura == "F2"}
                         Factura Simplificada
                     {else}
-                        Factura Completa {$TipoFactura}
+                        Factura Completa
                     {/if}
                     </span>
                 </div>
