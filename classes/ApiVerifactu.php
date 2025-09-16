@@ -256,13 +256,13 @@ class ApiVerifactu
         // Comprueba si 'vat_number' tiene contenido. Si lo tiene, lo usamos. Si no, usamos 'dni'.
         $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
         $buyer->TaxIdentificationNumber = $taxIdentificationNumber;
-        $buyer->CorporateName = $address['company'];
+        $buyer->CorporateName = (isset($address['company']) && $address['company'] != ''?$address['company']:'');
         $buyer->Name = $address['firstname'].' '.$address['lastname'];
-        $buyer->Address = $address['address1'];
-        $buyer->PostCode = $address['postcode'];
-        $buyer->Town = $address['city'];
-        $buyer->Province = $prov['name'];
-        $buyer->CountryCode = $pais['iso_code'];
+        $buyer->Address = (isset($address['address1']) && $address['address1'] != ''?$address['address1']:'');
+        $buyer->PostCode = (isset($address['postcode']) && $address['postcode'] != ''?$address['postcode']:'');
+        $buyer->Town = (isset($address['city']) && $address['city'] != ''?$address['city']:'');
+        $buyer->Province = (isset($prov['name']) && $prov['name'] != ''?$prov['name']:'');
+        $buyer->CountryCode = (isset($pais['iso_code']) && $pais['iso_code'] != ''?$pais['iso_code']:'ES');
 
         $data->buyer = $buyer;
 
@@ -274,7 +274,7 @@ class ApiVerifactu
             $totalTaxIncl = ((float) $slip['total_products_tax_incl'] + (float) $slip['total_shipping_tax_incl']);
             $inv->InvoiceNumber = $InvoiceNumber;
             $inv->InvoiceDocumentType = ($taxIdentificationNumber != ''?"FC":"FA");
-            $inv->InvoiceClass = "OR"; //Factura normal
+            $inv->InvoiceClass = "OR"; //Factura rectificativa
             $inv->IssueDate = date('Y-m-d', strtotime($slip['date_add']));
             $inv->InvoiceCurrencyCode = $currency['iso_code'];
             $inv->TaxCurrencyCode = $currency['iso_code'];
@@ -1018,7 +1018,7 @@ class ApiVerifactu
                                 'TipoFactura' => pSQL($o->TipoFactura),
                                 'FacturaSimplificadaArt7273' => pSQL($o->FacturaSimplificadaArt7273),
                                 'FacturaSinIdentifDestinatarioArt61d' => pSQL($o->FacturaSinIdentifDestinatarioArt61d),
-                                'CalificacionOperacion' => pSQL($o->CalificacionOperacion),
+                                //'CalificacionOperacion' => pSQL($o->CalificacionOperacion),
                                 'Macrodato' => pSQL($o->Macrodato),
                                 'Cupon' => pSQL($o->Cupon),
                                 'TotalTaxOutputs' => pSQL($o->TotalTaxOutputs),
