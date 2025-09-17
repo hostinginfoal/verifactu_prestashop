@@ -995,65 +995,68 @@ class ApiVerifactu
                             $update_data = [
 
                                 //Cola
-                                'estado_queue' => pSQL($o->estado_queue),
+                                'estado_queue' => (isset($o->estado_queue) ? pSQL($o->estado_queue) : ''), 
 
                                 //Factura
-                                'InvoiceNumber' => pSQL($o->InvoiceNumber),
-                                'IssueDate' => pSQL($o->IssueDate),
+                                'InvoiceNumber' => (isset($o->InvoiceNumber) ? pSQL($o->InvoiceNumber) : ''), 
+                                'IssueDate' => (isset($o->IssueDate) ? pSQL($o->IssueDate) : ''), 
 
                                 //Respuesta verifactu
-                                'EstadoEnvio' => pSQL($o->EstadoEnvio),
-                                'EstadoRegistro' => pSQL($o->EstadoRegistro),
-                                'CodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
-                                'DescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+                                'EstadoEnvio' => (isset($o->EstadoEnvio) ? pSQL($o->EstadoEnvio) : ''),
+                                'EstadoRegistro' => (isset($o->EstadoRegistro) ? pSQL($o->EstadoRegistro) : ''), 
+                                'CodigoErrorRegistro' => (isset($o->CodigoErrorRegistro) ? pSQL($o->CodigoErrorRegistro) : ''), 
+                                'DescripcionErrorRegistro' => (isset($o->DescripcionErrorRegistro) ? pSQL($o->DescripcionErrorRegistro) : ''), 
 
                                 //Registro de facturación - Registro
-                                'TipoOperacion' => pSQL($o->TipoOperacion),
-                                'EmpresaNombreRazon' => pSQL($o->EmpresaNombreRazon),
-                                'EmpresaNIF' => pSQL($o->EmpresaNIF),
-                                'hash' => pSQL($o->hash),
-                                'cadena' => pSQL($o->cadena),
-                                'AnteriorHash' => pSQL($o->AnteriorHash),
+                                'TipoOperacion' => (isset($o->TipoOperacion) ? pSQL($o->TipoOperacion) : ''),
+                                'EmpresaNombreRazon' => (isset($o->EmpresaNombreRazon) ? pSQL($o->EmpresaNombreRazon) : ''), 
+                                'EmpresaNIF' => (isset($o->EmpresaNIF) ? pSQL($o->EmpresaNIF) : ''),
+                                'hash' => (isset($o->hash) ? pSQL($o->hash) : ''),
+                                'cadena' => (isset($o->cadena) ? pSQL($o->cadena) : ''), 
+                                'AnteriorHash' => (isset($o->AnteriorHash) ? pSQL($o->AnteriorHash) : ''),
 
-                                'TipoFactura' => pSQL($o->TipoFactura),
-                                'FacturaSimplificadaArt7273' => pSQL($o->FacturaSimplificadaArt7273),
-                                'FacturaSinIdentifDestinatarioArt61d' => pSQL($o->FacturaSinIdentifDestinatarioArt61d),
+                                'TipoFactura' => (isset($o->TipoFactura) ? pSQL($o->TipoFactura) : ''),
+                                'FacturaSimplificadaArt7273' => (isset($o->FacturaSimplificadaArt7273) ? pSQL($o->FacturaSimplificadaArt7273) : ''),
+                                'FacturaSinIdentifDestinatarioArt61d' => (isset($o->FacturaSinIdentifDestinatarioArt61d) ? pSQL($o->FacturaSinIdentifDestinatarioArt61d) : ''),
                                 //'CalificacionOperacion' => pSQL($o->CalificacionOperacion),
-                                'Macrodato' => pSQL($o->Macrodato),
-                                'Cupon' => pSQL($o->Cupon),
-                                'TotalTaxOutputs' => pSQL($o->TotalTaxOutputs),
-                                'InvoiceTotal' => pSQL($o->InvoiceTotal),
+                                'Macrodato' => (isset($o->Macrodato) ? pSQL($o->Macrodato) : ''), 
+
+
+
+                                'Cupon' => (isset($o->Cupon) ? pSQL($o->Cupon) : ''),
+                                'TotalTaxOutputs' => (isset($o->TotalTaxOutputs) ? pSQL($o->TotalTaxOutputs) : ''),
+                                'InvoiceTotal' => (isset($o->InvoiceTotal) ? pSQL($o->InvoiceTotal) : ''),
 
                                 //Fechas registro
-                                'FechaHoraHusoGenRegistro' => pSQL($o->FechaHoraHusoGenRegistro),
-                                'fechaHoraRegistro' => pSQL($o->fechaHoraRegistro),
+                                'FechaHoraHusoGenRegistro' => (isset($o->FechaHoraHusoGenRegistro) ? pSQL($o->FechaHoraHusoGenRegistro) : ''),
+                                'fechaHoraRegistro' => (isset($o->fechaHoraRegistro) ? pSQL($o->fechaHoraRegistro) : ''),
 
                                 //SIF
-                                'SIFNombreRazon' => pSQL($o->SIFNombreRazon),
-                                'SIFNIF' => pSQL($o->SIFNIF),
-                                'SIFNombreSIF' => pSQL($o->SIFNombreSIF),
-                                'SIFIdSIF' => pSQL($o->SIFIdSIF),
-                                'SIFVersion' => pSQL($o->SIFVersion),
-                                'SIFNumeroInstalacion' => pSQL($o->SIFNumeroInstalacion),
-                                'SIFTipoUsoPosibleSoloVerifactu' => pSQL($o->SIFTipoUsoPosibleSoloVerifactu),
-                                'SIFTipoUsoPosibleMultiOT' => pSQL($o->SIFTipoUsoPosibleMultiOT),
-                                'SIFIndicadorMultiplesOT' => pSQL($o->SIFIndicadorMultiplesOT),
+                                'SIFNombreRazon' => (isset($o->SIFNombreRazon) ? pSQL($o->SIFNombreRazon) : ''),
+                                'SIFNIF' => (isset($o->SIFNIF) ? pSQL($o->SIFNIF) : ''),
+                                'SIFNombreSIF' => (isset($o->SIFNombreSIF) ? pSQL($o->SIFNombreSIF) : ''),
+                                'SIFIdSIF' => (isset($o->SIFIdSIF) ? pSQL($o->SIFIdSIF) : ''), 
+                                'SIFVersion' => (isset($o->SIFVersion) ? pSQL($o->SIFVersion) : ''),
+                                'SIFNumeroInstalacion' => (isset($o->SIFNumeroInstalacion) ? pSQL($o->SIFNumeroInstalacion) : ''),
+                                'SIFTipoUsoPosibleSoloVerifactu' => (isset($o->SIFTipoUsoPosibleSoloVerifactu) ? pSQL($o->SIFTipoUsoPosibleSoloVerifactu) : ''),
+                                'SIFTipoUsoPosibleMultiOT' => (isset($o->SIFTipoUsoPosibleMultiOT) ? pSQL($o->SIFTipoUsoPosibleMultiOT) : ''),
+                                'SIFIndicadorMultiplesOT' => (isset($o->SIFIndicadorMultiplesOT) ? pSQL($o->SIFIndicadorMultiplesOT) : ''),
                                 ];
 
                                 //Comprador
                                 if ($o->FacturaSimplificadaArt7273 != 'S')
                                 {
-                                    $update_data['BuyerName'] = pSQL($o->BuyerName);
-                                    $update_data['BuyerCorporateName'] = pSQL($o->BuyerCorporateName);
-                                    $update_data['BuyerCountryCode'] = pSQL($o->BuyerCountryCode);
-                                    if ($o->BuyerCountryCode != 'ES')
+                                    $update_data['BuyerName'] = (isset($o->BuyerName) ? pSQL($o->BuyerName) : '');
+                                    $update_data['BuyerCorporateName'] = (isset($o->BuyerCorporateName) ? pSQL($o->BuyerCorporateName) : '');
+                                    $update_data['BuyerCountryCode'] = (isset($o->BuyerCountryCode) ? pSQL($o->BuyerCountryCode) : '');
+                                    if (isset($o->BuyerCountryCode) && $o->BuyerCountryCode != 'ES')
                                     {
-                                        $update_data['IDOtroIDType'] = pSQL($o->IDOtroIDType);
-                                        $update_data['IDOtroID'] = pSQL($o->IDOtroID);
+                                        $update_data['IDOtroIDType'] = (isset($o->IDOtroIDType) ? pSQL($o->IDOtroIDType) : '');
+                                        $update_data['IDOtroID'] = (isset($o->IDOtroID) ? pSQL($o->IDOtroID) : '');
                                     }
                                     else
                                     {
-                                        $update_data['BuyerTaxIdentificationNumber'] = pSQL($o->BuyerTaxIdentificationNumber);
+                                        $update_data['BuyerTaxIdentificationNumber'] = (isset($o->BuyerTaxIdentificationNumber) ? pSQL($o->BuyerTaxIdentificationNumber) : '');
                                     }
                                     
                                 }
