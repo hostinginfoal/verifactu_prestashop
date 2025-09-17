@@ -16,12 +16,12 @@ class AdminVerifactuAjaxController extends ModuleAdminController
     {
         $id_order = (int)Tools::getValue('id_order');
         if (!$id_order) {
-            $this->ajaxDie(json_encode(['error' => 'ID de pedido no válido.']));
+            die(json_encode(['error' => 'ID de pedido no válido.']));
         }
 
         $order = new Order($id_order);
         if (!Validate::isLoadedObject($order)) {
-            $this->ajaxDie(json_encode(['error' => 'No se pudo cargar el pedido.']));
+            die(json_encode(['error' => 'No se pudo cargar el pedido.']));
         }
 
         $id_shop = (int)$order->id_shop;
@@ -35,19 +35,20 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         $response = $av->sendAltaVerifactu($id_order);
 
         // Usamos ajaxDie para una respuesta limpia en JSON.
-        $this->ajaxDie($response);
+        header('Content-Type: application/json');
+        die($response);
     }
 
     public function displayAjaxEnviarSustitutivaVerifactu()
     {
         $id_order = (int)Tools::getValue('id_order');
         if (!$id_order) {
-            $this->ajaxDie(json_encode(['error' => 'ID de pedido no válido.']));
+            die(json_encode(['error' => 'ID de pedido no válido.']));
         }
 
         $order = new Order($id_order);
         if (!Validate::isLoadedObject($order)) {
-            $this->ajaxDie(json_encode(['error' => 'No se pudo cargar el pedido.']));
+            die(json_encode(['error' => 'No se pudo cargar el pedido.']));
         }
 
         $id_shop = (int)$order->id_shop;
@@ -61,7 +62,8 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         $response = $av->sendAltaVerifactu($id_order,'sustitutiva');
 
         // Usamos ajaxDie para una respuesta limpia en JSON.
-        $this->ajaxDie($response);
+        header('Content-Type: application/json');
+        die($response);
     }
 
     public function displayAjaxCheckDNI()
@@ -74,7 +76,7 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         // CAMBIO MULTITIENDA: Lógica para obtener el contexto de la tienda.
         $order = new Order($id_order);
         if (!Validate::isLoadedObject($order)) {
-            $this->ajaxDie(json_encode(['error' => 'No se pudo cargar el pedido.']));
+            die(json_encode(['error' => 'No se pudo cargar el pedido.']));
         }
         
         $id_shop = (int)$order->id_shop;
@@ -85,20 +87,21 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
         $response = $av->checkDNI($id_order);
 
-        $this->ajaxDie($response);
+        header('Content-Type: application/json');
+        die($response);
     }
 
     public function displayAjaxAnularVerifactu()
     {
         $id_order = (int)Tools::getValue('id_order');
         if (!$id_order) {
-            $this->ajaxDie(json_encode(['error' => 'ID de pedido no válido.']));
+            die(json_encode(['error' => 'ID de pedido no válido.']));
         }
         
         // CAMBIO MULTITIENDA: Lógica para obtener el contexto de la tienda.
         $order = new Order($id_order);
         if (!Validate::isLoadedObject($order)) {
-            $this->ajaxDie(json_encode(['error' => 'No se pudo cargar el pedido.']));
+            die(json_encode(['error' => 'No se pudo cargar el pedido.']));
         }
         
         $id_shop = (int)$order->id_shop;
@@ -109,7 +112,8 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
         $response = $av->sendAnulacionVerifactu($id_order);
 
-        $this->ajaxDie($response);
+        header('Content-Type: application/json');
+        die($response);
     }
 
     /**
@@ -122,7 +126,7 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         if (!$id_shop) {
             // Si el contexto es "Todas las tiendas", podríamos decidir no hacer nada o manejarlo de alguna manera.
             // Por ahora, asumimos que siempre se opera en el contexto de una tienda específica.
-            $this->ajaxDie(json_encode(['error' => 'Por favor, seleccione una tienda específica para realizar esta acción.']));
+            die(json_encode(['error' => 'Por favor, seleccione una tienda específica para realizar esta acción.']));
         }
 
         $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
@@ -135,7 +139,8 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         // Ver punto clave adicional abajo.
         $response = $av->checkPendingInvoices(); 
 
-        $this->ajaxDie($response);
+        header('Content-Type: application/json');
+        die($response);
     }
 
     protected function ajaxDie($value = null, $controller = null, $method = null)
