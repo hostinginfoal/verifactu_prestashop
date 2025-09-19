@@ -80,25 +80,11 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     PRIMARY KEY  (`id_reg_fact`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-/*$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_logs` (
-    `id_log` int(11) NOT NULL AUTO_INCREMENT,
-    `api_id_queue` int(11) NOT NULL,
-    `api_estado_queue` VARCHAR(40),
-    `id_order_invoice` int(11) NOT NULL,
-    `invoice_number` VARCHAR(100),
-    `tipo` VARCHAR(20),
-    `verifactuEstadoEnvio` VARCHAR(100),
-    `verifactuEstadoRegistro` VARCHAR(100),
-    `verifactuCodigoErrorRegistro` VARCHAR(100),
-    `verifactuDescripcionErrorRegistro` TEXT,
-    `fechahora` DATETIME,
-    PRIMARY KEY  (`id_log`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';*/
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice` (
     `id_order_invoice` int(11) NOT NULL,
     `estado` VARCHAR(40),
-    `api_id_queue` int(11) NOT NULL,
+    `id_reg_fact` int(11) NOT NULL,
     `verifactuEstadoEnvio` VARCHAR(100),
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),
@@ -112,7 +98,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `id_order_slip` int(11) NOT NULL,
     `estado` VARCHAR(40),
-    `api_id_queue` int(11) NOT NULL,
+    `id_reg_fact` int(11) NOT NULL,
     `verifactuEstadoEnvio` VARCHAR(100),
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),

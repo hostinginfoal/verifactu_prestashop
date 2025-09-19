@@ -280,8 +280,8 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
-            $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
-            $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
+            $inv->TotalGeneralDiscounts = 0;
+            $inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = -((float) $totalTaxExcl);
             $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->TotalTaxesWithheld = -((float) $totalTaxIncl - (float) $totalTaxExcl );
@@ -355,12 +355,12 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
-            $inv->TotalGeneralDiscounts = /*$invoice['number']*/0;
-            $inv->TotalGeneralSurcharges = /*$invoice['number']*/0;
+            $inv->TotalGeneralDiscounts = 0;
+            $inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
-            $inv->TotalTaxOutputs = /*-abs*/((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
+            $inv->TotalTaxOutputs = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
-            $inv->InvoiceTotal = /*-abs*/((float) $invoice['total_paid_tax_incl']);
+            $inv->InvoiceTotal = ((float) $invoice['total_paid_tax_incl']);
             $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
             $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
 
@@ -381,8 +381,8 @@ class ApiVerifactu
                 $line->GrossAmount = $l['total_price_tax_incl'];
                 $line->TaxTypeCode = '01';
                 $line->TaxRate = $l['tax_rate'];
-                $line->TaxableBaseAmount = /*-abs*/((float) $l['total_price_tax_excl']);
-                $line->TaxAmountTotal = /*-abs*/((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
+                $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
+                $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
                 $seq++;
 
@@ -461,7 +461,7 @@ class ApiVerifactu
         if (isset($obj, $obj->response) && $obj->response == 'OK')
         {  
             $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
-            $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
+            $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
             $api_estado_queue = 'pendiente';
             $id_order_invoice = 0;
 
@@ -476,7 +476,7 @@ class ApiVerifactu
                 {
                     $update_data = [
                         'estado' => 'pendiente',
-                        'api_id_queue' => $api_id_queue,
+                        'id_reg_fact' => $id_reg_fact,
                     ];
                     if (!Db::getInstance()->update('verifactu_order_slip', $update_data, 'id_order_slip = ' . $id_order_invoice)) {
                         if ($this->debugMode) {
@@ -489,7 +489,7 @@ class ApiVerifactu
                     $insert_data = [
                         'id_order_slip' => $id_order_invoice,
                         'estado' => 'pendiente',
-                        'api_id_queue' => $api_id_queue,
+                        'id_reg_fact' => $id_reg_fact,
                         'urlQR' => $urlQR,
                     ];
                     if (!Db::getInstance()->insert('verifactu_order_slip', $insert_data)) {
@@ -509,7 +509,7 @@ class ApiVerifactu
                 {
                     $update_data = [
                         'estado' => 'pendiente',
-                        'api_id_queue' => $api_id_queue,
+                        'id_reg_fact' => $id_reg_fact,
                     ];
                     if (!Db::getInstance()->update('verifactu_order_invoice', $update_data, 'id_order_invoice = ' . $id_order_invoice)) {
                         if ($this->debugMode) {
@@ -522,7 +522,7 @@ class ApiVerifactu
                     $insert_data = [
                         'id_order_invoice' => $id_order_invoice,
                         'estado' => 'pendiente',
-                        'api_id_queue' => $api_id_queue,
+                        'id_reg_fact' => $id_reg_fact,
                         'urlQR' => $urlQR,
                     ];
                     if (!Db::getInstance()->insert('verifactu_order_invoice', $insert_data)) {
@@ -538,7 +538,6 @@ class ApiVerifactu
 
                 $insert_data = [
                 'id_reg_fact' => (int)$obj->id_reg_fact,
-                'id_queue' => (int)$api_id_queue,
                 'tipo' => pSQL($tipo),
                 'estado_queue' => pSQL($api_estado_queue),
                 'id_order_invoice' => (int)$id_order_invoice,
@@ -684,13 +683,13 @@ class ApiVerifactu
 
         if (isset($obj, $obj->response) && $obj->response == 'OK')
         {
-            $api_id_queue = isset($obj->id_queue) ? (int)$obj->id_queue : 0;
+            $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
             $api_estado_queue = 'pendiente';
             $InvoiceNumber = '';
 
             $update_data = [
                 'estado' => 'pendiente',
-                'api_id_queue' => $api_id_queue,
+                'id_reg_fact' => $id_reg_fact,
             ];
 
             if ($tipo == 'abono')
@@ -719,7 +718,7 @@ class ApiVerifactu
                 $reg_fact_data = [
                 'id_reg_fact' => (int)$obj->id_reg_fact,
                 'tipo' => pSQL($tipo),
-                'id_queue' => (int)$obj->id_queue,
+                'id_reg_fact' => (int)$obj->id_reg_fact,
                 'estado_queue' => pSQL($api_estado_queue),
                 'id_order_invoice' => (int)$id_order_invoice,
                 'invoice_number' => pSQL($obj->InvoiceNumber),
@@ -730,21 +729,6 @@ class ApiVerifactu
                         PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al insertar en verifactu_reg_fact: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
                     }
                 }
-
-                // Guardamos el log
-                /*$log_data = [
-                    'id_order_invoice' => $id_order_invoice,
-                    'invoice_number' => pSQL($InvoiceNumber),
-                    'tipo' => pSQL($tipo),
-                    'api_id_queue' => $api_id_queue,
-                    'api_estado_queue' => pSQL($api_estado_queue),
-                    'fechahora' => date('Y-m-d H:i:s'),
-                ];
-                if (!Db::getInstance()->insert('verifactu_logs', $log_data)) {
-                     if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Anulación - Error al insertar en verifactu_logs: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
-                    }
-                }*/
 
             }
 
@@ -765,46 +749,46 @@ class ApiVerifactu
         
         // 1. Buscar facturas pendientes en nuestra base de datos.
         $sql = new DbQuery();
-        $sql->select('id_order_invoice, api_id_queue')->from('verifactu_order_invoice')->where('estado = "pendiente"');
+        $sql->select('id_order_invoice, id_reg_fact')->from('verifactu_order_invoice')->where('estado = "pendiente"');
         $pending_invoices = Db::getInstance()->executeS($sql);
 
         $sql = new DbQuery();
-        $sql->select('id_order_slip, api_id_queue')->from('verifactu_order_slip')->where('estado = "pendiente"');
+        $sql->select('id_order_slip, id_reg_fact')->from('verifactu_order_slip')->where('estado = "pendiente"');
         $pending_slips = Db::getInstance()->executeS($sql);
 
         $updated_count = 0;
 
         $data = new \stdClass();
-        $queue = array();
+        $ids = array();
         $inv = array();
         $sl = array();
 
         foreach ($pending_invoices as $p)
         {
-            $api_id_queue = (int) $p['api_id_queue'];
-            if ($api_id_queue != '0')
+            $id_reg_fact = (int) $p['id_reg_fact'];
+            if ($id_reg_fact != '0')
             {
-                $queue[] = $p['api_id_queue'];
+                $ids[] = $p['id_reg_fact'];
                 //Para la comprobación luego
-                $inv[] = $p['api_id_queue'];
+                $inv[] = $p['id_reg_fact'];
             }
             
         }
 
         foreach ($pending_slips as $p)
         {
-            $api_id_queue = (int) $p['api_id_queue'];
-            if ($api_id_queue != '0')
+            $id_reg_fact = (int) $p['id_reg_fact'];
+            if ($id_reg_fact != '0')
             {
-                $queue[] = $p['api_id_queue'];
+                $ids[] = $p['id_reg_fact'];
                 //para la comprobacion luego
-                $sl[] = $p['api_id_queue'];
+                $sl[] = $p['id_reg_fact'];
             }
         }
 
-        $data->queue = $queue;
+        $data->ids = $ids;
 
-        if ($queue) 
+        if ($ids) 
         {
             $curl  = curl_init();
             $url   = 'https://verifactu.infoal.io/api_v2/verifactu/check';
@@ -865,7 +849,7 @@ class ApiVerifactu
                     if ($this->debugMode)
                     {
                         PrestaShopLogger::addLog(
-                            'Procesando:'.$o->id_queue.'
+                            'Procesando:'.$o->id_reg_fact.'
                             ',
                             1, null, null, null, true, $this->id_shop
                         );
@@ -873,12 +857,12 @@ class ApiVerifactu
 
                     $guardar = false;
 
-                    if (in_array($o->id_queue, $inv))
+                    if (in_array($o->id_reg_fact, $inv))
                     {
                         if ($o->estado_queue != 'pendiente' && $o->estado_queue != 'procesando')
                         {
                             //Es factura de venta
-                            $invoice = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE api_id_queue = "'.(int) $o->id_queue.'"');
+                            $invoice = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_reg_fact = "'.(int) $o->id_reg_fact.'"');
                             
                             if ($o->tipo == 'anulacion') //Guardamos siempre
                             {
@@ -929,12 +913,12 @@ class ApiVerifactu
                         }
                         
                     }
-                    else if (in_array($o->id_queue, $sl)) //Es de abono
+                    else if (in_array($o->id_reg_fact, $sl)) //Es de abono
                     {
                         
                         if ($o->estado_queue != 'pendiente' && $o->estado_queue != 'procesando')
                         {
-                            $slip = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE api_id_queue = "'.(int) $o->id_queue.'"');
+                            $slip = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_reg_fact = "'.(int) $o->id_reg_fact.'"');
 
                             if ($o->tipo == 'anulacion') //Guardamos siempre
                             {
@@ -1080,20 +1064,7 @@ class ApiVerifactu
 
                         }
 
-                        //Actualizamos el log
-                        /*$log_update_data = [
-                        'api_estado_queue' => pSQL($o->estado_queue),
-                        'verifactuEstadoRegistro' => pSQL($o->EstadoRegistro),
-                        'verifactuEstadoEnvio' => pSQL($o->EstadoEnvio),
-                        'verifactuCodigoErrorRegistro' => pSQL($o->CodigoErrorRegistro),
-                        'verifactuDescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
-                            'fechahora' => date('Y-m-d H:i:s'),
-                        ];
-                        if (!Db::getInstance()->update('verifactu_logs', $log_update_data, 'api_id_queue = ' . (int)$o->id_queue)) {
-                             if ($this->debugMode) {
-                                PrestaShopLogger::addLog('Módulo Verifactu: CheckPending - Error al actualizar verifactu_logs: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
-                            }
-                        }*/
+                        
                     }
 
                     

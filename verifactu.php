@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.1.10';
+        $this->version = '1.1.11';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -319,6 +319,8 @@ class Verifactu extends Module
             $output .= $this->displayConfirmation($this->l('Configuración actualizada'));
         }
 
+        $update_info = $this->checkForUpdate();
+
         $this->context->smarty->assign('module_dir', $this->_path);
 
         $tab = Tools::getValue('tab_module_verifactu', 'configure');
@@ -331,7 +333,10 @@ class Verifactu extends Module
         $this->context->smarty->assign(array(
             'module_name' => $this->name,
             'active_tab' => $tab,
-            'current' => $current_url
+            'current' => $current_url,
+            'update_available' => $update_info['update_available'],
+            'latest_version' => $update_info['latest_version'],
+            'github_releases_url' => 'https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip' // URL a tus releases
         ));
         
         $output .= $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
@@ -356,6 +361,43 @@ class Verifactu extends Module
         }*/
 
         return $output;
+    }
+
+    /**
+     * Comprueba en GitHub si hay una nueva versión del módulo.
+     * @return array con información sobre la actualización.
+     */
+    private function checkForUpdate()
+    {
+        $github_url = 'https://raw.githubusercontent.com/hostinginfoal/verifactu_prestashop/main/version.json';
+        
+        // Usamos file_get_contents con un timeout para no ralentizar el back office si GitHub no responde.
+        $context = stream_context_create(['http' => ['timeout' => 3]]);
+        $json_content = Tools::file_get_contents($github_url, false, $context);
+
+        if ($json_content === false) {
+            return ['update_available' => false, 'latest_version' => ''];
+        }
+        
+        $data = json_decode($json_content, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE || !isset($data['version'])) {
+            return ['update_available' => false, 'latest_version' => ''];
+        }
+
+        $latest_version = $data['version'];
+        $current_version = $this->version;
+
+        // version_compare() es la forma correcta de comparar números de versión.
+        // Devuelve 1 si la primera versión es mayor, -1 si es menor, 0 si son iguales.
+        if (version_compare($latest_version, $current_version, '>')) {
+            return [
+                'update_available' => true,
+                'latest_version' => $latest_version
+            ];
+        }
+
+        return ['update_available' => false, 'latest_version' => $latest_version];
     }
 
     public function renderShopList()

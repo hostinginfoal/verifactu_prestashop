@@ -34,6 +34,19 @@
     </p>
 </div>
 
+{if $update_available}
+    <div class="alert alert-info" role="alert">
+        <p class="alert-text">
+            
+            {l s='¡Hay una nueva versión disponible!' mod='verifactu'}
+            <strong>{l s='Versión' mod='verifactu'} {$latest_version|escape:'html':'UTF-8'}</strong>.
+            <a href="{$github_releases_url|escape:'html':'UTF-8'}" target="_blank" class="btn btn-info" style="margin-left: 15px;">
+                <i class="icon-download"></i> {l s='Descargar ahora' mod='verifactu'}
+            </a>
+        </p>
+    </div>
+{/if}
+
 <div class="panel">
 	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
 	<p>
