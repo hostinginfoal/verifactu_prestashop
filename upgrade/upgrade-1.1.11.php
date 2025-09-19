@@ -36,8 +36,8 @@ function upgrade_module_1_1_11($module)
 {
     $sql = array();
 
-$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_invoice` CHANGE COLUMN `api_id_queue` `id_reg_fact`';
-$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_slip` CHANGE COLUMN `api_id_queue` `id_reg_fact`';
+$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_invoice` CHANGE COLUMN `api_id_queue` `id_reg_fact` INT(11) NOT NULL';
+$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_slip` CHANGE COLUMN `api_id_queue` `id_reg_fact` INT(11) NOT NULL';
 
     foreach ($sql as $query) {
         if (Db::getInstance()->execute($query) == false) {
