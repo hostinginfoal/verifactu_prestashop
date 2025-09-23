@@ -131,6 +131,9 @@ class ApiVerifactu
             return json_encode(['response' => 'KO', 'error' => 'Pedido no encontrado.']);
         }
 
+        $igic_tax_ids = json_decode(Configuration::get('VERIFACTU_IGIC_TAXES', null, null, $this->id_shop), true) ?: [];
+        $ipsi_tax_ids = json_decode(Configuration::get('VERIFACTU_IPSI_TAXES', null, null, $this->id_shop), true) ?: [];
+
         if ($tipo == 'abono')
         {
             $sql = new DbQuery();
@@ -280,8 +283,8 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
-            $inv->TotalGeneralDiscounts = 0;
-            $inv->TotalGeneralSurcharges = 0;
+            //$inv->TotalGeneralDiscounts = 0;
+            //$inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = -((float) $totalTaxExcl);
             $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->TotalTaxesWithheld = -((float) $totalTaxIncl - (float) $totalTaxExcl );
@@ -309,11 +312,28 @@ class ApiVerifactu
                 $line->UnitPriceWithoutTax = -((float) $l['unit_price_tax_excl']);
                 $line->TotalCost = -((float) $l['total_price_tax_incl']);
                 $line->GrossAmount = -((float) $l['total_price_tax_incl']);
-                $line->TaxTypeCode = '01';
+                //$line->TaxTypeCode = '01';
                 $line->TaxRate = $l['tax_rate'];
                 $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = -((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
+
+                // Necesitamos el id_tax de la línea. La forma más segura es a través de la tabla order_detail_tax
+                $line_tax_sql = new DbQuery();
+                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$l['id_order_detail']);
+                $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+                
+                // Por simplicidad, tomamos el primer impuesto, pero una lógica más compleja podría manejarlos todos.
+                $id_tax = isset($line_taxes[0]['id_tax']) ? (int)$line_taxes[0]['id_tax'] : 0;
+                
+                if (in_array($id_tax, $igic_tax_ids)) {
+                    $line->TaxTypeCode = '03'; // IGIC
+                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                    $line->TaxTypeCode = '02'; // IPSI
+                } else {
+                    $line->TaxTypeCode = '01'; // IVA (por defecto)
+                }
+
                 $seq++;
 
                 $data->invoice->lines[] = $line;
@@ -355,14 +375,28 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
-            $inv->TotalGeneralDiscounts = 0;
-            $inv->TotalGeneralSurcharges = 0;
+            //$inv->TotalGeneralDiscounts = 0;
+            //$inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
             $inv->TotalTaxOutputs = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->InvoiceTotal = ((float) $invoice['total_paid_tax_incl']);
             $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
             $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+
+            // Buscamos los descuentos aplicados al carrito para este pedido.
+            $sql = new DbQuery();
+            $sql->select('ocr.*, crl.name');
+            $sql->from('order_cart_rule', 'ocr');
+            $sql->leftJoin('cart_rule_lang', 'crl', 'ocr.id_cart_rule = crl.id_cart_rule AND crl.id_lang = ' . (int)$order_data['id_lang']);
+            $sql->where('ocr.id_order = ' . (int)$id_order);
+            $discounts = Db::getInstance()->executeS($sql);
+
+            /*if (!empty($discounts)) {
+                $inv->Coupon = 'S';
+            } else {
+                $inv->Coupon = 'N';
+            }*/
 
             $data->invoice = $inv;
 
@@ -379,18 +413,35 @@ class ApiVerifactu
                 $line->UnitPriceWithoutTax = $l['product_price'];
                 $line->TotalCost = $l['total_price_tax_incl'];
                 $line->GrossAmount = $l['total_price_tax_incl'];
-                $line->TaxTypeCode = '01';
+                //$line->TaxTypeCode = '01';
                 $line->TaxRate = $l['tax_rate'];
                 $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
                 $seq++;
 
+                // Necesitamos el id_tax de la línea. La forma más segura es a través de la tabla order_detail_tax
+                $line_tax_sql = new DbQuery();
+                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$l['id_order_detail']);
+                $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+                
+                // Por simplicidad, tomamos el primer impuesto, pero una lógica más compleja podría manejarlos todos.
+                $id_tax = isset($line_taxes[0]['id_tax']) ? (int)$line_taxes[0]['id_tax'] : 0;
+                
+                if (in_array($id_tax, $igic_tax_ids)) {
+                    $line->TaxTypeCode = '03'; // IGIC
+                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                    $line->TaxTypeCode = '02'; // IPSI
+                } else {
+                    $line->TaxTypeCode = '01'; // IVA (por defecto)
+                }
+
                 $data->invoice->lines[] = $line;
             } 
 
             // Comprobamos si el pedido tiene gastos de envío. Usamos los datos de la factura para mayor precisión.
-            if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+            if ((float)$invoice['total_shipping_tax_excl'] > 0) 
+            {
                 $shipping_line = new \stdClass();
                 
                 $shipping_tax_rate = 0;
@@ -405,14 +456,77 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
-                $shipping_line->TaxTypeCode = '01';
+                $shipping_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
                 $shipping_line->TaxRate = round($shipping_tax_rate, 2);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->ArticleCode = 'ENVIO';
                 
                 $data->invoice->lines[] = $shipping_line;
-            }  
+                $seq++;
+            }
+
+            // Después de añadir los productos y el envío, añadimos los descuentos.
+            if (!empty($discounts)) {
+            // 1. Agrupamos los totales de las líneas de producto por su tipo de IVA.
+            $totals_by_tax_rate = [];
+            foreach ($lines as $line) {
+                $rate = (float)$line['tax_rate'];
+                if (!isset($totals_by_tax_rate[$rate])) {
+                    $totals_by_tax_rate[$rate] = 0;
+                }
+                $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'];
+            }
+
+            // 2. Calculamos el total de productos sin IVA para poder prorratear.
+            $order_total_products_tax_excl = array_sum($totals_by_tax_rate);
+
+            // 3. Recorremos cada cupón de descuento aplicado.
+            foreach ($discounts as $discount) {
+                $total_discount_tax_excl = (float)$discount['value_tax_excl'];
+
+                // Si el descuento total es 0, no hacemos nada.
+                if ($total_discount_tax_excl <= 0) {
+                    continue;
+                }
+
+                // 4. Desglosamos el descuento para cada tipo de IVA.
+                foreach ($totals_by_tax_rate as $rate => $total_for_rate) {
+                    
+                    // Calculamos la proporción de este tipo de IVA sobre el total.
+                    $proportion = ($order_total_products_tax_excl > 0) ? ($total_for_rate / $order_total_products_tax_excl) : 0;
+                    
+                    // Calculamos qué parte del descuento corresponde a este tipo de IVA.
+                    $discount_portion_tax_excl = $total_discount_tax_excl * $proportion;
+                    $discount_tax_amount = $discount_portion_tax_excl * ($rate / 100);
+                    $discount_portion_tax_incl = $discount_portion_tax_excl + $discount_tax_amount;
+
+                    // Si la porción del descuento es insignificante, la saltamos.
+                    if ($discount_portion_tax_excl < 0.01) {
+                        continue;
+                    }
+
+                    // Creamos una línea de descuento específica para este tipo de IVA.
+                    $discount_line = new \stdClass();
+                    $discount_line->SequenceNumber = $seq;
+                    $discount_line->ItemDescription = 'Descuento: ' . $discount['name'] . ' (' . $rate . '%)';
+                    $discount_line->Quantity = 1;
+                    
+                    // Todos los valores monetarios son negativos.
+                    $discount_line->UnitPriceWithoutTax = -round($discount_portion_tax_excl, 2);
+                    $discount_line->TotalCost = -round($discount_portion_tax_incl, 2);
+                    $discount_line->GrossAmount = -round($discount_portion_tax_incl, 2);
+                    $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
+                    $discount_line->TaxRate = $rate; // El tipo de IVA real.
+                    $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
+                    $discount_line->TaxAmountTotal = -round($discount_tax_amount, 2);
+                    $discount_line->ArticleCode = 'DESCUENTO';
+                    
+                    $data->invoice->lines[] = $discount_line;
+                    $seq++;
+                }
+            }
+        } 
         }
 
         $dataString = json_encode($data);
@@ -462,6 +576,7 @@ class ApiVerifactu
         {  
             $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
             $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
+            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'live';
             $api_estado_queue = 'pendiente';
             $id_order_invoice = 0;
 
@@ -477,6 +592,7 @@ class ApiVerifactu
                     $update_data = [
                         'estado' => 'pendiente',
                         'id_reg_fact' => $id_reg_fact,
+                        'apiMode' => $apiMode,
                     ];
                     if (!Db::getInstance()->update('verifactu_order_slip', $update_data, 'id_order_slip = ' . $id_order_invoice)) {
                         if ($this->debugMode) {
@@ -491,6 +607,7 @@ class ApiVerifactu
                         'estado' => 'pendiente',
                         'id_reg_fact' => $id_reg_fact,
                         'urlQR' => $urlQR,
+                        'apiMode' => $apiMode,
                     ];
                     if (!Db::getInstance()->insert('verifactu_order_slip', $insert_data)) {
                          if ($this->debugMode) {
@@ -510,6 +627,7 @@ class ApiVerifactu
                     $update_data = [
                         'estado' => 'pendiente',
                         'id_reg_fact' => $id_reg_fact,
+                        'apiMode' => $apiMode,
                     ];
                     if (!Db::getInstance()->update('verifactu_order_invoice', $update_data, 'id_order_invoice = ' . $id_order_invoice)) {
                         if ($this->debugMode) {
@@ -524,6 +642,7 @@ class ApiVerifactu
                         'estado' => 'pendiente',
                         'id_reg_fact' => $id_reg_fact,
                         'urlQR' => $urlQR,
+                        'apiMode' => $apiMode,
                     ];
                     if (!Db::getInstance()->insert('verifactu_order_invoice', $insert_data)) {
                         if ($this->debugMode) {
@@ -541,9 +660,10 @@ class ApiVerifactu
                 'tipo' => pSQL($tipo),
                 'estado_queue' => pSQL($api_estado_queue),
                 'id_order_invoice' => (int)$id_order_invoice,
-                'invoice_number' => pSQL($obj->InvoiceNumber),
+                'InvoiceNumber' => pSQL($obj->InvoiceNumber),
                 'urlQR' => pSQL($obj->urlQR),
-                'id_shop' => (int)$this->id_shop
+                'apiMode' => $apiMode,
+                'id_shop' => (int)$this->id_shop,
                 ];
                 if (!Db::getInstance()->insert('verifactu_reg_fact', $insert_data)) {
                      if ($this->debugMode) {
@@ -685,11 +805,13 @@ class ApiVerifactu
         {
             $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
             $api_estado_queue = 'pendiente';
+            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'live';
             $InvoiceNumber = '';
 
             $update_data = [
                 'estado' => 'pendiente',
                 'id_reg_fact' => $id_reg_fact,
+                'apiMode' => $apiMode,
             ];
 
             if ($tipo == 'abono')
@@ -721,8 +843,9 @@ class ApiVerifactu
                 'id_reg_fact' => (int)$obj->id_reg_fact,
                 'estado_queue' => pSQL($api_estado_queue),
                 'id_order_invoice' => (int)$id_order_invoice,
-                'invoice_number' => pSQL($obj->InvoiceNumber),
-                'id_shop' => (int)$this->id_shop
+                'InvoiceNumber' => pSQL($obj->InvoiceNumber),
+                'apiMode' => $apiMode,
+                'id_shop' => (int)$this->id_shop,
                 ];
                 if (!Db::getInstance()->insert('verifactu_reg_fact', $reg_fact_data)) {
                      if ($this->debugMode) {
@@ -876,13 +999,13 @@ class ApiVerifactu
                                 {
 
                                 }
-                                else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
+                                /*else if ($invoice['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
                                 {
                                     if ($o->EstadoRegistro == 'Correcto' || $o->EstadoRegistro == 'AceptadoConErrores')
                                     { 
                                         $guardar = true;
                                     }
-                                }
+                                }*/
                                 else //Para lo demás guardamos el estado que sea
                                 {
                                     $guardar = true;
@@ -932,13 +1055,13 @@ class ApiVerifactu
                                 {
 
                                 }
-                                else if ($slip['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
+                                /*else if ($slip['verifactuEstadoRegistro'] == 'AceptadoConErrores') //Si está marcada como AceptadoConErrores solo modificamos si es AceptadoConErrores o Correcto
                                 {
                                     if ($o->EstadoRegistro == 'Correcto' || $o->EstadoRegistro == 'AceptadoConErrores')
                                     { 
                                         $guardar = true;
                                     }
-                                }
+                                }*/
                                 else //Para lo demás guardamos el estado que sea
                                 {
                                     $guardar = true;

@@ -25,7 +25,8 @@
 
 $( document ).ready(function() {
 
-if (typeof verifactu_ajax_url !== 'undefined') {
+if (typeof verifactu_ajax_url !== 'undefined') 
+{
 
   // Función para llamar al controlador Ajax. Se cargará cada vez que se navegue por la administración, pasados 5 segundos de la carga (por si el usuario navega rápido)
   function checkPendingStatus() 
@@ -69,260 +70,272 @@ if (typeof verifactu_ajax_url !== 'undefined') {
   setInterval(checkPendingStatus, 60000);
 
   $('#check_dni').on('click', function(){
-      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
-      $(this).prop('disabled', true);
-      $('#estado_envio_verifactu').hide();
+    // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+    $(this).prop('disabled', true);
+    $('#estado_envio_verifactu').hide();
 
-        $.ajax({ 
-            type: 'POST', 
-            cache: false, 
-            dataType: 'json', 
-            url: verifactu_ajax_url,  
-            data: { 
-              ajax: true, 
-              action: 'CheckDNI',
-              token: verifactu_token,
-              id_order: id_order
-            }, 
-              success : function (data) { 
-                  //obj = JSON.parse(data);
-                  obj = data;
-                  if (!obj.error)
+      $.ajax({ 
+          type: 'POST', 
+          cache: false, 
+          dataType: 'json', 
+          url: verifactu_ajax_url,  
+          data: { 
+            ajax: true, 
+            action: 'CheckDNI',
+            token: verifactu_token,
+            id_order: id_order
+          }, 
+            success : function (data) { 
+                //obj = JSON.parse(data);
+                obj = data;
+                if (!obj.error)
+                {
+                  if (obj.result == 'true')
                   {
-                    if (obj.result == 'true')
-                    {
-                      $('#estado_envio_verifactu').removeClass('alert-danger');
-                      $('#estado_envio_verifactu').addClass('alert-success');
-                      $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es correcto y se encuentra registrado correctamente en el censo de la AEAT');
-                      $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1000).fadeOut(function() {
-                         window.location.reload();
-                      })*/;
-                    }
-                    else
-                    {
-                      $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                      $('#estado_envio_verifactu').addClass('alert-danger');
-                      $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es incorrecto o no se encuentra registrado en el censo de la AEAT con este Nombre de cliente / Empresa');
-                      $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
-                         window.location.reload();
-                      })*/;
-                    }
+                    $('#estado_envio_verifactu').removeClass('alert-danger');
+                    $('#estado_envio_verifactu').addClass('alert-success');
+                    $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es correcto y se encuentra registrado correctamente en el censo de la AEAT');
+                    $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1000).fadeOut(function() {
+                       window.location.reload();
+                    })*/;
                   }
                   else
                   {
                     $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
                     $('#estado_envio_verifactu').addClass('alert-danger');
-                    $('#estado_envio_verifactu .alert-text').html(obj.error);
+                    $('#estado_envio_verifactu .alert-text').html('El DNI/NIF es incorrecto o no se encuentra registrado en el censo de la AEAT con este Nombre de cliente / Empresa');
                     $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
                        window.location.reload();
                     })*/;
                   }
-                  
-              }, 
-              error : function (data){ 
-              console.log(data); 
-              } 
-        });
-    });
-
-
-    $('#send_verifactu').on('click', function(){
-      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
-      $(this).prop('disabled', true);
-
-    	$('#estado_envio_verifactu').hide();
-        $.ajax({ 
-            type: 'POST', 
-            cache: false, 
-            dataType: 'json', 
-            url: verifactu_ajax_url, 
-            data: { 
-              ajax: true, 
-              action: 'enviarVerifactu',
-              token: verifactu_token,
-              id_order: id_order
-            }, 
-              success : function (data) { 
-                  //obj = JSON.parse(data);
-                  obj = data;
-                  if (obj.response == 'OK')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-danger');
-                    $('#estado_envio_verifactu').addClass('alert-success');
-                    $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-                  else if (obj.response == 'pendiente')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-warning');
-                    $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-                  else
-                  {
-                    if (obj.error) error = obj.error;
-                    else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-danger');
-                    $('#estado_envio_verifactu .alert-text').html(error);
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-
-                  
-                  
-              }, 
-              error : function (data){ 
-              console.log(data); 
-              } 
-        });
-    });
-
-    $('#send_sustitutiva_verifactu').on('click', function(){
-      // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
-      $(this).prop('disabled', true);
-
-      $('#estado_envio_verifactu').hide();
-        $.ajax({ 
-            type: 'POST', 
-            cache: false, 
-            dataType: 'json', 
-            url: verifactu_ajax_url, 
-            data: { 
-              ajax: true, 
-              action: 'enviarSustitutivaVerifactu',
-              token: verifactu_token,
-              id_order: id_order
-            }, 
-              success : function (data) { 
-                  //obj = JSON.parse(data);
-                  obj = data;
-                  if (obj.response == 'OK')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-danger');
-                    $('#estado_envio_verifactu').addClass('alert-success');
-                    $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-                  else if (obj.response == 'noTaxIdentificationNumber')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-warning');
-                    $('#estado_envio_verifactu .alert-text').html('Error al enviar la factura sustitutiva de simplificada. El DNI/NIF no puede estar vacío.');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(5000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-                  else if (obj.response == 'pendiente')
-                  {
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-warning');
-                    $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-                  else
-                  {
-                    if (obj.error) error = obj.error;
-                    else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
-                    $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                    $('#estado_envio_verifactu').addClass('alert-danger');
-                    $('#estado_envio_verifactu .alert-text').html(error);
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                       window.location.reload();
-                    });
-                  }
-
-                  
-                  
-              }, 
-              error : function (data){ 
-              console.log(data); 
-              } 
-        });
-    });
-
-
-    $('#send_anulacion_verifactu').on('click', function(e) {
-    e.preventDefault(); // Prevenimos la acción por defecto del botón
-
-    // Usamos Swal (SweetAlert) para mostrar un modal de confirmación
-    Swal.fire({
-        title: '¿Estás seguro?',
-        text: "Vas a enviar un registro de anulación a VeriFactu. Esta acción no se puede deshacer.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, enviar anulación',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        // Si el usuario hace clic en "Sí, enviar anulación"
-        if (result.isConfirmed) {
-            
-            // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
-            $('#send_anulacion_verifactu').prop('disabled', true);
-            // --- Aquí va tu código AJAX original ---
-            $('#estado_envio_verifactu').hide();
-            $.ajax({
-                type: 'POST',
-                cache: false,
-                dataType: 'json',
-                url: verifactu_ajax_url,
-                data: {
-                    ajax: true,
-                    action: 'AnularVerifactu',
-                    token: verifactu_token,
-                    id_order: id_order
-                },
-                success: function (data) {
-                    var obj = data;
-                    if (obj.response == 'OK') 
-                    {
-                      $('#estado_envio_verifactu').removeClass('alert-danger alert-warning').addClass('alert-success');
-                      $('#estado_envio_verifactu .alert-text').html('Registro de anulación enviado correctamente.<br>En espera de respuesta de VeriFactu...');
-                    } 
-                    else if (obj.response == 'pendiente') 
-                    {
-                      $('#estado_envio_verifactu').removeClass('alert-danger alert-success').addClass('alert-warning');
-                      $('#estado_envio_verifactu .alert-text').html('El registro de anulación ya está pendiente de respuesta.');
-                    } 
-                    else 
-                    {
-                      if (obj.error) error = obj.error;
-                      else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
-                      $('#estado_envio_verifactu').removeClass('alert-success alert-warning').addClass('alert-danger');
-                      $('#estado_envio_verifactu .alert-text').html(error);
-                    }
-
-                    $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() {
-                        window.location.reload();
-                    });
-                },
-                error: function (data) {
-                    console.log(data);
-                    // Muestra un error más claro si la llamada AJAX falla
-                    Swal.fire(
-                        '¡Error!',
-                        'No se pudo comunicar con el servidor.',
-                        'error'
-                    );
                 }
-            });
-            // --- Fin del código AJAX ---
+                else
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-danger');
+                  $('#estado_envio_verifactu .alert-text').html(obj.error);
+                  $('#estado_envio_verifactu').fadeIn('slow')/*.delay(1500).fadeOut(function() {
+                     window.location.reload();
+                  })*/;
+                }
+                
+            }, 
+            error : function (data){ 
+            console.log(data); 
+            } 
+      });
+  });
+
+
+  $('#send_verifactu').on('click', function(){
+    // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+    $(this).prop('disabled', true);
+
+  	$('#estado_envio_verifactu').hide();
+      $.ajax({ 
+          type: 'POST', 
+          cache: false, 
+          dataType: 'json', 
+          url: verifactu_ajax_url, 
+          data: { 
+            ajax: true, 
+            action: 'enviarVerifactu',
+            token: verifactu_token,
+            id_order: id_order
+          }, 
+            success : function (data) { 
+                //obj = JSON.parse(data);
+                obj = data;
+                if (obj.response == 'OK')
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-danger');
+                  $('#estado_envio_verifactu').addClass('alert-success');
+                  $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+                else if (obj.response == 'pendiente')
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-warning');
+                  $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+                else
+                {
+                  if (obj.error) error = obj.error;
+                  else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-danger');
+                  $('#estado_envio_verifactu .alert-text').html(error);
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+
+                
+                
+            }, 
+            error : function (data){ 
+            console.log(data); 
+            } 
+      });
+  });
+
+  $('#send_sustitutiva_verifactu').on('click', function(){
+    // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+    $(this).prop('disabled', true);
+
+    $('#estado_envio_verifactu').hide();
+      $.ajax({ 
+          type: 'POST', 
+          cache: false, 
+          dataType: 'json', 
+          url: verifactu_ajax_url, 
+          data: { 
+            ajax: true, 
+            action: 'enviarSustitutivaVerifactu',
+            token: verifactu_token,
+            id_order: id_order
+          }, 
+            success : function (data) { 
+                //obj = JSON.parse(data);
+                obj = data;
+                if (obj.response == 'OK')
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-danger');
+                  $('#estado_envio_verifactu').addClass('alert-success');
+                  $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+                else if (obj.response == 'noTaxIdentificationNumber')
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-warning');
+                  $('#estado_envio_verifactu .alert-text').html('Error al enviar la factura sustitutiva de simplificada. El DNI/NIF no puede estar vacío.');
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(5000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+                else if (obj.response == 'pendiente')
+                {
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-warning');
+                  $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+                else
+                {
+                  if (obj.error) error = obj.error;
+                  else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
+                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
+                  $('#estado_envio_verifactu').addClass('alert-danger');
+                  $('#estado_envio_verifactu .alert-text').html(error);
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
+                     window.location.reload();
+                  });
+                }
+
+                
+                
+            }, 
+            error : function (data){ 
+            console.log(data); 
+            } 
+      });
+  });
+
+
+  $('#send_anulacion_verifactu').on('click', function(e) {
+  e.preventDefault(); // Prevenimos la acción por defecto del botón
+
+  // Usamos Swal (SweetAlert) para mostrar un modal de confirmación
+  Swal.fire({
+      title: '¿Estás seguro?',
+      text: "Vas a enviar un registro de anulación a VeriFactu. Esta acción no se puede deshacer.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, enviar anulación',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      // Si el usuario hace clic en "Sí, enviar anulación"
+      if (result.isConfirmed) {
+          
+          // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
+          $('#send_anulacion_verifactu').prop('disabled', true);
+          // --- Aquí va tu código AJAX original ---
+          $('#estado_envio_verifactu').hide();
+          $.ajax({
+              type: 'POST',
+              cache: false,
+              dataType: 'json',
+              url: verifactu_ajax_url,
+              data: {
+                  ajax: true,
+                  action: 'AnularVerifactu',
+                  token: verifactu_token,
+                  id_order: id_order
+              },
+              success: function (data) {
+                  var obj = data;
+                  if (obj.response == 'OK') 
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-danger alert-warning').addClass('alert-success');
+                    $('#estado_envio_verifactu .alert-text').html('Registro de anulación enviado correctamente.<br>En espera de respuesta de VeriFactu...');
+                  } 
+                  else if (obj.response == 'pendiente') 
+                  {
+                    $('#estado_envio_verifactu').removeClass('alert-danger alert-success').addClass('alert-warning');
+                    $('#estado_envio_verifactu .alert-text').html('El registro de anulación ya está pendiente de respuesta.');
+                  } 
+                  else 
+                  {
+                    if (obj.error) error = obj.error;
+                    else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
+                    $('#estado_envio_verifactu').removeClass('alert-success alert-warning').addClass('alert-danger');
+                    $('#estado_envio_verifactu .alert-text').html(error);
+                  }
+
+                  $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() {
+                      window.location.reload();
+                  });
+              },
+              error: function (data) {
+                  console.log(data);
+                  // Muestra un error más claro si la llamada AJAX falla
+                  Swal.fire(
+                      '¡Error!',
+                      'No se pudo comunicar con el servidor.',
+                      'error'
+                  );
+              }
+          });
+          // --- Fin del código AJAX ---
         }
+      });
     });
-});
 
   }
+
+  $('#table-verifactu_reg_fact').on('click', '.verifactu-row-clickable', function() {
+        
+        // Obtenemos el ID del registro desde el atributo data-row-id
+        var rowId = $(this).data('row-id');
+        
+        // Seleccionamos la fila de detalles correspondiente y la desplegamos/plegamos con una animación.
+        $('#details-' + rowId).slideToggle();
+
+        // Opcional: añadimos una clase a la fila principal para cambiar su estilo (ej. color de fondo)
+        $(this).toggleClass('row-expanded');
+    });
 
 });

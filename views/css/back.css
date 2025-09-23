@@ -44,3 +44,31 @@ tr.verifactu_correct:hover td,
 tr.verifactu_error:hover td {
     background-color: #d9edf7 !important; /* Azul claro al pasar el ratón */
 }
+
+tr.row-expanded {
+    background-color: #e3f2fd !important;
+}
+
+/**
+ * Estilos para las filas del listado de registros de VeriFactu
+ */
+
+/* Buscamos una fila (tr) que contenga (has) una celda con nuestra clase y aplicamos el estilo a todas sus celdas (td) */
+tr:has(td .verifactu_correct) td {
+    background-color: #d1e7dd !important;
+}
+
+tr:has(td .verifactu_error) td {
+    background-color: #f8d7da !important;
+}
+
+tr:has(td .verifactu_warning) td {
+    background-color: #fff3cd !important;
+}
+
+/* Opcional: Mantener un color de hover consistente */
+tr:has(td .verifactu_correct):hover td,
+tr:has(td .verifactu_error):hover td,
+tr:has(td .verifactu_warning):hover td {
+    background-color: #d9edf7 !important;
+}

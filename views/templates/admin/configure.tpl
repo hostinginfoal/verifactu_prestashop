@@ -30,7 +30,7 @@
     </p>
     <br />
     <p>
-        {l s='Si no dispones de una clave de API, solicita una gratuita en ' mod='verifactu'}<a href="https://verifactu.infoal.com" target="_blank">https://verifactu.infoal.com</a>
+        {l s='Si no dispones de una clave de API, solicítala en ' mod='verifactu'}<a href="https://verifactu.infoal.com" target="_blank">https://verifactu.infoal.com</a>
     </p>
 </div>
 
@@ -69,9 +69,14 @@
             <i class="icon-cogs"></i> {l s='Configuración' mod='verifactu'}
         </a>
     </li>
-    <li class="{if $active_tab == 'invoices'}active{/if}">
-        <a href="{$current}&tab_module_verifactu=invoices">
-            <i class="icon-list"></i> {l s='Estado facturas' mod='verifactu'}
+    <li class="{if $active_tab == 'sales_invoices'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=sales_invoices">
+            <i class="icon-list-ul"></i> {l s='Facturas Venta' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'credit_slips'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=credit_slips">
+            <i class="icon-list-alt"></i> {l s='Facturas Abono' mod='verifactu'}
         </a>
     </li>
     <li class="{if $active_tab == 'reg_facts'}active{/if}">
@@ -79,12 +84,5 @@
             <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
         </a>
     </li>
-    {if 1==2}
-    <li class="{if $active_tab == 'logs'}active{/if}">
-        <a href="{$current}&tab_module_verifactu=logs">
-            <i class="icon-send"></i> {l s='Logs' mod='verifactu'}
-        </a>
-    </li>
-    {/if}
 </ul>
 

@@ -28,14 +28,12 @@ $sql = array();
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     `id_reg_fact` int NOT NULL,
     `id_order_invoice` int NOT NULL,
-    `invoice_number` varchar(100) DEFAULT NULL,
     `tipo` varchar(20) DEFAULT NULL,
     `EstadoEnvio` varchar(100) DEFAULT NULL,
     `EstadoRegistro` varchar(100) DEFAULT NULL,
     `CodigoErrorRegistro` varchar(100) DEFAULT NULL,
     `DescripcionErrorRegistro` text,
     `urlQR` varchar(255) DEFAULT NULL,
-    `id_queue` int NOT NULL,
     `estado_queue` varchar(20) DEFAULT NULL,
     `InvoiceNumber` varchar(50) DEFAULT NULL,
     `IssueDate` date DEFAULT NULL,
@@ -76,6 +74,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     `SIFTipoUsoPosibleSoloVerifactu` varchar(45) DEFAULT NULL,
     `SIFTipoUsoPosibleMultiOT` varchar(45) DEFAULT NULL,
     `SIFIndicadorMultiplesOT` varchar(45) DEFAULT NULL,
+    `apiMode` varchar(20) DEFAULT NULL,
     `id_shop` int NOT NULL,
     PRIMARY KEY  (`id_reg_fact`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
@@ -92,6 +91,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     `urlQR` VARCHAR(255),
     `anulacion` int(11) NOT NULL,
     `TipoFactura` VARCHAR(100),
+    `avisos` TEXT,
+    `apiMode` varchar(20) DEFAULT NULL,
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
@@ -105,6 +106,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `verifactuDescripcionErrorRegistro` TEXT,
     `anulacion` int(11) NOT NULL,
     `TipoFactura` VARCHAR(100),
+    `avisos` TEXT,
+    `apiMode` varchar(20) DEFAULT NULL,
     PRIMARY KEY  (`id_order_slip`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
