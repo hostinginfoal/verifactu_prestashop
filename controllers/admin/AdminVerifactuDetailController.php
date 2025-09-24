@@ -10,12 +10,9 @@ class AdminVerifactuDetailController extends ModuleAdminController
         $this->identifier = 'id_reg_fact';
     }
 
-    /**
-     * Este método se llama cuando se navega a la vista de detalle.
-     * Ahora toma el control completo del renderizado de la plantilla.
-     */
     public function renderView()
     {
+        // ... (tu lógica de renderizado se mantiene igual)
         // 1. Obtenemos el ID del registro de la URL.
         $id_reg_fact = (int)Tools::getValue($this->identifier);
 
@@ -47,16 +44,16 @@ class AdminVerifactuDetailController extends ModuleAdminController
         // 4. Renderizamos NUESTRA plantilla y devolvemos el HTML.
         //    Esto reemplaza la llamada a parent::renderView() y nos da control total.
         return $this->context->smarty->fetch($this->getTemplatePath() . 'view_detail.tpl');
-        
     }
 
     /**
-     * Prevenimos que se muestren los botones de "Añadir nuevo".
+     * Sobrescribimos initToolbar para prevenir que se muestren la barra de herramientas y sus botones.
      */
     public function initToolbar()
     {
-        parent::initToolbar();
-        unset($this->toolbar_btn['new']);
+        // NO llamamos a parent::initToolbar() para evitar que se cargue la barra.
+        // Y nos aseguramos de que el array de botones esté vacío.
+        $this->toolbar_btn = [];
     }
 
     /**

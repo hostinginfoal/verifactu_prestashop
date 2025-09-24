@@ -15,8 +15,11 @@ class AdminVerifactuAjaxController extends ModuleAdminController
     public function displayAjaxEnviarVerifactu()
     {
         $id_order = (int)Tools::getValue('id_order');
-        if (!$id_order) {
-            die(json_encode(['error' => 'ID de pedido no válido.']));
+        // Obtenemos el tipo desde la llamada AJAX, con 'alta' como valor por defecto.
+        $type = Tools::getValue('type', 'alta');
+
+        if (!$id_order || !in_array($type, ['alta', 'abono'])) {
+            die(json_encode(['error' => 'Parámetros no válidos.']));
         }
 
         $order = new Order($id_order);
@@ -26,42 +29,13 @@ class AdminVerifactuAjaxController extends ModuleAdminController
 
         $id_shop = (int)$order->id_shop;
         
-        // Obtenemos la configuración para la tienda del pedido.
         $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
 
-        // Instanciamos ApiVerifactu con la configuración correcta.
         $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
-        $response = $av->sendAltaVerifactu($id_order);
+        // Pasamos el tipo a la función de envío.
+        $response = $av->sendAltaVerifactu($id_order, $type);
 
-        // Usamos ajaxDie para una respuesta limpia en JSON.
-        header('Content-Type: application/json');
-        die($response);
-    }
-
-    public function displayAjaxEnviarSustitutivaVerifactu()
-    {
-        $id_order = (int)Tools::getValue('id_order');
-        if (!$id_order) {
-            die(json_encode(['error' => 'ID de pedido no válido.']));
-        }
-
-        $order = new Order($id_order);
-        if (!Validate::isLoadedObject($order)) {
-            die(json_encode(['error' => 'No se pudo cargar el pedido.']));
-        }
-
-        $id_shop = (int)$order->id_shop;
-        
-        // Obtenemos la configuración para la tienda del pedido.
-        $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
-        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-
-        // Instanciamos ApiVerifactu con la configuración correcta.
-        $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
-        $response = $av->sendAltaVerifactu($id_order,'sustitutiva');
-
-        // Usamos ajaxDie para una respuesta limpia en JSON.
         header('Content-Type: application/json');
         die($response);
     }

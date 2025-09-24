@@ -185,72 +185,46 @@ if (typeof verifactu_ajax_url !== 'undefined')
       });
   });
 
-  $('#send_sustitutiva_verifactu').on('click', function(){
-    // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
-    $(this).prop('disabled', true);
+  //Este es para el listado de facturas y facturas de abono
+  $('.button-resend-verifactu').on('click', function(e){
+    e.preventDefault(); 
 
-    $('#estado_envio_verifactu').hide();
-      $.ajax({ 
-          type: 'POST', 
-          cache: false, 
-          dataType: 'json', 
-          url: verifactu_ajax_url, 
-          data: { 
-            ajax: true, 
-            action: 'enviarSustitutivaVerifactu',
+    $(this).prop('disabled', true).addClass('disabled');
+    $(this).find('i').removeClass('icon-refresh').addClass('icon-spinner icon-spin');
+
+    $.ajax({
+        type: 'POST',
+        cache: false,
+        dataType: 'json',
+        url: verifactu_ajax_url,
+        data: {
+            ajax: true,
+            action: 'enviarVerifactu', 
             token: verifactu_token,
-            id_order: id_order
-          }, 
-            success : function (data) { 
-                //obj = JSON.parse(data);
-                obj = data;
-                if (obj.response == 'OK')
-                {
-                  $('#estado_envio_verifactu').removeClass('alert-danger');
-                  $('#estado_envio_verifactu').addClass('alert-success');
-                  $('#estado_envio_verifactu .alert-text').html('Registro de facturación enviado correctamente.<br>En espera de respuesta verifactu...');
-                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                     window.location.reload();
-                  });
-                }
-                else if (obj.response == 'noTaxIdentificationNumber')
-                {
-                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                  $('#estado_envio_verifactu').addClass('alert-warning');
-                  $('#estado_envio_verifactu .alert-text').html('Error al enviar la factura sustitutiva de simplificada. El DNI/NIF no puede estar vacío.');
-                  $('#estado_envio_verifactu').fadeIn('slow').delay(5000).fadeOut(function() {
-                     window.location.reload();
-                  });
-                }
-                else if (obj.response == 'pendiente')
-                {
-                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                  $('#estado_envio_verifactu').addClass('alert-warning');
-                  $('#estado_envio_verifactu .alert-text').html('El registro de facturación está pendiente de respuesta');
-                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                     window.location.reload();
-                  });
-                }
-                else
-                {
-                  if (obj.error) error = obj.error;
-                  else error = 'Error enviando el registro a la API.<br>Vuelve a intentarlo más tarde...';
-                  $('#estado_envio_verifactu').removeClass('alert-success'); //alert-info, alert-warning
-                  $('#estado_envio_verifactu').addClass('alert-danger');
-                  $('#estado_envio_verifactu .alert-text').html(error);
-                  $('#estado_envio_verifactu').fadeIn('slow').delay(1000).fadeOut(function() {
-                     window.location.reload();
-                  });
-                }
-
-                
-                
-            }, 
-            error : function (data){ 
-            console.log(data); 
-            } 
-      });
+            id_order: $(this).data('id_order'),
+            type: $(this).data('type') 
+        },
+        success: function(data) {
+            if (data.response == 'OK' || data.response == 'pendiente') {
+                // Usamos la notificación nativa de PrestaShop
+                showSuccessMessage('Reenvío solicitado correctamente. La página se recargará para actualizar el estado.');
+                setTimeout(function() {
+                    location.reload();
+                }, 2500);
+            } else {
+                showErrorMessage('Error en el reenvío: ' + (data.error || 'Respuesta desconocida del servidor.'));
+                $(this).prop('disabled', false).removeClass('disabled');
+                $(this).find('i').removeClass('icon-spinner icon-spin').addClass('icon-refresh');
+            }
+        },
+        error: function() {
+            showErrorMessage('Error de comunicación con el servidor al intentar reenviar.');
+            $(this).prop('disabled', false).removeClass('disabled');
+            $(this).find('i').removeClass('icon-spinner icon-spin').addClass('icon-refresh');
+        }
+    });
   });
+
 
 
   $('#send_anulacion_verifactu').on('click', function(e) {
@@ -339,3 +313,5 @@ if (typeof verifactu_ajax_url !== 'undefined')
     });
 
 });
+
+

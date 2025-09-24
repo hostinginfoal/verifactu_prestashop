@@ -870,14 +870,23 @@ class ApiVerifactu
         // NOTA: La lógica de consulta a tu API externa iría aquí.
         // Por ahora, simularemos una respuesta y actualizaremos la BD.
         
-        // 1. Buscar facturas pendientes en nuestra base de datos.
-        $sql = new DbQuery();
-        $sql->select('id_order_invoice, id_reg_fact')->from('verifactu_order_invoice')->where('estado = "pendiente"');
-        $pending_invoices = Db::getInstance()->executeS($sql);
+        // 1. Buscar facturas pendientes
+        $sql_invoices = new DbQuery();
+        $sql_invoices->select('voi.id_order_invoice, voi.id_reg_fact')
+            ->from('verifactu_order_invoice', 'voi')
+            ->leftJoin('order_invoice', 'oi', 'voi.id_order_invoice = oi.id_order_invoice')
+            ->leftJoin('orders', 'o', 'oi.id_order = o.id_order')
+            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop);
+        $pending_invoices = Db::getInstance()->executeS($sql_invoices);
 
-        $sql = new DbQuery();
-        $sql->select('id_order_slip, id_reg_fact')->from('verifactu_order_slip')->where('estado = "pendiente"');
-        $pending_slips = Db::getInstance()->executeS($sql);
+        // 2. Buscar abonos pendientes
+        $sql_slips = new DbQuery();
+        $sql_slips->select('vos.id_order_slip, vos.id_reg_fact')
+            ->from('verifactu_order_slip', 'vos')
+            ->leftJoin('order_slip', 'os', 'vos.id_order_slip = os.id_order_slip')
+            ->leftJoin('orders', 'o', 'os.id_order = o.id_order')
+            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop);
+        $pending_slips = Db::getInstance()->executeS($sql_slips);
 
         $updated_count = 0;
 
@@ -1279,7 +1288,7 @@ class ApiVerifactu
      * @param int $id_order_slip El ID de la factura de abono (de la tabla ps_order_slip).
      * @return string|null El número de abono formateado o null si no se encuentra.
      */
-    private function getFormattedCreditSlipNumber($id_order_slip)
+    public function getFormattedCreditSlipNumber($id_order_slip)
     {
         // 1. Validamos la entrada.
         if ($id_order_slip <= 0) {

@@ -31,7 +31,7 @@
 
 <!--<div class="col-md-4 left-column">-->
     <div class="card" id="formVerifactu">
-        <div class="card-header" style="color:white; background-color:{if $estado == 'pendiente'}#cccbf2;{elseif $verifactuEstadoRegistro == "Correcto"}#cbf2d4{elseif $verifactuEstadoRegistro == "AceptadoConErrores"}#fab000{else}#fbc6c3;{/if}">
+        <div class="card-header" style="color:white; background-color:{if $estado == 'pendiente'}#e4e3f7;{elseif $verifactuEstadoRegistro == "Correcto"}#eaf7ee{elseif $verifactuEstadoRegistro == "AceptadoConErrores"}#fff3cd{else}#f7dcde;{/if}">
             <h3 class="card-header-title">
               Verifactu
             </h3>

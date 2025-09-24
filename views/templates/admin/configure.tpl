@@ -71,12 +71,12 @@
     </li>
     <li class="{if $active_tab == 'sales_invoices'}active{/if}">
         <a href="{$current}&tab_module_verifactu=sales_invoices">
-            <i class="icon-list-ul"></i> {l s='Facturas Venta' mod='verifactu'}
+            <i class="icon-list-ul"></i> {l s='Facturas' mod='verifactu'}
         </a>
     </li>
     <li class="{if $active_tab == 'credit_slips'}active{/if}">
         <a href="{$current}&tab_module_verifactu=credit_slips">
-            <i class="icon-list-alt"></i> {l s='Facturas Abono' mod='verifactu'}
+            <i class="icon-list-alt"></i> {l s='Facturas por abono' mod='verifactu'}
         </a>
     </li>
     <li class="{if $active_tab == 'reg_facts'}active{/if}">

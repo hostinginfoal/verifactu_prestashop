@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.0';
+        $this->version = '1.3.1';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -92,6 +92,70 @@ class Verifactu extends Module
             }
         }
 
+        // 1. Creamos la pestaña PADRE. Esta será la nueva entrada en el menú principal.
+        // Le asignamos un controlador ficticio que no existe para que actúe solo como contenedor.
+        $parentTab = new Tab();
+        $parentTab->active = 1;
+        $parentTab->class_name = 'AdminVerifactuParent'; // Controlador ficticio para el menú padre
+        $parentTab->name = array();
+        foreach (Language::getLanguages(true) as $lang) {
+            $parentTab->name[$lang['id_lang']] = 'VeriFactu';
+        }
+        // IMPORTANTE: id_parent = 0 lo sitúa en la raíz del menú.
+        // Si quisieras que estuviera dentro de 'VENDER', usarías (int)Tab::getIdFromClassName('SELL')
+        $parentTab->id_parent = 0;
+        $parentTab->module = $this->name;
+        if (!$parentTab->add()) {
+            return false;
+        }
+
+        // 2. Creamos las pestañas HIJA. Este será el enlace real que el usuario verá
+        $childTab = new Tab();
+        $childTab->active = 1;
+        $childTab->class_name = 'AdminVerifactuSalesInvoices'; // Este sí es nuestro controlador de redirección
+        $childTab->name = array();
+        foreach (Language::getLanguages(true) as $lang) {
+            // Le damos un nombre como 'Dashboard' o 'Configuración'
+            $childTab->name[$lang['id_lang']] = 'Facturas';
+        }
+        $childTab->id_parent = (int)$parentTab->id;
+        $childTab->icon = 'receipt';
+        $childTab->module = $this->name;
+        if (!$childTab->add()) {
+            return false;
+        }
+
+        $childTab = new Tab();
+        $childTab->active = 1;
+        $childTab->class_name = 'AdminVerifactuCreditSlips'; // Este sí es nuestro controlador de redirección
+        $childTab->name = array();
+        foreach (Language::getLanguages(true) as $lang) {
+            // Le damos un nombre como 'Dashboard' o 'Configuración'
+            $childTab->name[$lang['id_lang']] = 'Facturas por abono';
+        }
+        $childTab->id_parent = (int)$parentTab->id;
+        $childTab->icon = 'receipt';
+        $childTab->module = $this->name;
+        if (!$childTab->add()) {
+            return false;
+        }
+
+        $childTab = new Tab();
+        $childTab->active = 1;
+        $childTab->class_name = 'AdminVerifactuRegFacts'; // Este sí es nuestro controlador de redirección
+        $childTab->name = array();
+        foreach (Language::getLanguages(true) as $lang) {
+            // Le damos un nombre como 'Dashboard' o 'Configuración'
+            $childTab->name[$lang['id_lang']] = 'Registros de facturación';
+        }
+        $childTab->id_parent = (int)$parentTab->id;
+        $childTab->icon = 'receipt';
+        $childTab->module = $this->name;
+        if (!$childTab->add()) {
+            return false;
+        }
+
+        //Menu Oculto para la vista detalle de los registros de facturación
         $tab = new Tab();
         $tab->active = 1;
         $tab->class_name = 'AdminVerifactuDetail'; // El nombre de nuestra nueva clase
@@ -104,6 +168,8 @@ class Verifactu extends Module
         if (!$tab->add()) {
             return false;
         }
+
+        //Fin menu
 
         include(dirname(__FILE__).'/sql/install.php');
 
@@ -135,6 +201,33 @@ class Verifactu extends Module
             Configuration::deleteByName($key);
         }*/
 
+        // Siempre es buena práctica eliminar los hijos primero
+        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuSalesInvoices');
+        if ($child_tab_id) {
+            $tab = new Tab($child_tab_id);
+            $tab->delete();
+        }
+
+        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuCreditSlips');
+        if ($child_tab_id) {
+            $tab = new Tab($child_tab_id);
+            $tab->delete();
+        }
+
+        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuRegFacts');
+        if ($child_tab_id) {
+            $tab = new Tab($child_tab_id);
+            $tab->delete();
+        }
+
+        // Ahora eliminamos el padre
+        $parent_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuParent');
+        if ($parent_tab_id) {
+            $tab = new Tab($parent_tab_id);
+            $tab->delete();
+        }
+
+        // Eliminamos la pestaña oculta 
         $id_tab = (int)Tab::getIdFromClassName('AdminVerifactuDetail');
         if ($id_tab) {
             $tab = new Tab($id_tab);
@@ -146,182 +239,7 @@ class Verifactu extends Module
         return parent::uninstall();
     }
 
-    /**
-     * Hook para mostrar contenido adicional en el PDF de la factura.
-     *
-     * @param array $params Parámetros del hook, contiene el objeto OrderInvoice
-     * @return string Contenido HTML para inyectar en el PDF
-     */
-    public function hookDisplayPDFInvoice($params)
-    {
-        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
-
-        $order_invoice = $params['object'];
-        if (!Validate::isLoadedObject($order_invoice)) {
-            return '';
-        }
-
-        $order = new Order($order_invoice->id_order);
-        if (!Validate::isLoadedObject($order)) {
-            return ''; // No se pudo cargar el pedido, salimos.
-        }
-        // Ahora obtenemos el id_shop desde el pedido, que sí es una propiedad pública.
-        $id_shop = (int) $order->id_shop;
-
-        $sql = new DbQuery();
-        $sql->select('urlQR');
-        $sql->from('verifactu_order_invoice');
-        $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
-        $url_to_encode = Db::getInstance()->getValue($sql);
-
-        // Si no tenemos una URL, no hacemos nada.
-        if (empty($url_to_encode)) {
-            //return '';
-            //Generamos la url a partir de los datos que sabemos
-            $sql = new DbQuery();
-            $sql->select('*');
-            $sql->from('order_invoice');
-            $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
-            $invoice = Db::getInstance()->getRow($sql);
-
-            $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
-            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
-            $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
-            $fecha = date('d-m-Y', strtotime($invoice['date_add']));
-            $importe = round((float) $invoice['total_paid_tax_incl'],2);
-            $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
-            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.$nif_emisor.'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
-        }
-
-        // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
-        $qr_code_path = null;
-        try {
-            // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
-            $qr_code_path = $tmp_dir . $tmp_filename;
-
-            // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
-            // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
-
-            // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
-            if (file_exists($qr_code_path)) {
-                self::$temp_qr_files[] = $qr_code_path;
-            } else {
-                $qr_code_path = null; // Si falla la creación, no pasamos la ruta.
-            }
-
-        } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
-            $qr_code_path = null;
-        }
-        
-        // 5. Asignamos la ruta a la plantilla.
-        $this->context->smarty->assign([
-            'verifactu_qr_code_path' => $qr_code_path,
-            'verifactu_url' => $url_to_encode
-        ]);
-        
-        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
-    }
-
-    /**
-     * Hook que se ejecuta después de renderizar el PDF de la factura.
-     * Se usa para borrar los archivos de QR temporales que hemos creado.
-     */
-    public function hookActionPDFInvoiceRender($params)
-    {
-        foreach (self::$temp_qr_files as $path) {
-            if (file_exists($path)) {
-                unlink($path);
-            }
-        }
-        // Reseteamos el array
-        self::$temp_qr_files = [];
-    }
-
-    /**
-     * Hook para mostrar contenido adicional en el PDF de la factura de abono.
-     *
-     * @param array $params Parámetros del hook, contiene el objeto OrderSlip
-     * @return string Contenido HTML para inyectar en el PDF
-     */
-    public function hookDisplayPDFOrderSlip($params)
-    {
-
-        // 1. Obtenemos el objeto OrderSlip del array de parámetros.
-        $order_slip = $params['object'];
-        if (!Validate::isLoadedObject($order_slip)) {
-            return '';
-        }
-
-        // 2. Cargamos el objeto Order asociado al abono para acceder a id_shop.
-        $order = new Order($order_slip->id_order);
-        if (!Validate::isLoadedObject($order)) {
-            return ''; // Si no se puede cargar el pedido, no continuamos.
-        }
-        // 3. Obtenemos el id_shop de forma segura desde la propiedad pública del objeto Order.
-        $id_shop = (int)$order->id_shop;
-
-
-        // El resto de la lógica es la que ya tenías, ¡y era correcta!
-        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
-
-        //$id_shop = (int)$order_slip->id_shop;
-
-        $sql = new DbQuery();
-        $sql->select('urlQR');
-        $sql->from('verifactu_order_slip');
-        $sql->where('id_order_slip = ' . (int)$order_slip->id);
-        $url_to_encode = Db::getInstance()->getValue($sql);
-
-        if (empty($url_to_encode)) {
-            return '';
-        }
-
-        $qr_code_path = null;
-        try {
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
-            $qr_code_path = $tmp_dir . $tmp_filename;
-
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
-
-            if (file_exists($qr_code_path)) {
-                // Lo añadimos a la misma variable estática para que se limpie después.
-                self::$temp_qr_files[] = $qr_code_path;
-            } else {
-                $qr_code_path = null;
-            }
-        } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
-            $qr_code_path = null;
-        }
-        
-        $this->context->smarty->assign([
-            'verifactu_qr_code_path' => $qr_code_path
-        ]);
-        
-        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
-    }
-
-    /**
-     * Hook que se ejecuta después de renderizar el PDF del abono.
-     * Se usa para borrar los archivos de QR temporales que hemos creado.
-     */
-    public function hookActionPDFOrderSlipRender($params)
-    {
-        // Esta lógica es idéntica a la del hook de facturas y limpiará los QR de ambas.
-        foreach (self::$temp_qr_files as $path) {
-            if (file_exists($path)) {
-                @unlink($path);
-            }
-        }
-        // Reseteamos el array para la siguiente ejecución.
-        self::$temp_qr_files = [];
-    }
+    
 
     /**
      * Load the configuration form
@@ -335,6 +253,14 @@ class Verifactu extends Module
             $this->context->cookie->shopContext = Tools::getValue('shop_id');
             // Redirigir para aplicar el nuevo contexto
             Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name);
+        }
+
+        //Comprobamos si el contexto actual es "Todas las tiendas"
+        if (Shop::getContext() == Shop::CONTEXT_ALL) {
+            // Si lo es, mostramos un mensaje de advertencia y no continuamos renderizando el resto.
+            $output .= $this->displayWarning($this->l('La configuración de VeriFactu es específica para cada tienda. Por favor, seleccione una tienda o un grupo de tiendas en el selector superior para continuar.'));
+            
+            return $output; // Devolvemos solo el mensaje y terminamos la ejecución del método.
         }
 
         if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
@@ -560,7 +486,7 @@ class Verifactu extends Module
                         'label' => $this->l('Activar modo debug'),
                         'name' => 'VERIFACTU_DEBUG_MODE',
                         'is_bool' => true,
-                        'desc' => $this->l('Activa esta opción si quieres guardar logs de los eventos en los Registros/Logs de prestashop.'),
+                        'desc' => $this->l('Activa esta opción para guardar los logs de los eventos en los Registros/Logs de prestashop. No la actives si no sabes lo que estás haciendo. Dejar activada esta opción puede hacer que tu tabla ps_log augmente mucho de tamaño en poco tiempo.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -724,28 +650,42 @@ class Verifactu extends Module
     public function renderSalesInvoicesList()
     {
         $fields_list = array(
-            'number' => array('title' => $this->l('Nº Factura'), 'type' => 'text', 'search' => true, 'orderby' => true),
-            'customer' => array('title' => $this->l('Cliente'), 'type' => 'text', 'search' => true, 'orderby' => false),
-            'total_paid_tax_incl' => array('title' => $this->l('Total'), 'type' => 'price', 'search' => false),
-            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'type' => 'text', 'search' => true, 'callback' => 'colorEncodeState', 'callback_object' => $this, 'escape' => false),
-            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Detalle'), 'type' => 'text', 'search' => false, 'orderby' => false),
-            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'search' => false, 'orderby' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false)
+            'id_order' => array(
+                'title' => $this->l('ID Pedido'),
+                'align' => 'text-center',
+                'class' => 'fixed-width-xs',
+                'search' => false,
+            ),
+            'number' => array(
+                'title' => $this->l('Nº Factura'),
+                'callback' => 'getFormattedInvoiceNumberForList',
+                'callback_object' => $this,
+                'search' => false,
+            ),
+            'customer' => array('title' => $this->l('Cliente'), 'search' => false, 'orderby' => false),
+            'total_paid_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
+            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
+            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
 
         $helper = new HelperList();
-        $helper->title = $this->l('Facturas de Venta');
+        $helper->title = $this->l('Estado de facturas de venta');
         $helper->table = 'verifactu_order_invoice';
         $helper->identifier = 'id_order_invoice';
         $helper->simple_header = false;
         $helper->show_toolbar = true;
         $helper->module = $this;
+        $helper->no_link = true;
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=sales_invoices';
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->actions = array();
         //$helper->row_class_callback = array($this, 'getRowClass');
         
-        $page = (int) Tools::getValue($helper->table . '_page', 1);
-        $pagination = (int) Tools::getValue($helper->table . '_pagination', 20);
+        $page = (int) Tools::getValue('page', 1);
+        $pagination = (int) Tools::getValue($helper->table . '_pagination', 50);
         $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_order_invoice');
         $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
 
@@ -765,11 +705,21 @@ class Verifactu extends Module
         $sql->leftJoin('orders', 'o', 'oi.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
 
-        // Lógica de ordenación y filtrado (adaptada)
-        $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-        // ... (añadir aquí la lógica de filtrado si es necesaria, similar a la de los otros listados) ...
+        $whereClauses = [];
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
         
+        // Aquí puedes añadir más filtros si los necesitas en el futuro
+        // ...
+
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
+        }
+
+        $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
         $sql->limit($pagination, ($page - 1) * $pagination);
+        
         return $db->executeS($sql);
     }
 
@@ -782,7 +732,16 @@ class Verifactu extends Module
         $sql->leftJoin('order_invoice', 'oi', 't.id_order_invoice = oi.id_order_invoice');
         $sql->leftJoin('orders', 'o', 'oi.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
-         // ... (añadir aquí la lógica de filtrado si es necesaria, similar a la de los otros listados) ...
+        
+        $whereClauses = [];
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
+        }
+
         return (int)$db->getValue($sql);
     }
 
@@ -793,28 +752,42 @@ class Verifactu extends Module
     public function renderCreditSlipsList()
     {
         $fields_list = array(
-            'id_order_slip' => array('title' => $this->l('Nº Abono'), 'type' => 'text', 'search' => true, 'orderby' => true),
-            'customer' => array('title' => $this->l('Cliente'), 'type' => 'text', 'search' => true, 'orderby' => false),
-            'total_products_tax_incl' => array('title' => $this->l('Total'), 'type' => 'price', 'search' => false),
-            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'type' => 'text', 'search' => true, 'callback' => 'colorEncodeState', 'callback_object' => $this, 'escape' => false),
-            'verifactuDescripcionErrorRegistro' => array('title' => $this->l('Detalle'), 'type' => 'text', 'search' => false, 'orderby' => false),
-            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'search' => false, 'orderby' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false)
+            'id_order' => array(
+                'title' => $this->l('ID Pedido'),
+                'align' => 'text-center',
+                'class' => 'fixed-width-xs',
+                'search' => false,
+            ),
+            'id_order_slip' => array(
+                'title' => $this->l('Nº Abono'),
+                'callback' => 'getFormattedSlipNumberForList',
+                'callback_object' => $this,
+                'search' => false,
+            ),
+            'customer' => array('title' => $this->l('Cliente'), 'search' => false, 'orderby' => false),
+            'total_products_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
+            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false,),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
+            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
 
         $helper = new HelperList();
-        $helper->title = $this->l('Facturas de Abono');
+        $helper->title = $this->l('Estado de facturas por abono');
         $helper->table = 'verifactu_order_slip';
         $helper->identifier = 'id_order_slip';
         $helper->simple_header = false;
         $helper->show_toolbar = true;
         $helper->module = $this;
+        $helper->no_link = true;
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=credit_slips';
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->actions = array();
         //$helper->row_class_callback = array($this, 'getRowClass');
         
-        $page = (int) Tools::getValue($helper->table . '_page', 1);
-        $pagination = (int) Tools::getValue($helper->table . '_pagination', 20);
+        $page = (int) Tools::getValue('page', 1);
+        $pagination = (int) Tools::getValue($helper->table . '_pagination', 50);
         $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_order_slip');
         $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
 
@@ -834,10 +807,18 @@ class Verifactu extends Module
         $sql->leftJoin('orders', 'o', 'os.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
         
+        $whereClauses = [];
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
+        }
+
         $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-        // ... (añadir aquí la lógica de filtrado) ...
-        
         $sql->limit($pagination, ($page - 1) * $pagination);
+        
         return $db->executeS($sql);
     }
 
@@ -850,7 +831,16 @@ class Verifactu extends Module
         $sql->leftJoin('order_slip', 'os', 't.id_order_slip = os.id_order_slip');
         $sql->leftJoin('orders', 'o', 'os.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
-        // ... (añadir aquí la lógica de filtrado) ...
+        
+        $whereClauses = [];
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
+        if (!empty($whereClauses)) {
+            $sql->where(implode(' AND ', $whereClauses));
+        }
+
         return (int)$db->getValue($sql);
     }
 
@@ -871,12 +861,13 @@ class Verifactu extends Module
             'InvoiceNumber' => array(
                 'title' => $this->l('Nº Factura'),
                 'type' => 'text',
-                'search' => true,
                 'orderby' => true,
+                'search' => false,
             ),
             'BuyerName' => array(
                 'title' => $this->l('Cliente'),
                 'type' => 'text',
+                'search' => false,
             ),
             'TipoOperacion' => array(
                 'title' => $this->l('Operación'),
@@ -941,18 +932,19 @@ class Verifactu extends Module
 
         $helper = new HelperList();
 
-        $helper->title = $this->l('Registros de Facturación');
+        $helper->title = $this->l('Registros de facturación remitidos a Veri*Factu');
         $helper->table = 'verifactu_reg_fact';
         $helper->identifier = 'id_reg_fact'; // El campo ID de la fila
         $helper->simple_header = false;
         $helper->show_toolbar = true;
         $helper->module = $this;
+        $helper->no_link = true;
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=reg_facts';
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->actions = array();
         
-        $page = (int) Tools::getValue($helper->table . '_page', 1);
-        $pagination = (int) Tools::getValue($helper->table . '_pagination', 20);
+        $page = (int) Tools::getValue('page', 1);
+        $pagination = (int) Tools::getValue($helper->table . '_pagination', 50);
         $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_reg_fact');
         $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
 
@@ -993,6 +985,11 @@ class Verifactu extends Module
         $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
 
         $whereClauses = [];
+
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
@@ -1005,6 +1002,9 @@ class Verifactu extends Module
                 }
             }
         }
+
+        
+
         if (!empty($whereClauses)) {
             $sql->where(implode(' AND ', $whereClauses));
         }
@@ -1026,6 +1026,11 @@ class Verifactu extends Module
         $sql->leftJoin('orders', 'o', 'o.id_order = IF(t.tipo = "alta", oi.id_order, os.id_order)');
 
         $whereClauses = [];
+
+        if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
+            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
         $filters = Tools::getAllValues();
         foreach ($filters as $key => $value) {
             if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
@@ -1038,6 +1043,9 @@ class Verifactu extends Module
                 }
             }
         }
+
+        
+
         if (!empty($whereClauses)) {
             $sql->where(implode(' AND ', $whereClauses));
         }
@@ -1051,6 +1059,39 @@ class Verifactu extends Module
     // =================================================================
 
     /**
+     * Callback para mostrar un icono de tick/cruz para el estado de anulación.
+     *
+     * @param int $value El valor del campo 'anulacion' (0 o 1).
+     * @param array $row La fila completa de datos.
+     * @return string El HTML para el icono.
+     */
+    public function printAnulacionTick($value, $row)
+    {
+        if ($value) {
+            return '<a class="list-action-enable action-enabled"><i class="icon-check"></i></a>';
+        } else {
+            return '<a class="list-action-enable action-disabled"><i class="icon-remove"></i></a>';
+        }
+    }
+
+    /**
+     * Callback para mostrar un icono de tick si la factura es simplificada ('F2').
+     *
+     * @param string $value El valor del campo 'TipoFactura'.
+     * @param array $row La fila completa de datos.
+     * @return string El HTML para el icono.
+     */
+    public function printSimplifiedInvoiceTick($value, $row)
+    {
+        // La factura simplificada se marca con el código "F2"
+        if ($value === 'F2' || $value === 'R5') {
+            return '<a class="list-action-enable action-enabled"><i class="icon-check"></i></a>';
+        } else {
+            return '<a class="list-action-enable action-disabled"><i class="icon-remove"></i></a>';
+        }
+    }
+
+    /**
      * Callback para los botones de acción de los listados de facturas y abonos (sin "Ver Detalle").
      */
     public function printSimpleActions($value, $row)
@@ -1058,17 +1099,25 @@ class Verifactu extends Module
         $actions = '';
 
         // Botón Enlace QR
-        if (!empty($row['urlQR']) && ($row['verifactuEstadoRegistro'] === 'Correcto' || $row['verifactuEstadoRegistro'] === 'AceptadoConErrores')) {
+        if (!empty($row['urlQR'])) {
             $actions .= '<a class="btn btn-default" href="' . Tools::safeOutput($row['urlQR']) . '" target="_blank" title="' . $this->l('Ver QR') . '"><i class="icon-qrcode"></i></a> ';
         }
 
         // Botón Corregir
-        if ($row['verifactuEstadoRegistro'] !== 'Correcto' && !empty($row['id_order'])) {
+        if (!empty($row['id_order'])) {
             $order_url = $this->context->link->getAdminLink('AdminOrders', true, [], [
                 'id_order' => (int)$row['id_order'],
                 'vieworder' => ''
             ]);
             $actions .= '<a class="btn btn-default" href="' . $order_url . '" target="_blank" title="' . $this->l('Ir al Pedido') . '"><i class="icon-pencil"></i></a>';
+        }
+
+        // Botón Reenviar
+        if (isset($row['verifactuEstadoRegistro']) && isset($row['estado']) && $row['verifactuEstadoRegistro'] !== 'Correcto' && $row['estado'] == 'sincronizado') {
+            // Determinamos si es una factura de venta (alta) o un abono
+            $type = isset($row['id_order_invoice']) ? 'alta' : 'abono';
+
+            $actions .= '<a class="btn btn-default button-resend-verifactu"  data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" title="' . $this->l('Reenviar a VeriFactu') . '"><i class="icon-refresh"></i></a>';
         }
 
         return $actions;
@@ -1083,21 +1132,38 @@ class Verifactu extends Module
      */
     public function colorEncodeState($value, $row)
     {
-        $class = '';
-        switch ($value) {
-            case 'Correcto':
-                $class = 'verifactu_correct';
-                break;
-            case 'Incorrecto':
-                $class = 'verifactu_error';
-                break;
-            case 'AceptadoConErrores':
-                $class = 'verifactu_warning';
-                break;
+        if (isset($row['estado']) && $row['estado'] == 'pendiente')
+        {
+            $class = 'verifactu_pendiente';
+            return '<span class="' . $class . '">' . Tools::safeOutput($value) . '</span>';
         }
+        else
+        {
+            if ($value)
+            {
+                $class = '';
+                switch ($value) {
+                    case 'Correcto':
+                        $class = 'verifactu_correct';
+                        break;
+                    case 'Incorrecto':
+                        $class = 'verifactu_error';
+                        break;
+                    case 'AceptadoConErrores':
+                        $class = 'verifactu_warning';
+                        break;
+                }
 
-        // Devolvemos el texto del estado dentro de un span con la clase correspondiente.
-        return '<span class="' . $class . '">' . Tools::safeOutput($value) . '</span>';
+                // Devolvemos el texto del estado dentro de un span con la clase correspondiente.
+                return '<span class="' . $class . '">' . Tools::safeOutput($value) . '</span>';
+            }
+            else
+            {
+                return '--';
+            }
+        }
+        
+        
     }
 
     /**
@@ -1141,7 +1207,7 @@ class Verifactu extends Module
         }
 
         // Botón Corregir (condicional)
-        if ($row['EstadoRegistro'] !== 'Correcto' && !empty($row['id_order'])) {
+        if (!empty($row['id_order'])) {
             // Construimos el enlace a la página de edición del pedido
             $order_url = $this->context->link->getAdminLink('AdminOrders', true, [], [
                 'id_order' => (int)$row['id_order'],
@@ -1149,7 +1215,7 @@ class Verifactu extends Module
             ]);
             
             // Añadimos el botón con target="_blank" para que se abra en una nueva pestaña
-            $actions .= '<a class="btn btn-default" href="' . $order_url . '" target="_blank" title="' . $this->l('Corregir en el pedido') . '"><i class="icon-pencil"></i> ' . $this->l('Pedido') . '</a>';
+            $actions .= '<a class="btn btn-default" href="' . $order_url . '" target="_blank" title="' . $this->l('Corregir en el pedido') . '"><i class="icon-pencil"></i> </a>';
         }
 
         return $actions;
@@ -1177,7 +1243,47 @@ class Verifactu extends Module
         return $actions;
     }
 
-    
+    /**
+     * Callback para mostrar el número de factura formateado.
+     *
+     * @param int $id_order_invoice El ID de la factura.
+     * @param array $row La fila completa de datos.
+     * @return string El número de factura formateado.
+     */
+    public function getFormattedInvoiceNumberForList($value, $row)
+    {
+        // Reutilizamos la lógica que ya tienes en la clase ApiVerifactu
+        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        return $api_verifactu->getFormattedInvoiceNumber($row['id_order_invoice']);
+    }
+
+    /**
+     * Callback para mostrar el número de abono formateado.
+     *
+     * @param int $id_order_slip El ID del abono.
+     * @param array $row La fila completa de datos.
+     * @return string El número de abono formateado.
+     */
+    public function getFormattedSlipNumberForList($value, $row)
+    {
+        // Reutilizamos la lógica que ya tienes en la clase ApiVerifactu
+        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        return $api_verifactu->getFormattedCreditSlipNumber($row['id_order_slip']);
+    }
+
+    /**
+     * Callback para mostrar un texto por defecto si el valor es nulo o vacío.
+     *
+     * @param mixed $value El valor de la celda.
+     * @return string El valor o un guión si está vacío.
+     */
+    public function displayDefaultText($value)
+    {
+        if (empty($value)) {
+            return '--';
+        }
+        return Tools::safeOutput($value);
+    }
 
 
     // =================================================================
@@ -1405,5 +1511,182 @@ class Verifactu extends Module
         ));
 
         return $this->display(dirname(__FILE__), '/views/templates/admin/order_side.tpl');
+    }
+
+    /**
+     * Hook para mostrar contenido adicional en el PDF de la factura.
+     *
+     * @param array $params Parámetros del hook, contiene el objeto OrderInvoice
+     * @return string Contenido HTML para inyectar en el PDF
+     */
+    public function hookDisplayPDFInvoice($params)
+    {
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
+        $order_invoice = $params['object'];
+        if (!Validate::isLoadedObject($order_invoice)) {
+            return '';
+        }
+
+        $order = new Order($order_invoice->id_order);
+        if (!Validate::isLoadedObject($order)) {
+            return ''; // No se pudo cargar el pedido, salimos.
+        }
+        // Ahora obtenemos el id_shop desde el pedido, que sí es una propiedad pública.
+        $id_shop = (int) $order->id_shop;
+
+        $sql = new DbQuery();
+        $sql->select('urlQR');
+        $sql->from('verifactu_order_invoice');
+        $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
+        $url_to_encode = Db::getInstance()->getValue($sql);
+
+        // Si no tenemos una URL, no hacemos nada.
+        if (empty($url_to_encode)) {
+            //return '';
+            //Generamos la url a partir de los datos que sabemos
+            $sql = new DbQuery();
+            $sql->select('*');
+            $sql->from('order_invoice');
+            $sql->where('id_order_invoice = ' . (int)$order_invoice->id);
+            $invoice = Db::getInstance()->getRow($sql);
+
+            $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
+            $fecha = date('d-m-Y', strtotime($invoice['date_add']));
+            $importe = round((float) $invoice['total_paid_tax_incl'],2);
+            $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.$nif_emisor.'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
+        }
+
+        // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
+        $qr_code_path = null;
+        try {
+            // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
+            $qr_code_path = $tmp_dir . $tmp_filename;
+
+            // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
+            // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+
+            // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
+            if (file_exists($qr_code_path)) {
+                self::$temp_qr_files[] = $qr_code_path;
+            } else {
+                $qr_code_path = null; // Si falla la creación, no pasamos la ruta.
+            }
+
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            $qr_code_path = null;
+        }
+        
+        // 5. Asignamos la ruta a la plantilla.
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qr_code_path,
+            'verifactu_url' => $url_to_encode
+        ]);
+        
+        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+    }
+
+    /**
+     * Hook que se ejecuta después de renderizar el PDF de la factura.
+     * Se usa para borrar los archivos de QR temporales que hemos creado.
+     */
+    public function hookActionPDFInvoiceRender($params)
+    {
+        foreach (self::$temp_qr_files as $path) {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+        // Reseteamos el array
+        self::$temp_qr_files = [];
+    }
+
+    /**
+     * Hook para mostrar contenido adicional en el PDF de la factura de abono.
+     *
+     * @param array $params Parámetros del hook, contiene el objeto OrderSlip
+     * @return string Contenido HTML para inyectar en el PDF
+     */
+    public function hookDisplayPDFOrderSlip($params)
+    {
+
+        // 1. Obtenemos el objeto OrderSlip del array de parámetros.
+        $order_slip = $params['object'];
+        if (!Validate::isLoadedObject($order_slip)) {
+            return '';
+        }
+
+        // 2. Cargamos el objeto Order asociado al abono para acceder a id_shop.
+        $order = new Order($order_slip->id_order);
+        if (!Validate::isLoadedObject($order)) {
+            return ''; // Si no se puede cargar el pedido, no continuamos.
+        }
+        // 3. Obtenemos el id_shop de forma segura desde la propiedad pública del objeto Order.
+        $id_shop = (int)$order->id_shop;
+
+
+        // El resto de la lógica es la que ya tenías, ¡y era correcta!
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
+        //$id_shop = (int)$order_slip->id_shop;
+
+        $sql = new DbQuery();
+        $sql->select('urlQR');
+        $sql->from('verifactu_order_slip');
+        $sql->where('id_order_slip = ' . (int)$order_slip->id);
+        $url_to_encode = Db::getInstance()->getValue($sql);
+
+        if (empty($url_to_encode)) {
+            return '';
+        }
+
+        $qr_code_path = null;
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
+            $qr_code_path = $tmp_dir . $tmp_filename;
+
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+
+            if (file_exists($qr_code_path)) {
+                // Lo añadimos a la misma variable estática para que se limpie después.
+                self::$temp_qr_files[] = $qr_code_path;
+            } else {
+                $qr_code_path = null;
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            $qr_code_path = null;
+        }
+        
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qr_code_path
+        ]);
+        
+        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+    }
+
+    /**
+     * Hook que se ejecuta después de renderizar el PDF del abono.
+     * Se usa para borrar los archivos de QR temporales que hemos creado.
+     */
+    public function hookActionPDFOrderSlipRender($params)
+    {
+        // Esta lógica es idéntica a la del hook de facturas y limpiará los QR de ambas.
+        foreach (self::$temp_qr_files as $path) {
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+        // Reseteamos el array para la siguiente ejecución.
+        self::$temp_qr_files = [];
     }
 }
