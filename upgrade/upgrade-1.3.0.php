@@ -34,17 +34,33 @@ if (!defined('_PS_VERSION_')) {
  */
 function upgrade_module_1_3_0($module)
 {
-    $sql = array();
+    // Nombre de la tabla con la que vamos a trabajar
+    $tableName = _DB_PREFIX_ . 'verifactu_reg_fact';
 
-$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` DROP COLUMN `invoice_number`';
-$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_reg_fact` DROP COLUMN `id_queue`';
+    // Lista de columnas que queremos eliminar
+    $columns_to_drop = array('invoice_number', 'id_queue');
 
-
-    foreach ($sql as $query) {
-        if (Db::getInstance()->execute($query) == false) {
-            return false;
-        }
+    // Obtenemos la lista de columnas que SÍ existen en la tabla
+    $existing_columns = array();
+    $columns_in_db = Db::getInstance()->executeS('SHOW COLUMNS FROM `' . pSQL($tableName) . '`');
+    foreach ($columns_in_db as $column) {
+        $existing_columns[] = $column['Field'];
     }
 
+    // Recorremos las columnas que queremos borrar
+    foreach ($columns_to_drop as $column_name) {
+        // Comprobamos si la columna a borrar está en la lista de columnas existentes
+        if (in_array($column_name, $existing_columns, true)) {
+            // Si existe, construimos y ejecutamos la consulta para borrarla
+            $sql = 'ALTER TABLE `' . pSQL($tableName) . '` DROP COLUMN `' . pSQL($column_name) . '`';
+            if (Db::getInstance()->execute($sql) == false) {
+                // Si hay un error al borrarla (aunque no debería), detenemos la actualización
+                return false;
+            }
+        }
+        // Si la columna no existe, simplemente no hacemos nada y el bucle continúa.
+    }
+
+    // Si todo ha ido bien, devolvemos true
     return true;
 }
