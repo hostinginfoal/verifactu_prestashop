@@ -263,6 +263,16 @@ class Verifactu extends Module
             return $output; // Devolvemos solo el mensaje y terminamos la ejecución del método.
         }
 
+        // Procesar la acción de verificar la base de datos
+        if (((bool)Tools::isSubmit('submitCheckDatabase')) == true) {
+            $result = $this->checkAndFixDatabase();
+            if ($result['success']) {
+                $output .= $this->displayConfirmation($result['message']);
+            } else {
+                $output .= $this->displayError($result['message']);
+            }
+        }
+
         if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
             $this->postProcess();
             $output .= $this->displayConfirmation($this->l('Configuración actualizada'));
@@ -303,6 +313,154 @@ class Verifactu extends Module
         }
 
         return $output;
+    }
+
+    /**
+     * Define el esquema completo y actual de las tablas del módulo.
+     * Este es el "mapa" que se usará para verificar la integridad.
+     * @return array
+     */
+    private function getDatabaseSchema()
+    {
+        return [
+            'verifactu_reg_fact' => [
+                'id_reg_fact' => 'int(11) NOT NULL',
+                'id_order_invoice' => 'int(11) NOT NULL',
+                'tipo' => 'varchar(20) DEFAULT NULL',
+                'EstadoEnvio' => 'varchar(100) DEFAULT NULL',
+                'EstadoRegistro' => 'varchar(100) DEFAULT NULL',
+                'CodigoErrorRegistro' => 'varchar(100) DEFAULT NULL',
+                'DescripcionErrorRegistro' => 'text',
+                'urlQR' => 'varchar(255) DEFAULT NULL',
+                'estado_queue' => 'varchar(20) DEFAULT NULL',
+                'InvoiceNumber' => 'varchar(50) DEFAULT NULL',
+                'IssueDate' => 'date DEFAULT NULL',
+                'TipoOperacion' => 'varchar(45) DEFAULT NULL',
+                'EmpresaNombreRazon' => 'varchar(45) DEFAULT NULL',
+                'EmpresaNIF' => 'varchar(20) DEFAULT NULL',
+                'hash' => 'varchar(255) DEFAULT NULL',
+                'cadena' => 'text',
+                'AnteriorHash' => 'varchar(255) DEFAULT NULL',
+                'TipoFactura' => 'varchar(45) DEFAULT NULL',
+                'FacturaSimplificadaArt7273' => 'varchar(45) DEFAULT NULL',
+                'FacturaSinIdentifDestinatarioArt61d' => 'varchar(45) DEFAULT NULL',
+                'CalificacionOperacion' => 'varchar(45) DEFAULT NULL',
+                'Macrodato' => 'varchar(45) DEFAULT NULL',
+                'Cupon' => 'varchar(45) DEFAULT NULL',
+                'TotalTaxOutputs' => 'decimal(15,2) DEFAULT NULL',
+                'InvoiceTotal' => 'decimal(15,2) DEFAULT NULL',
+                'BuyerName' => 'varchar(255) DEFAULT NULL',
+                'BuyerCorporateName' => 'varchar(255) DEFAULT NULL',
+                'BuyerTaxIdentificationNumber' => 'varchar(45) DEFAULT NULL',
+                'BuyerCountryCode' => 'varchar(10) DEFAULT NULL',
+                'IDOtroIDType' => 'varchar(45) DEFAULT NULL',
+                'IDOtroID' => 'varchar(45) DEFAULT NULL',
+                'TipoRectificativa' => 'varchar(10) DEFAULT NULL',
+                'CorrectiveInvoiceNumber' => 'varchar(50) DEFAULT NULL',
+                'CorrectiveInvoiceSeriesCode' => 'varchar(10) DEFAULT NULL',
+                'CorrectiveIssueDate' => 'date DEFAULT NULL',
+                'CorrectiveBaseAmount' => 'decimal(15,2) DEFAULT NULL',
+                'CorrectiveTaxAmount' => 'decimal(15,2) DEFAULT NULL',
+                'FechaHoraHusoGenRegistro' => 'varchar(45) DEFAULT NULL',
+                'fechaHoraRegistro' => 'datetime DEFAULT NULL',
+                'SIFNombreRazon' => 'varchar(255) DEFAULT NULL',
+                'SIFNIF' => 'varchar(45) DEFAULT NULL',
+                'SIFNombreSIF' => 'varchar(45) DEFAULT NULL',
+                'SIFIdSIF' => 'varchar(45) DEFAULT NULL',
+                'SIFVersion' => 'varchar(45) DEFAULT NULL',
+                'SIFNumeroInstalacion' => 'varchar(45) DEFAULT NULL',
+                'SIFTipoUsoPosibleSoloVerifactu' => 'varchar(45) DEFAULT NULL',
+                'SIFTipoUsoPosibleMultiOT' => 'varchar(45) DEFAULT NULL',
+                'SIFIndicadorMultiplesOT' => 'varchar(45) DEFAULT NULL',
+                'apiMode' => 'varchar(20) DEFAULT NULL',
+                'id_shop' => 'int(11) NOT NULL',
+            ],
+            'verifactu_order_invoice' => [
+                'id_order_invoice' => 'int(11) NOT NULL',
+                'estado' => 'VARCHAR(40) NULL',
+                'id_reg_fact' => 'int(11) NOT NULL',
+                'verifactuEstadoEnvio' => 'VARCHAR(100) NULL',
+                'verifactuEstadoRegistro' => 'VARCHAR(100) NULL',
+                'verifactuCodigoErrorRegistro' => 'VARCHAR(100) NULL',
+                'verifactuDescripcionErrorRegistro' => 'TEXT NULL',
+                'urlQR' => 'VARCHAR(255) NULL',
+                'anulacion' => 'int(11) NOT NULL',
+                'TipoFactura' => 'VARCHAR(100) NULL',
+                'avisos' => 'TEXT NULL',
+                'apiMode' => 'varchar(20) DEFAULT NULL',
+            ],
+            'verifactu_order_slip' => [
+                'id_order_slip' => 'int(11) NOT NULL',
+                'estado' => 'VARCHAR(40) NULL',
+                'id_reg_fact' => 'int(11) NOT NULL',
+                'verifactuEstadoEnvio' => 'VARCHAR(100) NULL',
+                'verifactuEstadoRegistro' => 'VARCHAR(100) NULL',
+                'verifactuCodigoErrorRegistro' => 'VARCHAR(100) NULL',
+                'verifactuDescripcionErrorRegistro' => 'TEXT NULL',
+                'urlQR' => 'VARCHAR(255) NULL',
+                'anulacion' => 'int(11) NOT NULL',
+                'TipoFactura' => 'VARCHAR(100) NULL',
+                'avisos' => 'TEXT NULL',
+                'apiMode' => 'varchar(20) DEFAULT NULL',
+            ],
+        ];
+    }
+    
+    /**
+     * Función principal que se ejecuta al pulsar el botón de verificación.
+     * @return array con el resultado de la operación.
+     */
+    public function checkAndFixDatabase()
+    {
+        $schema = $this->getDatabaseSchema();
+        $db = Db::getInstance();
+        $prefix = _DB_PREFIX_;
+        $dbName = _DB_NAME_;
+        $errors = [];
+        $fixes = 0;
+
+        foreach ($schema as $tableName => $columns) {
+            // Primero, comprobamos si la tabla existe
+            $sqlTableCheck = "SELECT COUNT(*) FROM `INFORMATION_SCHEMA`.`TABLES`
+                              WHERE `TABLE_SCHEMA` = '" . pSQL($dbName) . "'
+                              AND `TABLE_NAME` = '" . pSQL($prefix . $tableName) . "'";
+            
+            if ((int)$db->getValue($sqlTableCheck) == 0) {
+                // La tabla no existe, la creamos usando el sql/install.php
+                // Esto es una medida de seguridad extra.
+                include(dirname(__FILE__).'/sql/install.php');
+                $errors[] = sprintf($this->l('La tabla %s no existía y ha sido creada. Por favor, vuelva a ejecutar la comprobación.'), $prefix . $tableName);
+                continue; // Pasamos a la siguiente tabla
+            }
+
+            // Si la tabla existe, comprobamos cada columna
+            foreach ($columns as $columnName => $columnDefinition) {
+                $sqlColumnCheck = "SELECT COUNT(*) FROM `INFORMATION_SCHEMA`.`COLUMNS`
+                                   WHERE `TABLE_SCHEMA` = '" . pSQL($dbName) . "'
+                                   AND `TABLE_NAME` = '" . pSQL($prefix . $tableName) . "'
+                                   AND `COLUMN_NAME` = '" . pSQL($columnName) . "'";
+                
+                if ((int)$db->getValue($sqlColumnCheck) == 0) {
+                    // La columna no existe, la añadimos
+                    $sqlAlter = "ALTER TABLE `" . pSQL($prefix . $tableName) . "` ADD `" . pSQL($columnName) . "` " . $columnDefinition;
+                    if ($db->execute($sqlAlter)) {
+                        $fixes++;
+                    } else {
+                        $errors[] = sprintf($this->l('Error al intentar añadir la columna %s a la tabla %s.'), $columnName, $prefix . $tableName);
+                    }
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            return ['success' => false, 'message' => implode('<br>', $errors)];
+        }
+
+        if ($fixes > 0) {
+            return ['success' => true, 'message' => sprintf($this->l('¡Reparación completada! Se han añadido %d columna(s) que faltaban.'), $fixes)];
+        }
+
+        return ['success' => true, 'message' => $this->l('¡Todo correcto! La estructura de las tablas de VeriFactu está completa.')];
     }
 
     /**
@@ -407,7 +565,41 @@ class Verifactu extends Module
             'id_language' => $this->context->language->id,
         );
 
-        return $helper->generateForm(array($this->getConfigForm()));
+        $output = $helper->generateForm(array($this->getConfigForm()));
+
+        // --- INICIO DEL NUEVO CÓDIGO ---
+        // Creamos un segundo formulario solo para el botón de herramientas
+        $helperTools = new HelperForm();
+        $helperTools->show_toolbar = false;
+        $helperTools->table = $this->table;
+        $helperTools->module = $this;
+        $helperTools->submit_action = 'submitCheckDatabase'; // Acción específica para este botón
+        $helperTools->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
+        $helperTools->token = Tools::getAdminTokenLite('AdminModules');
+
+        $formTools = array(
+            'form' => array(
+                'legend' => array(
+                    'title' => $this->l('Herramientas de Mantenimiento'),
+                    'icon' => 'icon-wrench',
+                ),
+                'buttons' => array(
+                    'check_db' => array(
+                        'title' => $this->l('Verificar y Reparar Base de Datos'),
+                        'name' => 'submitCheckDatabase',
+                        'type' => 'submit',
+                        'class' => 'btn btn-default pull-right',
+                        'icon' => 'process-icon-cogs'
+                    )
+                ),
+                'description' => $this->l('Usa este botón si sospechas que al módulo le falta alguna columna en la base de datos debido a una actualización fallida. Esta herramienta comprobará la integridad de las tablas y añadirá las columnas que falten sin borrar ningún dato.')
+            ),
+        );
+
+        $output .= $helperTools->generateForm(array($formTools));
+        
+        return $output;
     }
 
     /**
