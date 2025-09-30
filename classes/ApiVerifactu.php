@@ -1250,7 +1250,7 @@ class ApiVerifactu
         $sql = new DbQuery();
         $sql->select('oi.number, oi.date_add, o.id_lang, o.id_shop');
         $sql->from('order_invoice', 'oi');
-        $sql->leftJoin('orders', 'o', 'o.id_order = oi.id_order');
+        $sql->innerJoin('orders', 'o', 'o.id_order = oi.id_order');
         $sql->where('oi.id_order_invoice = ' . (int)$id_order_invoice);
         $result = Db::getInstance()->getRow($sql);
 
@@ -1258,15 +1258,29 @@ class ApiVerifactu
             return null;
         }
 
+        if ($this->debugMode) {
+            PrestaShopLogger::addLog(json_encode($result), 1, null, null, null, true, $this->id_shop);
+        }
+
         $id_shop = (int)$result['id_shop'];
+        $id_lang = (int)$result['id_lang'];
+        $default_lang_id = (int)Configuration::get('PS_LANG_DEFAULT');
 
         // 3. Obtenemos las variables de configuración de PrestaShop.
-        $prefix = Configuration::get('PS_INVOICE_PREFIX', (int)$result['id_lang'], null, $id_shop);
+        $prefix = Configuration::get('PS_INVOICE_PREFIX', $id_lang, null, $id_shop);
         $use_year = (int)Configuration::get('PS_INVOICE_USE_YEAR', null, $id_shop);
         $year_position = (int)Configuration::get('PS_INVOICE_YEAR_POS', null, $id_shop);
 
         // 4. Preparamos los componentes del número.
-        $padded_number = sprintf('%06d', $result['number']);
+        if (strlen((string)$result['number']) >= 6)
+        {
+            $padded_number = $result['number'];
+        }
+        else
+        {
+            $padded_number = sprintf('%06d', $result['number']);
+        }
+        
         $year = date('Y', strtotime($result['date_add']));
         
         $final_invoice_number = $prefix;
@@ -1286,6 +1300,10 @@ class ApiVerifactu
                     $final_invoice_number .= $padded_number;
                     break;
             }
+        }
+        else
+        {
+            $final_invoice_number .= $padded_number;
         }
         
 
@@ -1311,7 +1329,7 @@ class ApiVerifactu
         $sql = new DbQuery();
         $sql->select('os.date_add, o.id_lang, o.id_shop');
         $sql->from('order_slip', 'os');
-        $sql->leftJoin('orders', 'o', 'o.id_order = os.id_order');
+        $sql->innerJoin('orders', 'o', 'o.id_order = os.id_order');
         $sql->where('os.id_order_slip = ' . (int)$id_order_slip);
 
         $result = Db::getInstance()->getRow($sql);
@@ -1328,7 +1346,14 @@ class ApiVerifactu
 
         // 4. Preparamos los componentes del número.
         // En las facturas de abono, el ID se usa como número secuencial.
-        $padded_number = sprintf('%06d', $id_order_slip);
+        if (strlen((string)$result['number']) >= 6)
+        {
+            $padded_number = $id_order_slip;
+        }
+        else
+        {
+            $padded_number = sprintf('%06d', $id_order_slip);
+        }
         $year = date('Y', strtotime($result['date_add']));
         
         $final_slip_number = $prefix;
