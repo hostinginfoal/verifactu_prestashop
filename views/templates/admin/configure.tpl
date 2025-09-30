@@ -51,7 +51,7 @@
 	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
 	<p>
 		&raquo;
-        {l s='Puedes ver la documentación del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop" target="_blank">https://github.com/hostinginfoal/verifactu_prestashop</a>
+        {l s='Puedes ver la guía de usuario del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop" target="_blank">https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop</a>
 	</p>
 	<p>
 		&raquo;

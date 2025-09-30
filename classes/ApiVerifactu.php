@@ -375,8 +375,6 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
-            //$inv->TotalGeneralDiscounts = 0;
-            //$inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
             $inv->TotalTaxOutputs = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
@@ -680,6 +678,10 @@ class ApiVerifactu
         }
         else
         {
+            if (isset($obj) && $obj->error)
+            {
+                $reply['error'] = $obj->error;
+            }
             $reply['response'] = 'KO';
         }
 
@@ -857,6 +859,15 @@ class ApiVerifactu
 
             
             
+        $reply['response'] = 'OK';
+        }
+        else
+        {
+            if (isset($obj) && $obj->error)
+            {
+                $reply['error'] = $obj->error;
+            }
+            $reply['response'] = 'KO';
         }
         
         
