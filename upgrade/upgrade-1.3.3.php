@@ -27,22 +27,38 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-/**
- * This function updates your module from previous versions to the version 1.1,
- * usefull when you modify your database, or register a new hook ...
- * Don't forget to create one file per version.
- */
+function addColumnIfNotExists($tableName, $columnName, $columnDefinition)
+{
+    $db = Db::getInstance();
+    $prefix = _DB_PREFIX_;
+    $dbName = _DB_NAME_; // Nombre de la base de datos de PrestaShop
+
+    // Consulta para verificar si la columna ya existe en el INFORMATION_SCHEMA
+    $sqlCheck = "SELECT COUNT(*)
+                 FROM `INFORMATION_SCHEMA`.`COLUMNS`
+                 WHERE `TABLE_SCHEMA` = '" . pSQL($dbName) . "'
+                 AND `TABLE_NAME` = '" . pSQL($prefix . $tableName) . "'
+                 AND `COLUMN_NAME` = '" . pSQL($columnName) . "'";
+
+    // Si getValue() devuelve 0, la columna no existe.
+    if ((int)$db->getValue($sqlCheck) == 0) {
+        // La columna no existe, procedemos a crearla
+        $sqlAlter = "ALTER TABLE `" . pSQL($prefix . $tableName) . "` ADD COLUMN `" . pSQL($columnName) . "` " . $columnDefinition;
+        
+        // Ejecutamos el ALTER y devolvemos el resultado.
+        return $db->execute($sqlAlter);
+    }
+
+    // Si la columna ya existía, no hacemos nada y devolvemos 'true' (éxito)
+    return true;
+}
+
 function upgrade_module_1_3_3($module)
 {
     $sql = array();
 
-$sql[] = 'ALTER TABLE `' . _DB_PREFIX_ . 'verifactu_order_slip` ADD COLUMN `urlQR` VARCHAR(255) NULL AFTER `verifactuDescripcionErrorRegistro`';
-
-
-    foreach ($sql as $query) {
-        if (Db::getInstance()->execute($query) == false) {
-            return false;
-        }
+    if (!addColumnIfNotExists('verifactu_order_slip', 'urlQR', 'VARCHAR(255) NULL AFTER `verifactuDescripcionErrorRegistro`')) {
+        return false;
     }
 
     return true;
