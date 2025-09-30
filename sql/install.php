@@ -104,6 +104,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `verifactuEstadoRegistro` VARCHAR(100),
     `verifactuCodigoErrorRegistro` VARCHAR(100),
     `verifactuDescripcionErrorRegistro` TEXT,
+    `urlQR` VARCHAR(255),
     `anulacion` int(11) NOT NULL,
     `TipoFactura` VARCHAR(100),
     `avisos` TEXT,
