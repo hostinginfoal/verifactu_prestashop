@@ -30,6 +30,8 @@ use Db;
 use DbQuery;
 use Configuration;
 use PrestaShopLogger;
+use Order;
+use Validate;
 
 class ApiVerifactu
 {
@@ -343,10 +345,20 @@ class ApiVerifactu
             if ((float)$slip['total_shipping_tax_excl'] > 0) {
                 $shipping_line = new \stdClass();
                 
-                $shipping_tax_rate = 0;
-                // Calculamos el tipo de IVA del envío a partir de los totales de la factura para evitar errores de redondeo.
-                if ((float)$slip['total_shipping_tax_excl'] > 0) {
-                    $shipping_tax_rate = (((float)$slip['total_shipping_tax_incl'] / (float)$slip['total_shipping_tax_excl']) - 1) * 100;
+                $order = new Order((int)$id_order);
+                $shipping_tax_rate = 0; // Valor por defecto.
+
+                if (Validate::isLoadedObject($order)) {
+                    $shipping_tax_rate = $order->carrier_tax_rate;
+                } else {
+                    // Fallback: si no se puede cargar el objeto Order, volvemos al cálculo
+                    // pero aplicando un redondeo más lógico (al entero o medio más cercano).
+                    // AÚN ASÍ, ESTO NO ES LO IDEAL.
+                    if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+                        $calculated_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                        // Redondeamos al decimal más cercano, no a dos.
+                        $shipping_tax_rate = round($calculated_rate, 1);
+                    }
                 }
 
                 $shipping_line->SequenceNumber = $seq;
@@ -356,7 +368,7 @@ class ApiVerifactu
                 $shipping_line->TotalCost = $slip['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $slip['total_shipping_tax_incl'];
                 $shipping_line->TaxTypeCode = '01';
-                $shipping_line->TaxRate = round($shipping_tax_rate, 2);
+                $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$slip['total_shipping_tax_excl'];
                 $shipping_line->TaxAmountTotal = (float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl'];
                 $shipping_line->ArticleCode = 'ENVIO';
@@ -442,10 +454,20 @@ class ApiVerifactu
             {
                 $shipping_line = new \stdClass();
                 
-                $shipping_tax_rate = 0;
-                // Calculamos el tipo de IVA del envío a partir de los totales de la factura para evitar errores de redondeo.
-                if ((float)$invoice['total_shipping_tax_excl'] > 0) {
-                    $shipping_tax_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                $order = new Order((int)$id_order);
+                $shipping_tax_rate = 0; // Valor por defecto.
+
+                if (Validate::isLoadedObject($order)) {
+                    $shipping_tax_rate = $order->carrier_tax_rate;
+                } else {
+                    // Fallback: si no se puede cargar el objeto Order, volvemos al cálculo
+                    // pero aplicando un redondeo más lógico (al entero o medio más cercano).
+                    // AÚN ASÍ, ESTO NO ES LO IDEAL.
+                    if ((float)$invoice['total_shipping_tax_excl'] > 0) {
+                        $calculated_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
+                        // Redondeamos al decimal más cercano, no a dos.
+                        $shipping_tax_rate = round($calculated_rate, 1);
+                    }
                 }
 
                 $shipping_line->SequenceNumber = $seq;
@@ -455,7 +477,7 @@ class ApiVerifactu
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
                 $shipping_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
-                $shipping_line->TaxRate = round($shipping_tax_rate, 2);
+                $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->ArticleCode = 'ENVIO';
