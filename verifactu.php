@@ -858,6 +858,7 @@ class Verifactu extends Module
             'total_paid_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
+            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => false,),
             'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
@@ -960,6 +961,7 @@ class Verifactu extends Module
             'total_products_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false,),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
+            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => false,),
             'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
@@ -1100,6 +1102,11 @@ class Verifactu extends Module
                 'callback' => 'colorEncodeState', // Nombre de nuestra nueva función
                 'callback_object' => $this,      // Le decimos que la función está en este objeto
                 'escape' => false 
+            ),
+            'apiMode' => array(
+                'title' => $this->l('Modo API'),
+                'align' => 'text-center',
+                'search' => false, // Puedes ponerlo a true y añadir 'apiMode' a la lista $allowedFilters más abajo
             ),
             'DescripcionErrorRegistro' => array(
                 'title' => $this->l('Error'),
@@ -1594,30 +1601,32 @@ class Verifactu extends Module
             $searchQueryBuilder->orderBy('vi.`verifactuEstadoRegistro`', $searchCriteria->getOrderWay());
         }
 
-        foreach ($searchCriteria->getFilters() as $filterName => $filterValue) {
-        if ('verifactu' === $filterName) {
-            $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
-            $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
+        foreach ($searchCriteria->getFilters() as $filterName => $filterValue) 
+        {
+            if ('verifactu' === $filterName) {
+                $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
+                $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
+            }
         }
-    }
     }
     
 
     public function hookActionAdminControllerSetMedia($params)
     {
         // On every pages
-        $this->context->controller->addCSS('modules/'.$this->name.'/views/css/back.css');
+        $this->context->controller->addCSS($this->_path.'views/css/back.css');
+        $this->context->controller->addJS($this->_path.'views/js/back.js');
+        $this->context->controller->addJS('https://cdn.jsdelivr.net/npm/sweetalert2@11');
 
-        foreach (Language::getLanguages() as $language) {
-            $lang = Tools::strtoupper($language['iso_code']);
-        }
+        //foreach (Language::getLanguages() as $language) {
+        //    $lang = Tools::strtoupper($language['iso_code']);
+        //}
+
+        $lang = Tools::strtoupper($this->context->language->iso_code);
 
         if ($lang == '') $lang = 'ES';
 
         Media::addJsDef(array('verifactu' => array('lang' => $lang)));
-
-        $this->context->controller->addJS('modules/'.$this->name.'/views/js/back.js');
-        $this->context->controller->addJS('https://cdn.jsdelivr.net/npm/sweetalert2@11');
 
         Media::addJsDef([
             'verifactu_ajax_url' => $this->context->link->getAdminLink('AdminVerifactuAjax'),
