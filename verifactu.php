@@ -1687,7 +1687,7 @@ class Verifactu extends Module
 
                 if (file_exists($imgQR_path)) {
                     self::$temp_qr_files[] = $imgQR_path;
-                    $imgQR = '/img/tmp/'. $tmp_filename;
+                    $imgQR = __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
                 }
             } catch (Exception $e) {
                 PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
