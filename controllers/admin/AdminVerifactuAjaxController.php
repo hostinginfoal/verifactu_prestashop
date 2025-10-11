@@ -122,11 +122,6 @@ class AdminVerifactuAjaxController extends ModuleAdminController
      */
     public function displayAjaxCheckStatus()
     {
-        // 1. **Seguridad**: Verificamos el token para asegurarnos de que la petición es legítima y viene del back-office.
-        $token = Tools::getValue('token');
-        if ($token !== Tools::getAdminTokenLite('AdminVerifactuAjax')) {
-            die(json_encode(['success' => false, 'message' => 'Token de seguridad inválido.']));
-        }
 
         // 2. **Lógica**: Obtenemos una instancia de nuestro módulo para poder llamar a sus métodos públicos.
         $module = Module::getInstanceByName('verifactu');
