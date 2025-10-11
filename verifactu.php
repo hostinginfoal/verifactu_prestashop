@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.4';
+        $this->version = '1.3.5';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -912,7 +912,7 @@ class Verifactu extends Module
             return ['success' => true, 'message' => $this->l('El servicio de la AEAT está operativo.')];
         } else {
             $errorMessage = isset($responseData['message']) ? $responseData['message'] : $this->l('Respuesta inesperada del servidor.');
-            return ['success' => false, 'message' => $this->l('El servicio de la AEAT no responde correctamente: ') . $errorMessage];
+            return ['success' => false, 'message' => $this->l('El servicio de la AEAT no responde correctamente. Los registros de facturación se enviarán automáticamente cuando se reestablezca el servicio. ') /*. $errorMessage*/];
         }
     }
 
