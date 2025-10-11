@@ -596,7 +596,7 @@ class ApiVerifactu
         {  
             $urlQR = isset($obj->urlQR) ? pSQL($obj->urlQR) : '';
             $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
-            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'live';
+            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'prod';
             $api_estado_queue = 'pendiente';
             $id_order_invoice = 0;
 
@@ -829,7 +829,7 @@ class ApiVerifactu
         {
             $id_reg_fact = isset($obj->id_reg_fact) ? (int)$obj->id_reg_fact : 0;
             $api_estado_queue = 'pendiente';
-            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'live';
+            $apiMode = isset($obj->apiMode) ? pSQL($obj->apiMode) : 'prod';
             $InvoiceNumber = '';
 
             $update_data = [

@@ -300,6 +300,50 @@ if (typeof verifactu_ajax_url !== 'undefined')
 
   }
 
+  $(document).on('click', '#check_api_status', function(e) {
+        e.preventDefault();
+
+        Swal.fire({
+            title: 'Comprobando estado...',
+            text: 'Realizando consulta al servicio de la AEAT.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: verifactu_ajax_url + '&action=checkStatus&ajax=1', // Reutilizamos la acción 'checkStatus'
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                token: verifactu_token,
+            },
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire({
+                        title: '¡Servicio Operativo!',
+                        text: response.message,
+                        icon: 'success'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: response.message,
+                        icon: 'error'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    title: 'Error de Comunicación',
+                    text: 'No se pudo contactar con el servidor para verificar el estado.',
+                    icon: 'error'
+                });
+            }
+        });
+    });
+
   $('#table-verifactu_reg_fact').on('click', '.verifactu-row-clickable', function() {
         
         // Obtenemos el ID del registro desde el atributo data-row-id

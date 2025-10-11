@@ -93,6 +93,11 @@
                 <button class="btn btn-action ml-2" style="width:100%; margin-top:20px;" id="send_anulacion_verifactu" {if $estado == "pendiente" ||  $anulacion == "1" || $verifactuEstadoRegistro == "Incorrecto" || !$verifactuEstadoRegistro}disabled="true"{/if}>
                   {l s='Enviar registro Anulación' mod='lupiverifactu'}
                 </button>
+                {if $show_status_check_button}
+                    <button class="btn btn-info ml-2" style="width:100%; margin-top:20px;" id="check_api_status">
+                        <i class="icon-signal"></i> {l s='Comprobar estado AEAT' mod='verifactu'}
+                    </button>
+                {/if}
                 <form action="https://verifactu.infoal.com/index.php?option=com_facturae&format=raw&task=facturae.get" method="POST" style="display: none;">
                   <input type="hidden" name="id" value="">
                   <input type="hidden" name="token" value="">

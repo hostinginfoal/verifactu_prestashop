@@ -44,7 +44,7 @@ class AdminVerifactuAjaxController extends ModuleAdminController
     {
         $id_order = (int)Tools::getValue('id_order');
         if (!$id_order) {
-            $this->ajaxDie(json_encode(['error' => 'ID de pedido no válido.']));
+            die(json_encode(['error' => 'ID de pedido no válido.']));
         }
 
         // CAMBIO MULTITIENDA: Lógica para obtener el contexto de la tienda.
@@ -116,6 +116,32 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         header('Content-Type: application/json');
         die($response);
     }
+
+    /**
+     * Maneja la acción 'checkStatus' enviada por AJAX.
+     */
+    public function displayAjaxCheckStatus()
+    {
+        // 1. **Seguridad**: Verificamos el token para asegurarnos de que la petición es legítima y viene del back-office.
+        $token = Tools::getValue('token');
+        if ($token !== Tools::getAdminTokenLite('AdminVerifactuAjax')) {
+            die(json_encode(['success' => false, 'message' => 'Token de seguridad inválido.']));
+        }
+
+        // 2. **Lógica**: Obtenemos una instancia de nuestro módulo para poder llamar a sus métodos públicos.
+        $module = Module::getInstanceByName('verifactu');
+        if (!Validate::isLoadedObject($module)) {
+            die(json_encode(['success' => false, 'message' => 'No se pudo cargar el módulo.']));
+        }
+
+        // 3. **Ejecución**: Llamamos a la función que creamos en el fichero principal.
+        $result = $module->checkApiStatus();
+//die(json_encode('hola'));
+        // 4. **Respuesta**: Devolvemos el resultado en formato JSON y terminamos la ejecución.
+        // ajaxDie es un atajo de PrestaShop que hace echo y die().
+        die(json_encode($result));
+    }
+
 
     protected function ajaxDie($value = null, $controller = null, $method = null)
     {

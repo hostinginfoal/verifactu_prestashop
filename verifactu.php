@@ -263,8 +263,16 @@ class Verifactu extends Module
             return $output; // Devolvemos solo el mensaje y terminamos la ejecución del método.
         }
 
-        // Procesar la acción de verificar la base de datos
-        if (((bool)Tools::isSubmit('submitCheckDatabase')) == true) {
+        
+        if (((bool)Tools::isSubmit('submitCheckApiStatus')) == true) { // Procesar la acción de comprobar el estado de la API
+            $result = $this->checkApiStatus();
+            if ($result['success']) {
+                $output .= $this->displayConfirmation($result['message']);
+            } else {
+                $output .= $this->displayError($result['message']);
+            }
+        }
+        else if (((bool)Tools::isSubmit('submitCheckDatabase')) == true) { // Procesar la acción de verificar la base de datos
             $result = $this->checkAndFixDatabase();
             if ($result['success']) {
                 $output .= $this->displayConfirmation($result['message']);
@@ -272,8 +280,7 @@ class Verifactu extends Module
                 $output .= $this->displayError($result['message']);
             }
         }
-
-        if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) {
+        else if (((bool)Tools::isSubmit('submitVerifactuModule')) == true) { // Procesar la acción de guardar el formulario de configuración
             $this->postProcess();
             $output .= $this->displayConfirmation($this->l('Configuración actualizada'));
         }
@@ -585,6 +592,13 @@ class Verifactu extends Module
                     'icon' => 'icon-wrench',
                 ),
                 'buttons' => array(
+                        'check_api_status' => array(
+                        'title' => $this->l('Comprobar Estado AEAT'),
+                        'name' => 'submitCheckApiStatus',
+                        'type' => 'submit',
+                        'class' => 'btn btn-default pull-right',
+                        'icon' => 'process-icon-signal' // Icono de señal
+                    ),
                     'check_db' => array(
                         'title' => $this->l('Verificar y Reparar Base de Datos'),
                         'name' => 'submitCheckDatabase',
@@ -593,7 +607,7 @@ class Verifactu extends Module
                         'icon' => 'process-icon-cogs'
                     )
                 ),
-                'description' => $this->l('Usa este botón si sospechas que al módulo le falta alguna columna en la base de datos debido a una actualización fallida. Esta herramienta comprobará la integridad de las tablas y añadirá las columnas que falten sin borrar ningún dato.')
+                'description' => $this->l('- Verificar y Reparar Base de datos: Usa este botón si sospechas que al módulo le falta alguna columna en la base de datos debido a una actualización fallida. Esta herramienta comprobará la integridad de las tablas y añadirá las columnas que falten sin borrar ningún dato. - Comprobar estado AEAT: Comprueba si los servidores de Veri*Factu de la AEAT están operativos o por el contrario están caídos temporalmente.')
             ),
         );
 
@@ -832,6 +846,73 @@ class Verifactu extends Module
                 $errorMessage .= ' - ' . $responseData['error'];
             }
             return ['success' => false, 'message' => $errorMessage];
+        }
+    }
+
+    /**
+     * Comprueba el estado de la API de la AEAT a través de nuestro endpoint /status.
+     *
+     * @return array Un array con el resultado ['success' => bool, 'message' => string].
+     */
+    public function checkApiStatus()
+    {
+        // Obtenemos el token de la configuración para la tienda actual
+        $id_shop_group = Shop::getContextShopGroupID();
+        $id_shop = Shop::getContextShopID();
+        $apiToken = Configuration::get('VERIFACTU_API_TOKEN', null, $id_shop_group, $id_shop);
+
+        if (empty($apiToken)) {
+            return ['success' => false, 'message' => $this->l('No se ha configurado un API Token.')];
+        }
+        
+        // La URL de tu nuevo endpoint de estado
+        $apiUrl = 'https://verifactu.infoal.io/api_v2/verifactu/status';
+
+        $token = Configuration::get('VERIFACTU_API_TOKEN', false, null, $id_shop);
+
+        $headers = [
+            'Authorization: Bearer '.$token,
+            'Content-Type: application/json',
+        ];
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+                CURLOPT_URL            => $apiUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING       => 'utf-8',
+                CURLOPT_MAXREDIRS      => 10,
+                CURLOPT_TIMEOUT        => 10,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
+                CURLOPT_CUSTOMREQUEST  => 'POST',
+                CURLOPT_POSTFIELDS     => $dataString,
+                CURLOPT_HTTPHEADER     => $headers,
+            ]
+        );
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            return ['success' => false, 'message' => 'Error de cURL: ' . $error];
+        }
+
+        $responseData = json_decode($response, true);
+
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+        if ($debug_mode) {
+            PrestaShopLogger::addLog('Módulo Verifactu: checkApiStatus - Respuesta de API: ' . $response, 1, null, null, null, true, $id_shop);
+        }
+        
+        // Asumimos que un código 200 y una respuesta con 'status' => 'ok' es un éxito.
+        // Adapta esta lógica si tu API devuelve una estructura diferente.
+        if ($httpCode === 200 && isset($responseData['estado']) && $responseData['estado'] === 'OPERATIVO') {
+            return ['success' => true, 'message' => $this->l('El servicio de la AEAT está operativo.')];
+        } else {
+            $errorMessage = isset($responseData['message']) ? $responseData['message'] : $this->l('Respuesta inesperada del servidor.');
+            return ['success' => false, 'message' => $this->l('El servicio de la AEAT no responde correctamente: ') . $errorMessage];
         }
     }
 
@@ -1648,6 +1729,11 @@ class Verifactu extends Module
         $sql->where('oi.id_order = ' . $id_order);
         $result = Db::getInstance()->getRow($sql);
 
+        $show_status_check_button = false;
+        if ($result && isset($result['estado']) && $result['estado'] == 'pendiente') {
+            $show_status_check_button = true;
+        }
+
         // 2. La comprobación CLAVE: verificamos si $result NO es false
         if ($result) {
             // El pedido SÍ tiene una factura, asignamos los valores desde la base de datos.
@@ -1708,6 +1794,7 @@ class Verifactu extends Module
             'imgQR' => $imgQR,
             'urlQR' => $urlQR,
             'id_order_invoice' => $id_order_invoice,
+            'show_status_check_button' => $show_status_check_button,
             'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
         ));
 
