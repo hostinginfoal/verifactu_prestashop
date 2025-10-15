@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.5';
+        $this->version = '1.3.6';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -875,6 +875,7 @@ class Verifactu extends Module
             'Content-Type: application/json',
         ];
 
+
         $ch = curl_init();
         curl_setopt_array($ch, [
                 CURLOPT_URL            => $apiUrl,
@@ -885,7 +886,6 @@ class Verifactu extends Module
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                 CURLOPT_CUSTOMREQUEST  => 'POST',
-                CURLOPT_POSTFIELDS     => $dataString,
                 CURLOPT_HTTPHEADER     => $headers,
             ]
         );

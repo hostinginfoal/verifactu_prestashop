@@ -328,7 +328,7 @@ if (typeof verifactu_ajax_url !== 'undefined')
                     });
                 } else {
                     Swal.fire({
-                        title: 'Error',
+                        title: 'Error en el servicio Verifactu de la AEAT',
                         text: response.message,
                         icon: 'error'
                     });

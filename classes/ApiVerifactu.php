@@ -1368,7 +1368,7 @@ class ApiVerifactu
 
         // 4. Preparamos los componentes del número.
         // En las facturas de abono, el ID se usa como número secuencial.
-        if (strlen((string)$result['number']) >= 6)
+        if (strlen((string)$id_order_slip) >= 6)
         {
             $padded_number = $id_order_slip;
         }
