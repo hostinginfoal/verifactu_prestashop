@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.6';
+        $this->version = '1.3.7';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -68,7 +68,7 @@ class Verifactu extends Module
         parent::__construct();
 
         $this->displayName = $this->l('VeriFactu');
-        $this->description = $this->l('Envía los registros de facturación automáticamente al sistema Veri*Factu');
+        $this->description = $this->l('Automatiza el envío de registros de facturación al sistema Veri*Factu de la AEAT, añade el código QR a tus facturas y te permite hacer seguimiento de cada envío.');
 
         $this->confirmUninstall = $this->l('Seguro que quieres desinstalar el módulo?');
 
@@ -173,20 +173,34 @@ class Verifactu extends Module
 
         include(dirname(__FILE__).'/sql/install.php');
 
-        return parent::install() 
+        if (!parent::install()) {
+            return false;
+        }
 
-            
-            && $this->registerHook('displayAdminOrderSide')
-            && $this->registerHook('actionAdminControllerSetMedia')
-            && $this->registerHook('actionOrderGridDefinitionModifier')
-            && $this->registerHook('actionOrderGridQueryBuilderModifier')
-            && $this->registerHook('actionSetInvoice')
-            && $this->registerHook('displayPDFInvoice')
-            && $this->registerHook('actionPDFInvoiceRender')
-            && $this->registerHook('actionOrderSlipAdd')
-            && $this->registerHook('displayPDFOrderSlip')      // Hook para mostrar el QR
-            && $this->registerHook('actionPDFOrderSlipRender');
-            ;
+        // --- INICIO DE LA LÓGICA CONDICIONAL DE HOOKS ---
+
+        // Registra los hooks para versiones modernas (1.7.7.0 y superiores)
+        if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) {
+            $this->registerHook('displayAdminOrderSide');
+            $this->registerHook('actionOrderGridDefinitionModifier');
+            $this->registerHook('actionOrderGridQueryBuilderModifier');
+        } 
+        // Registra los hooks para versiones antiguas (de 1.7.0.0 a 1.7.6.9)
+        else {
+            $this->registerHook('displayAdminOrder'); // Sustituto de displayAdminOrderSide
+            $this->registerHook('actionAdminOrdersListingFieldsModifier'); // Sustituto de los hooks de Grid
+        }
+
+        // Registra los hooks comunes que funcionan en todas las versiones
+        $this->registerHook('actionAdminControllerSetMedia');
+        $this->registerHook('actionSetInvoice');
+        $this->registerHook('displayPDFInvoice');
+        $this->registerHook('actionPDFInvoiceRender');
+        $this->registerHook('actionOrderSlipAdd');
+        $this->registerHook('displayPDFOrderSlip');
+        $this->registerHook('actionPDFOrderSlipRender');
+
+        return true;
     }
 
     public function uninstall()
@@ -1879,7 +1893,18 @@ class Verifactu extends Module
             'verifactu_url' => $url_to_encode
         ]);
         
-        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+        PrestaShopLogger::addLog('Verifactu: hookDisplayPDFInvoice iniciado para factura ID ' . $order_invoice->id, 1);
+        // ... tu código ...
+        PrestaShopLogger::addLog('Verifactu: hookDisplayPDFInvoice finalizado. QR Path: ' . $qr_code_path, 1);
+        
+        if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) 
+        {
+            return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+        }
+        else
+        {
+            return $this->display(__FILE__, 'views/templates/hook/invoice_qr.tpl');
+        }
     }
 
     /**
@@ -1959,7 +1984,14 @@ class Verifactu extends Module
             'verifactu_qr_code_path' => $qr_code_path
         ]);
         
-        return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+        if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) 
+        {
+            return $this->context->smarty->fetch('module:verifactu/views/templates/hook/invoice_qr.tpl');
+        }
+        else
+        {
+            return $this->display(__FILE__, 'views/templates/hook/invoice_qr.tpl');
+        }
     }
 
     /**
@@ -1977,4 +2009,139 @@ class Verifactu extends Module
         // Reseteamos el array para la siguiente ejecución.
         self::$temp_qr_files = [];
     }
+    
+    /**
+     * Hook para modificar la lista de pedidos en versiones de PrestaShop < 1.7.7.0
+     */
+    public function hookActionAdminOrdersListingFieldsModifier($params)
+    {
+        if (isset($params['fields']['total_paid_tax_incl'])) {
+            $params['fields']['total_paid_tax_incl']['filter_key'] = 'a!total_paid_tax_incl';
+        }
+
+        // 1. Añadir la nueva columna "Verifactu" a la definición de la lista.
+        $params['fields']['verifactu'] = [
+            'title' => $this->l('Verifactu'),
+            'align' => 'text-center',
+            'class' => 'fixed-width-xs',
+            'orderby' => false, // No se puede ordenar fácilmente en legacy
+            'search' => false,
+        ];
+
+        // 2. Modificar la consulta SQL para obtener los datos de la nueva columna.
+        // Asegúrate de que `verifactuEstadoRegistro` es el nombre correcto en tu tabla.
+        $params['select'] .= ', IFNULL(vi.verifactuEstadoRegistro, IF(i.id_order_invoice IS NULL, "Sin factura", "No enviada")) AS verifactu';
+        
+        // 3. Añadir los JOINS necesarios a la consulta.
+        // El JOIN a 'order_invoice' debe hacerse sobre el alias 'a' de la tabla de pedidos.
+        $params['join'] .= ' LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` i ON (a.`id_order` = i.`id_order`)';
+        $params['join'] .= ' LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_order_invoice` vi ON (i.`id_order_invoice` = vi.`id_order_invoice`)';
+    }
+    
+    //---------------FUNCIONES LEGACY PARA VERSIONES ENTRE 1.7.0 y 1.7.7.0 -----------------------------------------------------------------
+    
+    /**
+     * Hook para mostrar el panel de VeriFactu en la página de un pedido (versiones < 1.7.7.0).
+     * Este es el equivalente "legacy" de displayAdminOrderSide.
+     *
+     * @param array $params Parámetros del hook.
+     * @return string HTML renderizado.
+     */
+    public function hookDisplayAdminOrder($params)
+    {
+        // 1. Obtener el ID del pedido de forma segura desde los parámetros del hook.
+        $id_order = 0;
+        if (isset($params['id_order'])) {
+            $id_order = (int)$params['id_order'];
+        } elseif (isset($params['order']) && Validate::isLoadedObject($params['order'])) {
+            $id_order = (int)$params['order']->id;
+        }
+
+        // Si no podemos obtener un ID de pedido válido, no mostramos nada.
+        if (!$id_order) {
+            return '';
+        }
+
+        // 2. Incluir la librería para generar códigos QR.
+        require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+
+        // 3. Consultar la base de datos para obtener el estado de VeriFactu de la factura del pedido.
+        $sql = new DbQuery();
+        $sql->select('voi.*, oi.id_order_invoice');
+        $sql->from('order_invoice', 'oi');
+        $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+        $sql->where('oi.id_order = ' . $id_order);
+        $result = Db::getInstance()->getRow($sql);
+
+        // 4. Preparar las variables para la plantilla, gestionando el caso de que no exista factura.
+        if ($result) {
+            // El pedido SÍ tiene una factura, asignamos los valores desde la base de datos.
+            $urlQR = $result['urlQR'];
+            $verifactuEstadoEnvio = $result['verifactuEstadoEnvio'];
+            $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
+            $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
+            $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
+            $anulacion = $result['anulacion'];
+            $estado = $result['estado'];
+            $TipoFactura = $result['TipoFactura'];
+            $id_order_invoice = $result['id_order_invoice'];
+        } else {
+            // El pedido AÚN NO tiene factura, asignamos valores por defecto.
+            $urlQR = null;
+            $verifactuEstadoEnvio = 'Sin factura';
+            $verifactuEstadoRegistro = 'N/A';
+            $verifactuCodigoErrorRegistro = null;
+            $verifactuDescripcionErrorRegistro = null;
+            $anulacion = 0;
+            $estado = null;
+            $TipoFactura = null;
+            $id_order_invoice = null;
+        }
+
+        // 5. Generar la imagen del código QR si existe la URL.
+        $imgQR = null;
+        if (!empty($urlQR)) {
+            try {
+                $tmp_dir = _PS_TMP_IMG_DIR_;
+                $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
+                $imgQR_path = $tmp_dir . $tmp_filename;
+
+                QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
+
+                if (file_exists($imgQR_path)) {
+                    // Guardamos la ruta del archivo temporal para poder borrarlo después.
+                    self::$temp_qr_files[] = $imgQR_path;
+                    // Creamos la URL pública para mostrar la imagen.
+                    $imgQR = __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+                }
+            } catch (Exception $e) {
+                PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+                $imgQR = null;
+            }
+        }
+        
+        // Botón para comprobar estado (solo si está pendiente en la API)
+        $show_status_check_button = ($result && isset($result['estado']) && $result['estado'] == 'pendiente');
+
+        // 6. Asignar todas las variables a la plantilla Smarty.
+        $this->context->smarty->assign(array(
+            'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
+            'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
+            'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
+            'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
+            'anulacion' => $anulacion,
+            'estado' => $estado,
+            'id_order' => $id_order,
+            'TipoFactura' => $TipoFactura,
+            'imgQR' => $imgQR,
+            'urlQR' => $urlQR,
+            'id_order_invoice' => $id_order_invoice,
+            'show_status_check_button' => $show_status_check_button,
+        ));
+
+        // 7. Renderizar y devolver el contenido de la plantilla.
+        // Usamos la misma plantilla que para displayAdminOrderSide.
+        return $this->display(__FILE__, '/views/templates/admin/order_legacy.tpl');
+    }
+    
 }
