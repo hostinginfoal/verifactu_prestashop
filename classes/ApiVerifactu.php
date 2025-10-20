@@ -271,7 +271,6 @@ class ApiVerifactu
 
         $data->buyer = $buyer;
 
-        //$order = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'orders WHERE id_order = "'.$id_order.'"');
         if ($tipo == 'abono')
         {
             $InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
@@ -285,8 +284,6 @@ class ApiVerifactu
             $inv->TaxCurrencyCode = $currency['iso_code'];
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
-            //$inv->TotalGeneralDiscounts = 0;
-            //$inv->TotalGeneralSurcharges = 0;
             $inv->TotalGrossAmountBeforeTaxes = -((float) $totalTaxExcl);
             $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->TotalTaxesWithheld = -((float) $totalTaxIncl - (float) $totalTaxExcl );
@@ -298,8 +295,6 @@ class ApiVerifactu
             $inv->CorrectiveCorrectionMethodDescription  = "Factura de abono ".$slip['id_order_slip'];
             $inv->CorrectiveInvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); 
             $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
-            //$inv->CorrectiveBaseAmount  = $inv->TotalGrossAmount;
-            //$inv->CorrectiveTaxAmount  = $inv->TotalTaxOutputs;
 
             $data->invoice = $inv;
 
@@ -314,32 +309,49 @@ class ApiVerifactu
                 $line->UnitPriceWithoutTax = -((float) $l['unit_price_tax_excl']);
                 $line->TotalCost = -((float) $l['total_price_tax_incl']);
                 $line->GrossAmount = -((float) $l['total_price_tax_incl']);
-                //$line->TaxTypeCode = '01';
                 $line->TaxRate = $l['tax_rate'];
                 $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = -((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
 
-                $lineTaxTypeCode = '01'; // Default IVA
-                $id_order_detail = ($tipo == 'abono') ? $l['id_order_detail'] : $l['id_order_detail']; // Aseguramos tener el id_order_detail
+                $lineTaxTypeCode = '01';
+                $line_tax_rate = (float)$l['tax_rate'];
+                $id_order_detail = (int)$l['id_order_detail'];
+                $final_id_tax = 0;
 
                 if ($id_order_detail) {
                     $line_tax_sql = new DbQuery();
-                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$id_order_detail);
-                    $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                    $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                    if ($line_taxes) {
-                        foreach ($line_taxes as $tax) {
+                    if ($line_taxes_result) {
+                        foreach ($line_taxes_result as $tax) {
                             $id_tax = (int)$tax['id_tax'];
+                            if ($final_id_tax == 0) $final_id_tax = $id_tax;
+
                             if (in_array($id_tax, $igic_tax_ids)) {
-                                $lineTaxTypeCode = '03'; // IGIC encontrado
-                                break; // IGIC tiene prioridad, salimos del bucle interno
+                                $lineTaxTypeCode = '03';
+                                $final_id_tax = $id_tax;
+                                break; 
                             } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                                $lineTaxTypeCode = '02'; // IPSI encontrado, continuamos por si hay IGIC
+                                $lineTaxTypeCode = '02';
+                                $final_id_tax = $id_tax;
                             }
                         }
                     }
                 }
+
+                if ($line_tax_rate == 0 && $final_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+                    $sql_tax = new DbQuery();
+                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $final_id_tax);
+                    $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
+                    
+                    if ($rate_from_tax_table > 0) {
+                        $line_tax_rate = $rate_from_tax_table;
+                    }
+                }
+                
+                $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
 
                 $seq++;
@@ -413,14 +425,11 @@ class ApiVerifactu
                 
                 $line = new \stdClass();
                 $line->SequenceNumber = $seq;
-                //$line->DeliveryNoteNumber = $seq; //ESTO QUE ES??
-                //$line->DeliveryNoteDate = $seq; //ESTO QUE ES??
                 $line->ItemDescription = $l['product_name'];
                 $line->Quantity = $l['product_quantity'];
                 $line->UnitPriceWithoutTax = $l['product_price'];
                 $line->TotalCost = $l['total_price_tax_incl'];
                 $line->GrossAmount = $l['total_price_tax_incl'];
-                //$line->TaxTypeCode = '01';
                 $line->TaxRate = $l['tax_rate'];
                 $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
@@ -428,25 +437,43 @@ class ApiVerifactu
                 $seq++;
 
                 $lineTaxTypeCode = '01'; // Default IVA
-                $id_order_detail = ($tipo == 'abono') ? $l['id_order_detail'] : $l['id_order_detail']; // Aseguramos tener el id_order_detail
+                $line_tax_rate = (float)$l['tax_rate'];
+                $id_order_detail = (int)$l['id_order_detail'];
+                $final_id_tax = 0;
 
-                if ($id_order_detail) {
-                    $line_tax_sql = new DbQuery();
-                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$id_order_detail);
-                    $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+                $line_tax_sql = new DbQuery();
+                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                    if ($line_taxes) {
-                        foreach ($line_taxes as $tax) {
-                            $id_tax = (int)$tax['id_tax'];
-                            if (in_array($id_tax, $igic_tax_ids)) {
-                                $lineTaxTypeCode = '03'; // IGIC encontrado
-                                break; // IGIC tiene prioridad, salimos del bucle interno
-                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                                $lineTaxTypeCode = '02'; // IPSI encontrado, continuamos por si hay IGIC
-                            }
+                if ($line_taxes_result) {
+                    foreach ($line_taxes_result as $tax) {
+                        $id_tax = (int)$tax['id_tax'];
+                        if ($final_id_tax == 0) $final_id_tax = $id_tax;
+                        
+                        if (in_array($id_tax, $igic_tax_ids)) {
+                            $lineTaxTypeCode = '03'; // IGIC
+                            $final_id_tax = $id_tax;
+                            break; 
+                        } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                            $lineTaxTypeCode = '02'; // IPSI
+                            $final_id_tax = $id_tax;
                         }
                     }
                 }
+                
+                // Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
+                if ($line_tax_rate == 0 && $final_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+                    $sql_tax = new DbQuery();
+                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $final_id_tax);
+                    $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
+                    
+                    if ($rate_from_tax_table > 0) {
+                        $line_tax_rate = $rate_from_tax_table;
+                    }
+                }
+
+                
+                $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
 
                 $data->invoice->lines[] = $line;
@@ -490,9 +517,24 @@ class ApiVerifactu
             if (!empty($discounts)) {
             // 1. Agrupamos los totales de las líneas de producto por su tipo de IVA.
             $totals_by_tax_rate = [];
-            foreach ($lines as $line) {
+            foreach ($lines as $line) 
+            {
                 $rate = (float)$line['tax_rate'];
-                if (!isset($totals_by_tax_rate[$rate])) {
+                if ($rate == 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) 
+                {
+                    $line_tax_sql = new DbQuery();
+                    $line_tax_sql->select('t.rate')
+                                 ->from('order_detail_tax', 'odt')
+                                 ->leftJoin('tax', 't', 't.id_tax = odt.id_tax')
+                                 ->where('odt.id_order_detail = ' . (int)$line['id_order_detail']);
+                    // Usamos getValue para obtener la primera tasa, asumiendo una para esta lógica
+                    $rate_from_tax_table = (float)Db::getInstance()->getValue($line_tax_sql);
+                    if ($rate_from_tax_table > 0) {
+                        $rate = $rate_from_tax_table;
+                    }
+                }
+                if (!isset($totals_by_tax_rate[$rate])) 
+                {
                     $totals_by_tax_rate[$rate] = 0;
                 }
                 $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'];
