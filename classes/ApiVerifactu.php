@@ -320,21 +320,27 @@ class ApiVerifactu
                 $line->TaxAmountTotal = -((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
 
-                // Necesitamos el id_tax de la línea. La forma más segura es a través de la tabla order_detail_tax
-                $line_tax_sql = new DbQuery();
-                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$l['id_order_detail']);
-                $line_taxes = Db::getInstance()->executeS($line_tax_sql);
-                
-                // Por simplicidad, tomamos el primer impuesto, pero una lógica más compleja podría manejarlos todos.
-                $id_tax = isset($line_taxes[0]['id_tax']) ? (int)$line_taxes[0]['id_tax'] : 0;
-                
-                if (in_array($id_tax, $igic_tax_ids)) {
-                    $line->TaxTypeCode = '03'; // IGIC
-                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                    $line->TaxTypeCode = '02'; // IPSI
-                } else {
-                    $line->TaxTypeCode = '01'; // IVA (por defecto)
+                $lineTaxTypeCode = '01'; // Default IVA
+                $id_order_detail = ($tipo == 'abono') ? $l['id_order_detail'] : $l['id_order_detail']; // Aseguramos tener el id_order_detail
+
+                if ($id_order_detail) {
+                    $line_tax_sql = new DbQuery();
+                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$id_order_detail);
+                    $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+
+                    if ($line_taxes) {
+                        foreach ($line_taxes as $tax) {
+                            $id_tax = (int)$tax['id_tax'];
+                            if (in_array($id_tax, $igic_tax_ids)) {
+                                $lineTaxTypeCode = '03'; // IGIC encontrado
+                                break; // IGIC tiene prioridad, salimos del bucle interno
+                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                                $lineTaxTypeCode = '02'; // IPSI encontrado, continuamos por si hay IGIC
+                            }
+                        }
+                    }
                 }
+                $line->TaxTypeCode = $lineTaxTypeCode;
 
                 $seq++;
 
@@ -351,9 +357,6 @@ class ApiVerifactu
                 if (Validate::isLoadedObject($order)) {
                     $shipping_tax_rate = $order->carrier_tax_rate;
                 } else {
-                    // Fallback: si no se puede cargar el objeto Order, volvemos al cálculo
-                    // pero aplicando un redondeo más lógico (al entero o medio más cercano).
-                    // AÚN ASÍ, ESTO NO ES LO IDEAL.
                     if ((float)$invoice['total_shipping_tax_excl'] > 0) {
                         $calculated_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
                         // Redondeamos al decimal más cercano, no a dos.
@@ -402,12 +405,6 @@ class ApiVerifactu
             $sql->where('ocr.id_order = ' . (int)$id_order);
             $discounts = Db::getInstance()->executeS($sql);
 
-            /*if (!empty($discounts)) {
-                $inv->Coupon = 'S';
-            } else {
-                $inv->Coupon = 'N';
-            }*/
-
             $data->invoice = $inv;
 
             $seq = 1;
@@ -430,21 +427,27 @@ class ApiVerifactu
                 $line->ArticleCode = $l['product_reference'];
                 $seq++;
 
-                // Necesitamos el id_tax de la línea. La forma más segura es a través de la tabla order_detail_tax
-                $line_tax_sql = new DbQuery();
-                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$l['id_order_detail']);
-                $line_taxes = Db::getInstance()->executeS($line_tax_sql);
-                
-                // Por simplicidad, tomamos el primer impuesto, pero una lógica más compleja podría manejarlos todos.
-                $id_tax = isset($line_taxes[0]['id_tax']) ? (int)$line_taxes[0]['id_tax'] : 0;
-                
-                if (in_array($id_tax, $igic_tax_ids)) {
-                    $line->TaxTypeCode = '03'; // IGIC
-                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                    $line->TaxTypeCode = '02'; // IPSI
-                } else {
-                    $line->TaxTypeCode = '01'; // IVA (por defecto)
+                $lineTaxTypeCode = '01'; // Default IVA
+                $id_order_detail = ($tipo == 'abono') ? $l['id_order_detail'] : $l['id_order_detail']; // Aseguramos tener el id_order_detail
+
+                if ($id_order_detail) {
+                    $line_tax_sql = new DbQuery();
+                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . (int)$id_order_detail);
+                    $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+
+                    if ($line_taxes) {
+                        foreach ($line_taxes as $tax) {
+                            $id_tax = (int)$tax['id_tax'];
+                            if (in_array($id_tax, $igic_tax_ids)) {
+                                $lineTaxTypeCode = '03'; // IGIC encontrado
+                                break; // IGIC tiene prioridad, salimos del bucle interno
+                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                                $lineTaxTypeCode = '02'; // IPSI encontrado, continuamos por si hay IGIC
+                            }
+                        }
+                    }
                 }
+                $line->TaxTypeCode = $lineTaxTypeCode;
 
                 $data->invoice->lines[] = $line;
             } 
@@ -460,9 +463,6 @@ class ApiVerifactu
                 if (Validate::isLoadedObject($order)) {
                     $shipping_tax_rate = $order->carrier_tax_rate;
                 } else {
-                    // Fallback: si no se puede cargar el objeto Order, volvemos al cálculo
-                    // pero aplicando un redondeo más lógico (al entero o medio más cercano).
-                    // AÚN ASÍ, ESTO NO ES LO IDEAL.
                     if ((float)$invoice['total_shipping_tax_excl'] > 0) {
                         $calculated_rate = (((float)$invoice['total_shipping_tax_incl'] / (float)$invoice['total_shipping_tax_excl']) - 1) * 100;
                         // Redondeamos al decimal más cercano, no a dos.
