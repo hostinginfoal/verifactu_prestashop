@@ -379,13 +379,13 @@ class ApiVerifactu
                 $shipping_line->SequenceNumber = $seq;
                 $shipping_line->ItemDescription = 'Gastos de Envío';
                 $shipping_line->Quantity = 1;
-                $shipping_line->UnitPriceWithoutTax = $slip['total_shipping_tax_excl'];
-                $shipping_line->TotalCost = $slip['total_shipping_tax_incl'];
-                $shipping_line->GrossAmount = $slip['total_shipping_tax_incl'];
+                $shipping_line->UnitPriceWithoutTax = -((float)$slip['total_shipping_tax_excl']);
+                $shipping_line->TotalCost = -((float)$slip['total_shipping_tax_incl']);
+                $shipping_line->GrossAmount = -((float)$slip['total_shipping_tax_incl']);
                 $shipping_line->TaxTypeCode = '01';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
-                $shipping_line->TaxableBaseAmount = (float)$slip['total_shipping_tax_excl'];
-                $shipping_line->TaxAmountTotal = (float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl'];
+                $shipping_line->TaxableBaseAmount = -((float)$slip['total_shipping_tax_excl']);
+                $shipping_line->TaxAmountTotal = -((float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl']);
                 $shipping_line->ArticleCode = 'ENVIO';
                 
                 $data->invoice->lines[] = $shipping_line;
