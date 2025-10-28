@@ -1812,7 +1812,7 @@ class Verifactu extends Module
             'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
         ));
 
-        return $this->display(dirname(__FILE__), '/views/templates/admin/order_side.tpl');
+        return $this->display(__FILE__, 'views/templates/admin/order_side.tpl');
     }
 
     /**
@@ -2158,7 +2158,7 @@ class Verifactu extends Module
 
         // 7. Renderizar y devolver el contenido de la plantilla.
         // Usamos la misma plantilla que para displayAdminOrderSide.
-        return $this->display(__FILE__, '/views/templates/admin/order_legacy.tpl');
+        return $this->display(__FILE__, 'views/templates/admin/order_legacy.tpl');
     }
     
 }
