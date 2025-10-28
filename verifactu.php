@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.8';
+        $this->version = '1.3.9';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1864,38 +1864,44 @@ class Verifactu extends Module
         }
 
         // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
-        $qr_code_path = null;
+        $qr_code_path_for_smarty = null; // Variable que pasaremos a Smarty
+        // Definimos el nombre de archivo fuera del try para usarlo al construir la URL
+        $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
+
         try {
-            // Definimos una ruta y un nombre de archivo únicos en el directorio temporal.
+            // Ruta del sistema de archivos (para escribir el archivo)
             $tmp_dir = _PS_TMP_IMG_DIR_;
-            $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
             $qr_code_path = $tmp_dir . $tmp_filename;
 
-            // Usamos la biblioteca para generar el QR y guardarlo como un archivo PNG.
-            // Parámetros: (texto, ruta_archivo, corrección_error, tamaño_pixel, margen)
             QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            
+            // Seguridad adicional: Aseguramos permisos de lectura
+            @chmod($qr_code_path, 0644);
 
-            // Si el archivo se ha creado, guardamos su ruta para borrarlo después.
             if (file_exists($qr_code_path)) {
+                // Guardamos la ruta del *archivo* para borrarlo después
                 self::$temp_qr_files[] = $qr_code_path;
+                
+                // *** LA SOLUCIÓN ***
+                // Construimos la URL pública completa y esto es lo que pasamos a Smarty
+                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+
             } else {
-                $qr_code_path = null; // Si falla la creación, no pasamos la ruta.
+                // Si falla, la variable de Smarty seguirá siendo null
+                PrestaShopLogger::addLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, null, null, null, true, $id_shop);
             }
 
         } catch (Exception $e) {
             PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
-            $qr_code_path = null;
+            // $qr_code_path_for_smarty sigue siendo null
         }
         
         // 5. Asignamos la ruta a la plantilla.
         $this->context->smarty->assign([
-            'verifactu_qr_code_path' => $qr_code_path,
+            'verifactu_qr_code_path' => $qr_code_path_for_smarty, // Pasamos la URL pública
             'verifactu_url' => $url_to_encode
         ]);
         
-        PrestaShopLogger::addLog('Verifactu: hookDisplayPDFInvoice iniciado para factura ID ' . $order_invoice->id, 1);
-        // ... tu código ...
-        PrestaShopLogger::addLog('Verifactu: hookDisplayPDFInvoice finalizado. QR Path: ' . $qr_code_path, 1);
         
         if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) 
         {
@@ -1961,27 +1967,38 @@ class Verifactu extends Module
             return '';
         }
 
-        $qr_code_path = null;
+        $qr_code_path_for_smarty = null; // Variable que pasaremos a Smarty
+        // Definimos el nombre de archivo fuera del try para usarlo al construir la URL
+        $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
+        
         try {
+            // Ruta del sistema de archivos (para escribir el archivo)
             $tmp_dir = _PS_TMP_IMG_DIR_;
-            $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
             $qr_code_path = $tmp_dir . $tmp_filename;
 
             QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            
+            // Seguridad adicional: Aseguramos permisos de lectura
+            @chmod($qr_code_path, 0644);
 
             if (file_exists($qr_code_path)) {
-                // Lo añadimos a la misma variable estática para que se limpie después.
+                // Guardamos la ruta del *archivo* para borrarlo después
                 self::$temp_qr_files[] = $qr_code_path;
+
+                // *** LA SOLUCIÓN ***
+                // Construimos la URL pública completa y esto es lo que pasamos a Smarty
+                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+
             } else {
-                $qr_code_path = null;
+                 PrestaShopLogger::addLog('Módulo Verifactu: El archivo QR (abono) se generó pero no se encontró en ' . $qr_code_path, 2, null, null, null, true, $id_shop);
             }
         } catch (Exception $e) {
             PrestaShopLogger::addLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
-            $qr_code_path = null;
+            // $qr_code_path_for_smarty sigue siendo null
         }
         
         $this->context->smarty->assign([
-            'verifactu_qr_code_path' => $qr_code_path
+            'verifactu_qr_code_path' => $qr_code_path_for_smarty // Pasamos la URL pública
         ]);
         
         if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) 
