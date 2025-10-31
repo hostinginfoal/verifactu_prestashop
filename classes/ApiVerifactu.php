@@ -302,16 +302,20 @@ class ApiVerifactu
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = -$slip['total_products_tax_excl'];
             $inv->TotalGrossAmountBeforeTaxes = -((float) $totalTaxExcl);
-            $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->TotalTaxesWithheld = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->InvoiceTotal = -((float) $totalTaxIncl);
             $inv->TotalOutstandingAmount = -((float) $totalTaxIncl);
             $inv->TotalExecutableAmount = -((float) $totalTaxIncl);
-
+            $inv->TotalTaxOutputs = -((float) $totalTaxIncl - (float) $totalTaxExcl );
             $inv->CorrectiveCorrectionMethod  = "01";
             $inv->CorrectiveCorrectionMethodDescription  = "Factura de abono ".$slip['id_order_slip'];
             $inv->CorrectiveInvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); 
             $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
+
+            if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+            {
+                $inv->TotalTaxOutputs = 0;
+            }
 
             $data->invoice = $inv;
 
@@ -330,50 +334,52 @@ class ApiVerifactu
                 $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = -((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
                 $line->ArticleCode = $l['product_reference'];
-
                 $lineTaxTypeCode = '01';
                 $line_tax_rate = (float)$l['tax_rate'];
                 $id_order_detail = (int)$l['id_order_detail'];
-                $final_id_tax = 0;
+                $legacy_id_tax = 0;
+                
+                //Comprobación para calcular si es IGIC o IPSI, y a su vez el tax_rate para las versiones anteriores a la 1.7.7.0
+                if ($id_order_detail) {
+                    $line_tax_sql = new DbQuery();
+                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                    $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
-                {
-                    if ($id_order_detail) {
-                        $line_tax_sql = new DbQuery();
-                        $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
-                        $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
+                    if ($line_taxes_result) {
+                        foreach ($line_taxes_result as $tax) {
+                            $id_tax = (int)$tax['id_tax'];
+                            if ($legacy_id_tax == 0) $legacy_id_tax = $id_tax;
 
-                        if ($line_taxes_result) {
-                            foreach ($line_taxes_result as $tax) {
-                                $id_tax = (int)$tax['id_tax'];
-                                if ($final_id_tax == 0) $final_id_tax = $id_tax;
-
-                                if (in_array($id_tax, $igic_tax_ids)) {
+                            if (in_array($id_tax, $igic_tax_ids)) {
+                                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                                {
                                     $lineTaxTypeCode = '03';
-                                    $final_id_tax = $id_tax;
-                                    break; 
-                                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                                    $lineTaxTypeCode = '02';
-                                    $final_id_tax = $id_tax;
                                 }
+                                $legacy_id_tax = $id_tax;
+                                break; 
+                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                                {
+                                    $lineTaxTypeCode = '02';
+                                }
+                                $legacy_id_tax = $id_tax;
                             }
                         }
                     }
                 }
 
-                if ($line_tax_rate == 0 && $final_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+                // LEGACY: Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
+                if ($line_tax_rate == 0 && $legacy_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
                     $sql_tax = new DbQuery();
-                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $final_id_tax);
+                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $legacy_id_tax);
                     $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
                     
                     if ($rate_from_tax_table > 0) {
                         $line_tax_rate = $rate_from_tax_table;
                     }
                 }
-                
-                $line->TaxRate = $line_tax_rate;
-                $line->TaxTypeCode = $lineTaxTypeCode;
 
+                //Calculamos lo parámetros de venta internacional
                 if ($is_oss_invoice) 
                 {
                     $line->OperationQualification = "N2";
@@ -418,6 +424,16 @@ class ApiVerifactu
                     $line->RegimeKey = "01";
                 }
 
+                $line->TaxRate = $line_tax_rate;
+                $line->TaxTypeCode = $lineTaxTypeCode;
+
+                if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $line->TaxRate = 0;
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
+                    $line->TaxAmountTotal = 0;
+                }
+
                 $seq++;
 
                 $data->invoice->lines[] = $line;
@@ -446,14 +462,11 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = -((float)$slip['total_shipping_tax_excl']);
                 $shipping_line->TotalCost = -((float)$slip['total_shipping_tax_incl']);
                 $shipping_line->GrossAmount = -((float)$slip['total_shipping_tax_incl']);
-
-                
-
                 $shipping_line->TaxTypeCode = '01'; 
+                $shipping_line->ArticleCode = 'ENVIO';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = -((float)$slip['total_shipping_tax_excl']);
                 $shipping_line->TaxAmountTotal = -((float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl']);
-                $shipping_line->ArticleCode = 'ENVIO';
 
                 if ($is_oss_invoice) 
                 {
@@ -497,6 +510,13 @@ class ApiVerifactu
                     $shipping_line->OperationQualification = "S1";
                     $shipping_line->RegimeKey = "01";
                 }
+
+                if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $shipping_line->TaxRate = 0;
+                    $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_incl']);
+                    $shipping_line->TaxAmountTotal = 0;
+                }
                 
                 $data->invoice->lines[] = $shipping_line;
             }  
@@ -513,11 +533,11 @@ class ApiVerifactu
             $inv->LanguageName = 'es';
             $inv->TotalGrossAmount = $invoice['total_paid_tax_excl'];
             $inv->TotalGrossAmountBeforeTaxes = $invoice['total_paid_tax_excl'];
-            $inv->TotalTaxOutputs = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->TotalTaxesWithheld = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
             $inv->InvoiceTotal = ((float) $invoice['total_paid_tax_incl']);
             $inv->TotalOutstandingAmount = $invoice['total_paid_tax_incl'];
             $inv->TotalExecutableAmount = $invoice['total_paid_tax_incl'];
+            $inv->TotalTaxOutputs = ((float) $invoice['total_paid_tax_incl'] - (float) $invoice['total_paid_tax_excl']);
 
             // Buscamos los descuentos aplicados al carrito para este pedido.
             $sql = new DbQuery();
@@ -526,6 +546,11 @@ class ApiVerifactu
             $sql->leftJoin('cart_rule_lang', 'crl', 'ocr.id_cart_rule = crl.id_cart_rule AND crl.id_lang = ' . (int)$order_data['id_lang']);
             $sql->where('ocr.id_order = ' . (int)$id_order);
             $discounts = Db::getInstance()->executeS($sql);
+
+            if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+            {
+                $inv->TotalTaxOutputs = 0;
+            }
 
             $data->invoice = $inv;
 
@@ -540,44 +565,48 @@ class ApiVerifactu
                 $line->UnitPriceWithoutTax = $l['product_price'];
                 $line->TotalCost = $l['total_price_tax_incl'];
                 $line->GrossAmount = $l['total_price_tax_incl'];
+                $line->ArticleCode = $l['product_reference'];
                 $line->TaxRate = $l['tax_rate'];
                 $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
                 $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
-                $line->ArticleCode = $l['product_reference'];
                 $seq++;
 
                 $lineTaxTypeCode = '01'; // Default IVA
                 $line_tax_rate = (float)$l['tax_rate'];
                 $id_order_detail = (int)$l['id_order_detail'];
-                $final_id_tax = 0;
+                $legacy_id_tax = 0;
 
-                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
-                {
-                    $line_tax_sql = new DbQuery();
-                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
-                    $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
+                //Comprobación para calcular si es IGIC o IPSI, y a su vez el tax_rate para las versiones anteriores a la 1.7.7.0
+                $line_tax_sql = new DbQuery();
+                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                    if ($line_taxes_result) {
-                        foreach ($line_taxes_result as $tax) {
-                            $id_tax = (int)$tax['id_tax'];
-                            if ($final_id_tax == 0) $final_id_tax = $id_tax;
-                            
-                            if (in_array($id_tax, $igic_tax_ids)) {
+                if ($line_taxes_result) {
+                    foreach ($line_taxes_result as $tax) {
+                        $id_tax = (int)$tax['id_tax'];
+                        if ($legacy_id_tax == 0) $legacy_id_tax = $id_tax;
+                        if (in_array($id_tax, $igic_tax_ids)) {
+                            if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                            {
                                 $lineTaxTypeCode = '03'; // IGIC
-                                $final_id_tax = $id_tax;
-                                break; 
-                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                                $lineTaxTypeCode = '02'; // IPSI
-                                $final_id_tax = $id_tax;
                             }
+                            $legacy_id_tax = $id_tax;
+                            break; 
+                        } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                            if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                            {
+                                $lineTaxTypeCode = '02'; // IPSI
+                            }
+                            $legacy_id_tax = $id_tax;
                         }
                     }
                 }
                 
-                // Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
-                if ($line_tax_rate == 0 && $final_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+
+                // LEGACY: Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
+                if ($line_tax_rate == 0 && $legacy_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
                     $sql_tax = new DbQuery();
-                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $final_id_tax);
+                    $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $legacy_id_tax);
                     $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
                     
                     if ($rate_from_tax_table > 0) {
@@ -585,10 +614,7 @@ class ApiVerifactu
                     }
                 }
 
-                
-                $line->TaxRate = $line_tax_rate;
-                $line->TaxTypeCode = $lineTaxTypeCode;
-
+                //Calculamos los parámetros de venta internacional
                 if ($is_oss_invoice) 
                 {
                     $line->OperationQualification = "N2";
@@ -632,6 +658,16 @@ class ApiVerifactu
                     $line->RegimeKey = "01";
                 }
 
+                $line->TaxRate = $line_tax_rate;
+                $line->TaxTypeCode = $lineTaxTypeCode;
+
+                if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $line->TaxRate = 0;
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
+                    $line->TaxAmountTotal = 0;
+                }
+
                 $data->invoice->lines[] = $line;
             } 
 
@@ -659,14 +695,13 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
-
-
                 $shipping_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
+                $shipping_line->ArticleCode = 'ENVIO';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
-                $shipping_line->ArticleCode = 'ENVIO';
 
+                //Calculamos el tipo de impuesto IGIC IPSI
                 if ($is_oss_invoice) 
                 {
                     $shipping_line->OperationQualification = "N2";
@@ -709,6 +744,13 @@ class ApiVerifactu
                 {
                     $shipping_line->OperationQualification = "S1";
                     $shipping_line->RegimeKey = "01";
+                }
+
+                if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $shipping_line->TaxRate = 0;
+                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_price_tax_incl']);
+                    $shipping_line->TaxAmountTotal = 0;
                 }
                 
                 $data->invoice->lines[] = $shipping_line;
@@ -781,15 +823,13 @@ class ApiVerifactu
                         $discount_line->UnitPriceWithoutTax = -round($discount_portion_tax_excl, 2);
                         $discount_line->TotalCost = -round($discount_portion_tax_incl, 2);
                         $discount_line->GrossAmount = -round($discount_portion_tax_incl, 2);
-
-                        
-
-                        $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
                         $discount_line->TaxRate = $rate; // El tipo de IVA real.
                         $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
                         $discount_line->TaxAmountTotal = -round($discount_tax_amount, 2);
+                        $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
                         $discount_line->ArticleCode = 'DESCUENTO';
 
+                        //Calculamos el tipo de impuesto IGIC IPSI
                         if ($is_oss_invoice) 
                         {
                             $discount_line->OperationQualification = "N2";
@@ -831,6 +871,13 @@ class ApiVerifactu
                         {
                             $discount_line->OperationQualification = "S1";
                             $discount_line->RegimeKey = "01";
+                        }
+
+                        if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                        {
+                            $discount_line->TaxRate = 0;
+                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
+                            $discount_line->TaxAmountTotal = 0;
                         }
                         
                         $data->invoice->lines[] = $discount_line;
@@ -1761,15 +1808,19 @@ class ApiVerifactu
         // 1. Obtener país de la tienda
         $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
 
-        // 2. Obtener país de ENTREGA
+        // 2. Obtener país y ESTADO de ENTREGA
         $id_delivery_country = 0;
+        $id_delivery_state = 0; // <-- AÑADIDO
+        
         $sql_delivery_addr = new DbQuery();
-        $sql_delivery_addr->select('id_country')
-            ->from('address')
-            ->where('id_address = ' . (int)$order_data['id_address_delivery']);
+        $sql_delivery_addr->select('id_country, id_state'); // <-- MODIFICADO
+        $sql_delivery_addr->from('address');
+        $sql_delivery_addr->where('id_address = ' . (int)$order_data['id_address_delivery']);
         $delivery_addr = Db::getInstance()->getRow($sql_delivery_addr);
+        
         if ($delivery_addr) {
             $id_delivery_country = (int)$delivery_addr['id_country'];
+            $id_delivery_state = (int)$delivery_addr['id_state']; // <-- AÑADIDO
         }
         
         if ($id_delivery_country == 0) {
@@ -1777,8 +1828,8 @@ class ApiVerifactu
         }
 
         // 3. Comparar países usando nuestra función helper
-        $shop_is_eu = $this->isCountryInEU($id_shop_country);
-        $delivery_is_eu = $this->isCountryInEU($id_delivery_country);
+        $shop_is_eu = $this->isCountryInEU($id_shop_country); // 'ES' da true
+        $delivery_is_eu = $this->isCountryInEU($id_delivery_country); // 'ES' da true
 
         // Comprobar si el vendedor es de Territorio Especial (Canarias, Ceuta, Melilla)
         $is_special_territory_seller = (Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1);
@@ -1787,14 +1838,39 @@ class ApiVerifactu
         $original_export_logic = ($shop_is_eu && !$delivery_is_eu);
 
         if ($is_special_territory_seller) {
-            // Si el vendedor es de Territorio Especial, también es exportación si vende a la UE
-            // (La venta Canarias -> Península la añadirás tú)
-            $special_to_eu_export = ($delivery_is_eu && $id_shop_country != $id_delivery_country);
             
-            // También es exportación si vende a No-UE (ej. Canarias a EE.UU.)
+            // Caso 1: Venta de Territorio Especial a No-UE (ej. Canarias -> EE.UU.)
             $special_to_non_eu_export = !$delivery_is_eu;
 
-            return ($special_to_eu_export || $special_to_non_eu_export);
+            // Caso 2: Venta de Territorio Especial a otro país UE (ej. Canarias -> Francia)
+            $special_to_eu_export = ($delivery_is_eu && $id_shop_country != $id_delivery_country);
+            
+            // --- INICIO DE LA NUEVA LÓGICA ---
+            
+            // Caso 3: Venta de Territorio Especial a Península/Baleares
+            $special_to_peninsula_export = false;
+            // Verificamos si es una venta dentro de España (País Tienda = País Entrega)
+            if ($delivery_is_eu && $id_shop_country == $id_delivery_country && $id_delivery_state > 0) 
+            {
+                // Es ES -> ES. Necesitamos comprobar el estado de entrega.
+                if (!class_exists('\State', false)) {
+                    require_once(_PS_ROOT_DIR_ . '/classes/State.php');
+                }
+                $delivery_state_obj = new \State($id_delivery_state);
+                
+                if (Validate::isLoadedObject($delivery_state_obj)) {
+                    $delivery_iso = strtoupper($delivery_state_obj->iso_code);
+                    
+                    // Si el ISO de estado NO es de un territorio especial, es Península/Baleares
+                    // (Asumimos que la tienda del vendedor sí está en un territorio especial)
+                    if (!in_array($delivery_iso, ['ES-GC', 'ES-TF', 'ES-CE', 'ES-ML'])) {
+                        $special_to_peninsula_export = true;
+                    }
+                }
+            }
+            // --- FIN DE LA NUEVA LÓGICA ---
+
+            return ($special_to_eu_export || $special_to_non_eu_export || $special_to_peninsula_export);
         }
         
         // Si no es vendedor de Territorio Especial, se aplica solo la lógica original
