@@ -85,10 +85,16 @@ class Verifactu extends Module
             'VERIFACTU_API_TOKEN',
             'VERIFACTU_NIF_EMISOR',
             'VERIFACTU_DEBUG_MODE',
+            'VERIFACTU_USA_OSS',
+            'VERIFACTU_TERRITORIO_ESPECIAL',
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
-                Configuration::updateValue($key, null);
+                $default_value = null;
+                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL') {
+                    $default_value = 0;
+                }
+                Configuration::updateValue($key, $default_value);
             }
         }
 
@@ -673,6 +679,25 @@ class Verifactu extends Module
                         'html_content' => '<hr>',
                     ),
                     array(
+                        'type' => 'switch',
+                        'label' => $this->l('¿Su tienda opera desde Canarias, Ceuta o Melilla?'),
+                        'name' => 'VERIFACTU_TERRITORIO_ESPECIAL', // <-- CAMBIADO
+                        'is_bool' => true,
+                        'desc' => $this->l('Active esta opción si su NIF emisor está domiciliado en Canarias, Ceuta o Melilla. Esto desactivará la lógica de OSS y B2B Intracomunitario, y tratará las ventas a la Península y UE como exportaciones.'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Sí')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('No')
+                            )
+                        )
+                    ),
+                    array(
                         'type' => 'select',
                         'label' => $this->l('Impuestos de tipo IGIC'),
                         'name' => 'VERIFACTU_IGIC_TAXES[]', // El [] permite la selección múltiple
@@ -695,6 +720,26 @@ class Verifactu extends Module
                             'id' => 'id_tax',
                             'name' => 'name'
                         ),
+                    ),
+                    
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('¿Gestión de Ventanilla Única (OSS)?'),
+                        'name' => 'VERIFACTU_USA_OSS',
+                        'is_bool' => true,
+                        'desc' => $this->l('Active esta opción SÓLO si realiza ventas B2C a otros países de la UE y está dado de alta en el régimen de Ventanilla Única (OSS).'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Activado')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('Desactivado')
+                            )
+                        )
                     ),
                     array(
                         'type' => 'html',
@@ -749,6 +794,8 @@ class Verifactu extends Module
             'VERIFACTU_NIF_EMISOR' => Configuration::get('VERIFACTU_NIF_EMISOR', null, $id_shop_group, $id_shop),
             'VERIFACTU_IGIC_TAXES[]' => is_array($igic_taxes) ? $igic_taxes : [],
             'VERIFACTU_IPSI_TAXES[]' => is_array($ipsi_taxes) ? $ipsi_taxes : [],
+            'VERIFACTU_USA_OSS' => Configuration::get('VERIFACTU_USA_OSS', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_TERRITORIO_ESPECIAL' => Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', 0, $id_shop_group, $id_shop),
         );
     }
 
@@ -781,6 +828,8 @@ class Verifactu extends Module
         // Obtenemos los arrays de los selectores múltiples. Pueden ser 'false' si no se selecciona nada.
         $verifactu_igic_taxes = Tools::getValue('VERIFACTU_IGIC_TAXES', []);
         $verifactu_ipsi_taxes = Tools::getValue('VERIFACTU_IPSI_TAXES', []);
+        $verifactu_usa_oss = Tools::getValue('VERIFACTU_USA_OSS');
+        $verifactu_territorio_especial = Tools::getValue('VERIFACTU_TERRITORIO_ESPECIAL');
 
         // Convertimos los arrays a JSON para guardarlos. Si son 'false', los guardamos como un array vacío.
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
@@ -799,6 +848,8 @@ class Verifactu extends Module
             Configuration::updateValue('VERIFACTU_DEBUG_MODE', $verifactu_debug_mode, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_IGIC_TAXES', $igic_json, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_IPSI_TAXES', $ipsi_json, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_USA_OSS', $verifactu_usa_oss, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_TERRITORIO_ESPECIAL', $verifactu_territorio_especial, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -809,6 +860,8 @@ class Verifactu extends Module
                 Configuration::updateValue('VERIFACTU_DEBUG_MODE', $verifactu_debug_mode, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_IGIC_TAXES', $igic_json, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_IPSI_TAXES', $ipsi_json, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_USA_OSS', $verifactu_usa_oss, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_TERRITORIO_ESPECIAL', $verifactu_territorio_especial, false, $id_shop_group, $id_shop);
             }
         }
     }

@@ -271,6 +271,23 @@ class ApiVerifactu
 
         $data->buyer = $buyer;
 
+        // 1. Comprobar OSS
+        $is_oss_invoice = $this->isOrderOSS($order_data, $address);
+
+        // 2. Inicializar las otras banderas
+        $is_export_invoice = false;
+        $is_b2b_intra_invoice = false;
+
+        if (!$is_oss_invoice) {
+            // 3. Si no es OSS, comprobar si es Exportación
+            $is_export_invoice = $this->isExportInvoice($order_data);
+
+            if (!$is_export_invoice) {
+                // 4. Si no es Exportación, comprobar si es B2B Intracom.
+                $is_b2b_intra_invoice = $this->isB2BIntraCommunity($order_data, $address);
+            }
+        }
+
         if ($tipo == 'abono')
         {
             $InvoiceNumber = $this->getFormattedCreditSlipNumber($slip['id_order_slip']);
@@ -319,23 +336,26 @@ class ApiVerifactu
                 $id_order_detail = (int)$l['id_order_detail'];
                 $final_id_tax = 0;
 
-                if ($id_order_detail) {
-                    $line_tax_sql = new DbQuery();
-                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
-                    $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
+                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                {
+                    if ($id_order_detail) {
+                        $line_tax_sql = new DbQuery();
+                        $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                        $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                    if ($line_taxes_result) {
-                        foreach ($line_taxes_result as $tax) {
-                            $id_tax = (int)$tax['id_tax'];
-                            if ($final_id_tax == 0) $final_id_tax = $id_tax;
+                        if ($line_taxes_result) {
+                            foreach ($line_taxes_result as $tax) {
+                                $id_tax = (int)$tax['id_tax'];
+                                if ($final_id_tax == 0) $final_id_tax = $id_tax;
 
-                            if (in_array($id_tax, $igic_tax_ids)) {
-                                $lineTaxTypeCode = '03';
-                                $final_id_tax = $id_tax;
-                                break; 
-                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                                $lineTaxTypeCode = '02';
-                                $final_id_tax = $id_tax;
+                                if (in_array($id_tax, $igic_tax_ids)) {
+                                    $lineTaxTypeCode = '03';
+                                    $final_id_tax = $id_tax;
+                                    break; 
+                                } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                                    $lineTaxTypeCode = '02';
+                                    $final_id_tax = $id_tax;
+                                }
                             }
                         }
                     }
@@ -353,6 +373,50 @@ class ApiVerifactu
                 
                 $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
+
+                if ($is_oss_invoice) 
+                {
+                    $line->OperationQualification = "N2";
+                    $line->RegimeKey = "17";
+                } 
+                elseif ($is_export_invoice) 
+                {
+                    if ($line_tax_rate == 0) 
+                    {
+                        //$line->OperationQualification = "N1";
+                        $line->RegimeKey = "02";
+                        $line->ExemptOperation = "E2";
+                    } 
+                    else 
+                    {
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $line->OperationQualification = "S1";
+                        $line->RegimeKey = "01";
+                    }
+                    
+                } 
+                elseif ($is_b2b_intra_invoice) 
+                {
+                    if ($line_tax_rate == 0) 
+                    {
+                        // Es B2B Intra y PrestaShop ha quitado el IVA (Correcto)
+                        $line->OperationQualification = "S2";
+                        $line->RegimeKey = "01";
+                    } 
+                    else 
+                    {
+                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $line->OperationQualification = "S1";
+                        $line->RegimeKey = "01";
+                    }
+                }
+                else 
+                {
+                    // Venta Nacional
+                    $line->OperationQualification = "S1"; 
+                    $line->RegimeKey = "01";
+                }
 
                 $seq++;
 
@@ -382,11 +446,57 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = -((float)$slip['total_shipping_tax_excl']);
                 $shipping_line->TotalCost = -((float)$slip['total_shipping_tax_incl']);
                 $shipping_line->GrossAmount = -((float)$slip['total_shipping_tax_incl']);
-                $shipping_line->TaxTypeCode = '01';
+
+                
+
+                $shipping_line->TaxTypeCode = '01'; 
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = -((float)$slip['total_shipping_tax_excl']);
                 $shipping_line->TaxAmountTotal = -((float)$slip['total_shipping_tax_incl'] - (float)$slip['total_shipping_tax_excl']);
                 $shipping_line->ArticleCode = 'ENVIO';
+
+                if ($is_oss_invoice) 
+                {
+                    $shipping_line->OperationQualification = "N2";
+                    $shipping_line->RegimeKey = "17";
+                } 
+                elseif ($is_export_invoice) 
+                {
+                    if ($shipping_tax_rate == 0) 
+                    {
+                        //$line->OperationQualification = "N1";
+                        $shipping_line->RegimeKey = "02";
+                        $shipping_line->ExemptOperation = "E2";
+                    } 
+                    else 
+                    {
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $shipping_line->OperationQualification = "S1";
+                        $shipping_line->RegimeKey = "01";
+                    }
+                    
+                } 
+                elseif ($is_b2b_intra_invoice) 
+                {
+                    if ($shipping_tax_rate == 0) 
+                    {
+                        // Es B2B Intra y PrestaShop ha quitado el IVA (Correcto)
+                        $shipping_line->OperationQualification = "S2";
+                        $shipping_line->RegimeKey = "01";
+                    } 
+                    else 
+                    {
+                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $shipping_line->OperationQualification = "S1";
+                        $shipping_line->RegimeKey = "01";
+                    } 
+                } 
+                else 
+                {
+                    $shipping_line->OperationQualification = "S1";
+                    $shipping_line->RegimeKey = "01";
+                }
                 
                 $data->invoice->lines[] = $shipping_line;
             }  
@@ -441,22 +551,25 @@ class ApiVerifactu
                 $id_order_detail = (int)$l['id_order_detail'];
                 $final_id_tax = 0;
 
-                $line_tax_sql = new DbQuery();
-                $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
-                $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
+                if (!$is_oss_invoice && !$is_export_invoice && !$is_b2b_intra_invoice && Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) 
+                {
+                    $line_tax_sql = new DbQuery();
+                    $line_tax_sql->select('id_tax')->from('order_detail_tax')->where('id_order_detail = ' . $id_order_detail);
+                    $line_taxes_result = Db::getInstance()->executeS($line_tax_sql);
 
-                if ($line_taxes_result) {
-                    foreach ($line_taxes_result as $tax) {
-                        $id_tax = (int)$tax['id_tax'];
-                        if ($final_id_tax == 0) $final_id_tax = $id_tax;
-                        
-                        if (in_array($id_tax, $igic_tax_ids)) {
-                            $lineTaxTypeCode = '03'; // IGIC
-                            $final_id_tax = $id_tax;
-                            break; 
-                        } elseif (in_array($id_tax, $ipsi_tax_ids)) {
-                            $lineTaxTypeCode = '02'; // IPSI
-                            $final_id_tax = $id_tax;
+                    if ($line_taxes_result) {
+                        foreach ($line_taxes_result as $tax) {
+                            $id_tax = (int)$tax['id_tax'];
+                            if ($final_id_tax == 0) $final_id_tax = $id_tax;
+                            
+                            if (in_array($id_tax, $igic_tax_ids)) {
+                                $lineTaxTypeCode = '03'; // IGIC
+                                $final_id_tax = $id_tax;
+                                break; 
+                            } elseif (in_array($id_tax, $ipsi_tax_ids)) {
+                                $lineTaxTypeCode = '02'; // IPSI
+                                $final_id_tax = $id_tax;
+                            }
                         }
                     }
                 }
@@ -475,6 +588,49 @@ class ApiVerifactu
                 
                 $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
+
+                if ($is_oss_invoice) 
+                {
+                    $line->OperationQualification = "N2";
+                    $line->RegimeKey = "17";
+                } 
+                elseif ($is_export_invoice) 
+                {
+                    if ($line_tax_rate == 0) 
+                    {
+                        //$line->OperationQualification = "N1";
+                        $line->RegimeKey = "02";
+                        $line->ExemptOperation = "E2";
+                    } 
+                    else 
+                    {
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $line->OperationQualification = "S1";
+                        $line->RegimeKey = "01";
+                    }
+                    
+                } 
+                elseif ($is_b2b_intra_invoice) 
+                {
+                    if ($line_tax_rate == 0) 
+                    {
+                        // Es B2B Intra y PrestaShop ha quitado el IVA (Correcto)
+                        $line->OperationQualification = "S2";
+                        $line->RegimeKey = "01";
+                    } 
+                    else 
+                    {
+                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $line->OperationQualification = "S1";
+                        $line->RegimeKey = "01";
+                    } 
+                }
+                else
+                {
+                    $line->OperationQualification = "S1";
+                    $line->RegimeKey = "01";
+                }
 
                 $data->invoice->lines[] = $line;
             } 
@@ -503,92 +659,185 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
+
+
                 $shipping_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->TaxAmountTotal = (float)$invoice['total_shipping_tax_incl'] - (float)$invoice['total_shipping_tax_excl'];
                 $shipping_line->ArticleCode = 'ENVIO';
+
+                if ($is_oss_invoice) 
+                {
+                    $shipping_line->OperationQualification = "N2";
+                    $shipping_line->RegimeKey = "17";
+                } 
+                elseif ($is_export_invoice) 
+                {
+                    if ($shipping_tax_rate == 0) 
+                    {
+                        //$line->OperationQualification = "N1";
+                        $shipping_line->RegimeKey = "02";
+                        $shipping_line->ExemptOperation = "E2";
+                    } 
+                    else 
+                    {
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $shipping_line->OperationQualification = "S1";
+                        $shipping_line->RegimeKey = "01";
+                    }
+                    
+                } 
+                elseif ($is_b2b_intra_invoice) 
+                {
+                    if ($shipping_tax_rate == 0) 
+                    {
+                        // Es B2B Intra y PrestaShop ha quitado el IVA (Correcto)
+                        $shipping_line->OperationQualification = "S2";
+                        $shipping_line->RegimeKey = "01";
+                    } 
+                    else 
+                    {
+                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                        $shipping_line->OperationQualification = "S1";
+                        $shipping_line->RegimeKey = "01";
+                    } 
+
+                } 
+                else 
+                {
+                    $shipping_line->OperationQualification = "S1";
+                    $shipping_line->RegimeKey = "01";
+                }
                 
                 $data->invoice->lines[] = $shipping_line;
                 $seq++;
             }
 
             // Después de añadir los productos y el envío, añadimos los descuentos.
-            if (!empty($discounts)) {
-            // 1. Agrupamos los totales de las líneas de producto por su tipo de IVA.
-            $totals_by_tax_rate = [];
-            foreach ($lines as $line) 
+            if (!empty($discounts)) 
             {
-                $rate = (float)$line['tax_rate'];
-                if ($rate == 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) 
+                // 1. Agrupamos los totales de las líneas de producto por su tipo de IVA.
+                $totals_by_tax_rate = [];
+                foreach ($lines as $line) 
                 {
-                    $line_tax_sql = new DbQuery();
-                    $line_tax_sql->select('t.rate')
-                                 ->from('order_detail_tax', 'odt')
-                                 ->leftJoin('tax', 't', 't.id_tax = odt.id_tax')
-                                 ->where('odt.id_order_detail = ' . (int)$line['id_order_detail']);
-                    // Usamos getValue para obtener la primera tasa, asumiendo una para esta lógica
-                    $rate_from_tax_table = (float)Db::getInstance()->getValue($line_tax_sql);
-                    if ($rate_from_tax_table > 0) {
-                        $rate = $rate_from_tax_table;
+                    $rate = (float)$line['tax_rate'];
+                    if ($rate == 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) 
+                    {
+                        $line_tax_sql = new DbQuery();
+                        $line_tax_sql->select('t.rate')
+                                     ->from('order_detail_tax', 'odt')
+                                     ->leftJoin('tax', 't', 't.id_tax = odt.id_tax')
+                                     ->where('odt.id_order_detail = ' . (int)$line['id_order_detail']);
+                        // Usamos getValue para obtener la primera tasa, asumiendo una para esta lógica
+                        $rate_from_tax_table = (float)Db::getInstance()->getValue($line_tax_sql);
+                        if ($rate_from_tax_table > 0) {
+                            $rate = $rate_from_tax_table;
+                        }
                     }
-                }
-                if (!isset($totals_by_tax_rate[$rate])) 
-                {
-                    $totals_by_tax_rate[$rate] = 0;
-                }
-                $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'];
-            }
-
-            // 2. Calculamos el total de productos sin IVA para poder prorratear.
-            $order_total_products_tax_excl = array_sum($totals_by_tax_rate);
-
-            // 3. Recorremos cada cupón de descuento aplicado.
-            foreach ($discounts as $discount) {
-                $total_discount_tax_excl = (float)$discount['value_tax_excl'];
-
-                // Si el descuento total es 0, no hacemos nada.
-                if ($total_discount_tax_excl <= 0) {
-                    continue;
+                    if (!isset($totals_by_tax_rate[$rate])) 
+                    {
+                        $totals_by_tax_rate[$rate] = 0;
+                    }
+                    $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'];
                 }
 
-                // 4. Desglosamos el descuento para cada tipo de IVA.
-                foreach ($totals_by_tax_rate as $rate => $total_for_rate) {
-                    
-                    // Calculamos la proporción de este tipo de IVA sobre el total.
-                    $proportion = ($order_total_products_tax_excl > 0) ? ($total_for_rate / $order_total_products_tax_excl) : 0;
-                    
-                    // Calculamos qué parte del descuento corresponde a este tipo de IVA.
-                    $discount_portion_tax_excl = $total_discount_tax_excl * $proportion;
-                    $discount_tax_amount = $discount_portion_tax_excl * ($rate / 100);
-                    $discount_portion_tax_incl = $discount_portion_tax_excl + $discount_tax_amount;
+                // 2. Calculamos el total de productos sin IVA para poder prorratear.
+                $order_total_products_tax_excl = array_sum($totals_by_tax_rate);
 
-                    // Si la porción del descuento es insignificante, la saltamos.
-                    if ($discount_portion_tax_excl < 0.01) {
+                // 3. Recorremos cada cupón de descuento aplicado.
+                foreach ($discounts as $discount) {
+                    $total_discount_tax_excl = (float)$discount['value_tax_excl'];
+
+                    // Si el descuento total es 0, no hacemos nada.
+                    if ($total_discount_tax_excl <= 0) {
                         continue;
                     }
 
-                    // Creamos una línea de descuento específica para este tipo de IVA.
-                    $discount_line = new \stdClass();
-                    $discount_line->SequenceNumber = $seq;
-                    $discount_line->ItemDescription = 'Descuento: ' . $discount['name'] . ' (' . $rate . '%)';
-                    $discount_line->Quantity = 1;
-                    
-                    // Todos los valores monetarios son negativos.
-                    $discount_line->UnitPriceWithoutTax = -round($discount_portion_tax_excl, 2);
-                    $discount_line->TotalCost = -round($discount_portion_tax_incl, 2);
-                    $discount_line->GrossAmount = -round($discount_portion_tax_incl, 2);
-                    $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
-                    $discount_line->TaxRate = $rate; // El tipo de IVA real.
-                    $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
-                    $discount_line->TaxAmountTotal = -round($discount_tax_amount, 2);
-                    $discount_line->ArticleCode = 'DESCUENTO';
-                    
-                    $data->invoice->lines[] = $discount_line;
-                    $seq++;
+                    // 4. Desglosamos el descuento para cada tipo de IVA.
+                    foreach ($totals_by_tax_rate as $rate => $total_for_rate) {
+                        
+                        // Calculamos la proporción de este tipo de IVA sobre el total.
+                        $proportion = ($order_total_products_tax_excl > 0) ? ($total_for_rate / $order_total_products_tax_excl) : 0;
+                        
+                        // Calculamos qué parte del descuento corresponde a este tipo de IVA.
+                        $discount_portion_tax_excl = $total_discount_tax_excl * $proportion;
+                        $discount_tax_amount = $discount_portion_tax_excl * ($rate / 100);
+                        $discount_portion_tax_incl = $discount_portion_tax_excl + $discount_tax_amount;
+
+                        // Si la porción del descuento es insignificante, la saltamos.
+                        if ($discount_portion_tax_excl < 0.01) {
+                            continue;
+                        }
+
+                        // Creamos una línea de descuento específica para este tipo de IVA.
+                        $discount_line = new \stdClass();
+                        $discount_line->SequenceNumber = $seq;
+                        $discount_line->ItemDescription = 'Descuento: ' . $discount['name'] . ' (' . $rate . '%)';
+                        $discount_line->Quantity = 1;
+                        
+                        // Todos los valores monetarios son negativos.
+                        $discount_line->UnitPriceWithoutTax = -round($discount_portion_tax_excl, 2);
+                        $discount_line->TotalCost = -round($discount_portion_tax_incl, 2);
+                        $discount_line->GrossAmount = -round($discount_portion_tax_incl, 2);
+
+                        
+
+                        $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
+                        $discount_line->TaxRate = $rate; // El tipo de IVA real.
+                        $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
+                        $discount_line->TaxAmountTotal = -round($discount_tax_amount, 2);
+                        $discount_line->ArticleCode = 'DESCUENTO';
+
+                        if ($is_oss_invoice) 
+                        {
+                            $discount_line->OperationQualification = "N2";
+                            $discount_line->RegimeKey = "17";
+                        } 
+                        elseif ($is_export_invoice) 
+                        {
+                            if ($rate == 0) 
+                            {
+                                //$line->OperationQualification = "N1";
+                                $discount_line->RegimeKey = "02";
+                                $discount_line->ExemptOperation = "E2";
+                            } 
+                            else 
+                            {
+                                // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                                $discount_line->OperationQualification = "S1";
+                                $discount_line->RegimeKey = "01";
+                            }
+                            
+                        } 
+                        elseif ($is_b2b_intra_invoice) 
+                        {
+                            if ($rate == 0) 
+                            {
+                                // Es B2B Intra y PrestaShop ha quitado el IVA (Correcto)
+                                $discount_line->OperationQualification = "S2";
+                                $discount_line->RegimeKey = "01";
+                            } 
+                            else 
+                            {
+                                // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                                // Lo enviamos como una venta normal S1 para que coincida con la factura.
+                                $discount_line->OperationQualification = "S1";
+                                $discount_line->RegimeKey = "01";
+                            } 
+                        } 
+                        else 
+                        {
+                            $discount_line->OperationQualification = "S1";
+                            $discount_line->RegimeKey = "01";
+                        }
+                        
+                        $data->invoice->lines[] = $discount_line;
+                        $seq++;
+                    }
                 }
-            }
-        } 
+            } 
         }
 
         $dataString = json_encode($data);
@@ -1437,6 +1686,227 @@ class ApiVerifactu
         }
 
         return $final_slip_number;
+    }
+
+    /**
+     * Comprueba si un pedido cumple los criterios para ser una factura de Ventanilla Única (OSS).
+     * (Versión 5 - Hardcoded con lista de ISO codes)
+     *
+     * @param array $order_data Los datos de la tabla 'ps_orders'
+     * @param array $address Los datos de la dirección de FACTURACIÓN ('ps_address')
+     * @return bool True si es una factura OSS, false en caso contrario.
+     */
+    private function isOrderOSS($order_data, $address)
+    {
+        // Los vendedores de Canarias están fuera del territorio IVA de la UE, no aplican OSS.
+        if (Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) {
+            return false;
+        }
+
+        // 1. Comprobar el interruptor maestro del módulo
+        if (Configuration::get('VERIFACTU_USA_OSS') != 1) {
+            return false;
+        }
+
+        // 2. Comprobar si es B2C (usando la dirección de facturación)
+        $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : '';
+        $is_b2c = empty($taxIdentificationNumber);
+
+        if (!$is_b2c) {
+            return false; // Es B2B, nunca puede ser OSS.
+        }
+
+        // 3. Obtener el país de la tienda
+        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+
+        // 4. Obtener el país de ENTREGA del pedido
+        $id_delivery_country = 0;
+        $sql_delivery_addr = new DbQuery();
+        $sql_delivery_addr->select('id_country')
+            ->from('address')
+            ->where('id_address = ' . (int)$order_data['id_address_delivery']);
+        
+        $delivery_addr = Db::getInstance()->getRow($sql_delivery_addr);
+        
+        if ($delivery_addr) {
+            $id_delivery_country = (int)$delivery_addr['id_country'];
+        }
+        
+        if ($id_delivery_country == 0) {
+            return false;
+        }
+
+        // 5. Comparar países usando nuestra función helper
+        $shop_is_eu = $this->isCountryInEU($id_shop_country);
+        $delivery_is_eu = $this->isCountryInEU($id_delivery_country);
+
+        // La regla final
+        if ($shop_is_eu && $delivery_is_eu && $id_shop_country != $id_delivery_country) {
+            // Es B2C, Tienda UE -> Cliente UE (diferente país). ¡Es OSS!
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Comprueba si un pedido es una Exportación (B2x a un país fuera de la UE).
+     * (Versión 5 - Hardcoded con lista de ISO codes)
+     *
+     * @param array $order_data Los datos de la tabla 'ps_orders'
+     * @return bool True si es una exportación, false en caso contrario.
+     */
+    private function isExportInvoice($order_data)
+    {
+        // 1. Obtener país de la tienda
+        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+
+        // 2. Obtener país de ENTREGA
+        $id_delivery_country = 0;
+        $sql_delivery_addr = new DbQuery();
+        $sql_delivery_addr->select('id_country')
+            ->from('address')
+            ->where('id_address = ' . (int)$order_data['id_address_delivery']);
+        $delivery_addr = Db::getInstance()->getRow($sql_delivery_addr);
+        if ($delivery_addr) {
+            $id_delivery_country = (int)$delivery_addr['id_country'];
+        }
+        
+        if ($id_delivery_country == 0) {
+            return false;
+        }
+
+        // 3. Comparar países usando nuestra función helper
+        $shop_is_eu = $this->isCountryInEU($id_shop_country);
+        $delivery_is_eu = $this->isCountryInEU($id_delivery_country);
+
+        // Comprobar si el vendedor es de Territorio Especial (Canarias, Ceuta, Melilla)
+        $is_special_territory_seller = (Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1);
+
+        // Lógica de exportación estándar: Vendedor UE (Península) -> Cliente No-UE
+        $original_export_logic = ($shop_is_eu && !$delivery_is_eu);
+
+        if ($is_special_territory_seller) {
+            // Si el vendedor es de Territorio Especial, también es exportación si vende a la UE
+            // (La venta Canarias -> Península la añadirás tú)
+            $special_to_eu_export = ($delivery_is_eu && $id_shop_country != $id_delivery_country);
+            
+            // También es exportación si vende a No-UE (ej. Canarias a EE.UU.)
+            $special_to_non_eu_export = !$delivery_is_eu;
+
+            return ($special_to_eu_export || $special_to_non_eu_export);
+        }
+        
+        // Si no es vendedor de Territorio Especial, se aplica solo la lógica original
+        return $original_export_logic;
+    }
+
+    /**
+     * Comprueba si un pedido es una Venta B2B Intracomunitaria.
+     * (Versión 5 - Hardcoded con lista de ISO codes)
+     *
+     * @param array $order_data Los datos de la tabla 'ps_orders'
+     * @param array $address Los datos de la dirección de FACTURACIÓN ('ps_address')
+     * @return bool True si es B2B intracomunitaria, false en caso contrario.
+     */
+    private function isB2BIntraCommunity($order_data, $address)
+    {
+        // Los vendedores de Canarias están fuera del territorio IVA de la UE, no aplican B2B Intracomunitario.
+        if (Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) == 1) {
+            return false;
+        }
+
+        // 1. Comprobar si es B2B (TIENE NIF/VAT)
+        $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : '';
+        $is_b2b = !empty($taxIdentificationNumber);
+
+        if (!$is_b2b) {
+            return false; // Es B2C, no puede ser B2B intracomunitaria
+        }
+
+        // 2. Obtener país de la tienda
+        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+
+        // 3. Obtener país de ENTREGA
+        $id_delivery_country = 0;
+        $sql_delivery_addr = new DbQuery();
+        $sql_delivery_addr->select('id_country')
+            ->from('address')
+            ->where('id_address = ' . (int)$order_data['id_address_delivery']);
+        $delivery_addr = Db::getInstance()->getRow($sql_delivery_addr);
+        if ($delivery_addr) {
+            $id_delivery_country = (int)$delivery_addr['id_country'];
+        }
+        
+        if ($id_delivery_country == 0) {
+            return false;
+        }
+
+        // 4. Comparar países usando nuestra función helper
+        $shop_is_eu = $this->isCountryInEU($id_shop_country);
+        $delivery_is_eu = $this->isCountryInEU($id_delivery_country);
+
+        // Lógica B2B Intracomunitaria:
+        // Es B2B, Tienda en UE, Entrega en UE, y país tienda != país entrega
+        return ($shop_is_eu && $delivery_is_eu && $id_shop_country != $id_delivery_country);
+    }
+
+    /**
+     * Función helper para comprobar si un país está en la UE
+     * basado en una lista hardcoded de códigos ISO.
+     *
+     * @param int $id_country El ID del país a comprobar.
+     * @return bool True si es un país de la UE, false en caso contrario.
+     */
+    private function isCountryInEU($id_country)
+    {
+        // Lista hardcoded de códigos ISO 3166-1 alpha-2 de los 27 países de la UE
+        // Esta lista es estática para optimizar y no redeclararla en cada llamada.
+        static $eu_iso_codes = [
+            'AT', // Austria
+            'BE', // Bélgica
+            'BG', // Bulgaria
+            'CY', // Chipre
+            'CZ', // República Checa
+            'DE', // Alemania
+            'DK', // Dinamarca
+            'EE', // Estonia
+            'ES', // España (Como solicitaste, para las excepciones de Canarias se añadirá lógica después)
+            'FI', // Finlandia
+            'FR', // Francia
+            'GR', // Grecia
+            'HR', // Croacia
+            'HU', // Hungría
+            'IE', // Irlanda
+            'IT', // Italia
+            'LT', // Lituania
+            'LU', // Luxemburgo
+            'LV', // Letonia
+            'MT', // Malta
+            'NL', // Países Bajos
+            'PL', // Polonia
+            'PT', // Portugal
+            'RO', // Rumanía
+            'SE', // Suecia
+            'SI', // Eslovenia
+            'SK', // Eslovaquia
+        ];
+
+        // Aseguramos que la clase Country esté cargada (con namespace global)
+        if (!class_exists('\Country', false)) {
+            require_once(_PS_ROOT_DIR_ . '/classes/Country.php');
+        }
+
+        // Usamos el namespace global '\'
+        $country_obj = new \Country($id_country);
+
+        // Si el país no se puede cargar, no es de la UE
+        if (!Validate::isLoadedObject($country_obj)) {
+            return false;
+        }
+
+        // Devolvemos true si el iso_code del país (en mayúsculas) está en el array
+        return in_array(strtoupper($country_obj->iso_code), $eu_iso_codes, true);
     }
 
 }
