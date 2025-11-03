@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.10';
+        $this->version = '1.3.11';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -87,12 +87,23 @@ class Verifactu extends Module
             'VERIFACTU_DEBUG_MODE',
             'VERIFACTU_USA_OSS',
             'VERIFACTU_TERRITORIO_ESPECIAL',
+            'VERIFACTU_QR_HIDE_DEFAULT',
+            'VERIFACTU_QR_WIDTH',
+            'VERIFACTU_QR_TEXT'
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
                 $default_value = null;
                 if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL') {
                     $default_value = 0;
+                }
+                elseif ($key === 'VERIFACTU_QR_WIDTH') 
+                {
+                    $default_value = 60; // 60px por defecto
+                } 
+                elseif ($key === 'VERIFACTU_QR_TEXT') 
+                {
+                    $default_value = 'Factura verificable en la sede electrónica de la AEAT';
                 }
                 Configuration::updateValue($key, $default_value);
             }
@@ -205,6 +216,11 @@ class Verifactu extends Module
         $this->registerHook('actionOrderSlipAdd');
         $this->registerHook('displayPDFOrderSlip');
         $this->registerHook('actionPDFOrderSlipRender');
+        $this->registerHook('actionShutdown');
+
+        //Custom hooks
+        $this->registerHook('displayVerifactuQR'); // Nuestro nuevo hook para mostrar el QR
+        
 
         return true;
     }
@@ -676,7 +692,7 @@ class Verifactu extends Module
                     array(
                         'type' => 'html',
                         'name' => 'verifactu_separator_1', // Nombre único
-                        'html_content' => '<hr>',
+                        'html_content' => '<hr><h4>' . $this->l('Configuración de venta internacional y territorios especiales') . '</h4>',
                     ),
                     array(
                         'type' => 'switch',
@@ -743,6 +759,53 @@ class Verifactu extends Module
                     ),
                     array(
                         'type' => 'html',
+                        'name' => 'verifactu_separator_qr',
+                        'html_content' => '<hr><h4>' . $this->l('Configuración del QR en PDF') . '</h4>',
+                    ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Ocultar QR en posición por defecto en PDFs'),
+                        'name' => 'VERIFACTU_QR_HIDE_DEFAULT',
+                        'is_bool' => true,
+                        'desc' => $this->l('Active esta opción si NO desea que el QR aparezca automáticamente al pie de las facturas PDF.') . '<br>' .
+                                  $this->l('Esto es útil si prefiere posicionar el QR manualmente editando la plantilla de su tema.') . '<br>' .
+                                  sprintf(
+                                      $this->l('Para ello, sobrescriba el fichero %s en su tema (%s) y añada el siguiente hook donde desee: %s'),
+                                      '<strong>pdf/invoice.tpl</strong>',
+                                      '<strong>themes/su-tema/pdf/invoice.tpl</strong>',
+                                      '<code>{hook h=\'displayVerifactuQR\' id_order_invoice=$order_invoice->id}</code>'
+                                  ),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Sí, ocultar')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('No, mostrar')
+                            )
+                        ),
+                    ),
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Ancho y Alto del QR'),
+                        'name' => 'VERIFACTU_QR_WIDTH',
+                        'class' => 'fixed-width-sm',
+                        'suffix' => 'px',
+                        'desc' => $this->l('Ancho de la imagen QR en el PDF (por defecto: 60).'),
+                    ),
+                    
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Texto junto al QR (solo en modo automático)'),
+                        'name' => 'VERIFACTU_QR_TEXT',
+                        'col' => 6,
+                        'desc' => $this->l('Texto que aparece junto al QR. Nota: Este texto no se mostrará si usa el hook personalizado `displayVerifactuQR`.'),
+                    ),
+                    array(
+                        'type' => 'html',
                         'name' => 'verifactu_separator_1', // Nombre único
                         'html_content' => '<hr>',
                     ),
@@ -796,6 +859,9 @@ class Verifactu extends Module
             'VERIFACTU_IPSI_TAXES[]' => is_array($ipsi_taxes) ? $ipsi_taxes : [],
             'VERIFACTU_USA_OSS' => Configuration::get('VERIFACTU_USA_OSS', 0, $id_shop_group, $id_shop),
             'VERIFACTU_TERRITORIO_ESPECIAL' => Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_QR_HIDE_DEFAULT' => Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_QR_WIDTH' => Configuration::get('VERIFACTU_QR_WIDTH', 60, $id_shop_group, $id_shop),
+            'VERIFACTU_QR_TEXT' => Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), $id_shop_group, $id_shop),
         );
     }
 
@@ -831,6 +897,10 @@ class Verifactu extends Module
         $verifactu_usa_oss = Tools::getValue('VERIFACTU_USA_OSS');
         $verifactu_territorio_especial = Tools::getValue('VERIFACTU_TERRITORIO_ESPECIAL');
 
+        $verifactu_qr_hide_default = Tools::getValue('VERIFACTU_QR_HIDE_DEFAULT');
+        $verifactu_qr_width = Tools::getValue('VERIFACTU_QR_WIDTH');
+        $verifactu_qr_text = Tools::getValue('VERIFACTU_QR_TEXT');
+
         // Convertimos los arrays a JSON para guardarlos. Si son 'false', los guardamos como un array vacío.
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
         $ipsi_json = json_encode(is_array($verifactu_ipsi_taxes) ? $verifactu_ipsi_taxes : []);
@@ -850,6 +920,9 @@ class Verifactu extends Module
             Configuration::updateValue('VERIFACTU_IPSI_TAXES', $ipsi_json, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_USA_OSS', $verifactu_usa_oss, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_TERRITORIO_ESPECIAL', $verifactu_territorio_especial, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_QR_HIDE_DEFAULT', $verifactu_qr_hide_default, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_QR_WIDTH', $verifactu_qr_width, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -862,6 +935,9 @@ class Verifactu extends Module
                 Configuration::updateValue('VERIFACTU_IPSI_TAXES', $ipsi_json, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_USA_OSS', $verifactu_usa_oss, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_TERRITORIO_ESPECIAL', $verifactu_territorio_especial, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_QR_HIDE_DEFAULT', $verifactu_qr_hide_default, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_QR_WIDTH', $verifactu_qr_width, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
             }
         }
     }
@@ -1632,11 +1708,153 @@ class Verifactu extends Module
         return Tools::safeOutput($value);
     }
 
+    /**
+     * Obtiene los datos del QR para una factura específica.
+     * Puede ser llamado desde un hook o directamente desde otro módulo.
+     *
+     * @param int $id_order_invoice El ID de la factura (order_invoice).
+     * @return array Un array con 'qr_image_url' y 'qr_data_url', o array de nulls si falla.
+     */
+    public function getVerifactuQRData($id_order_invoice)
+    {
+        // Validamos la entrada
+        if (!$id_order_invoice || !Validate::isUnsignedId($id_order_invoice)) {
+            return ['qr_image_url' => null, 'qr_data_url' => null];
+        }
+
+        // 1. Obtenemos el id_shop desde la factura para un contexto multitienda correcto.
+        $id_shop = (int)Db::getInstance()->getValue(
+            'SELECT o.id_shop FROM `' . _DB_PREFIX_ . 'orders` o 
+             LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON o.id_order = oi.id_order
+             WHERE oi.id_order_invoice = ' . (int)$id_order_invoice
+        );
+
+        // Si no encontramos tienda, usamos el contexto actual como fallback
+        if (!$id_shop) {
+            $id_shop = (int)$this->context->shop->id;
+        }
+
+        // 2. Intentamos obtener la URL del QR desde nuestra tabla
+        $sql = new DbQuery();
+        $sql->select('urlQR');
+        $sql->from('verifactu_order_invoice');
+        $sql->where('id_order_invoice = ' . (int)$id_order_invoice);
+        $url_to_encode = Db::getInstance()->getValue($sql);
+
+        // 3. Lógica de Fallback: Si no hay urlQR, la generamos "al vuelo"
+        // (Esta lógica es la misma que ya tienes en hookDisplayPDFInvoice)
+        if (empty($url_to_encode)) {
+            $invoice = new OrderInvoice($id_order_invoice);
+            if (!Validate::isLoadedObject($invoice)) {
+                return ['qr_image_url' => null, 'qr_data_url' => null]; // No existe la factura
+            }
+
+            $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+
+            $numserie = urlencode($av->getFormattedInvoiceNumber($invoice->id));
+            $fecha = date('d-m-Y', strtotime($invoice->date_add));
+            $importe = round((float)$invoice->total_paid_tax_incl, 2);
+            $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+
+            if (empty($nif_emisor)) {
+                PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuQRData): NIF Emisor no configurado para shop ' . $id_shop, 2, null, null, null, true, $id_shop);
+                return ['qr_image_url' => null, 'qr_data_url' => null];
+            }
+            
+            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=' . $nif_emisor . '&numserie=' . $numserie . '&fecha=' . $fecha . '&importe=' . $importe;
+        }
+
+        // 4. Generación del QR y guardado temporal
+        require_once(dirname(__FILE__) . '/lib/phpqrcode/qrlib.php');
+        $qr_code_path_for_smarty = null;
+        $tmp_filename = 'verifactu_qr_tpl_' . $id_order_invoice . '_' . time() . '.png';
+
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $qr_code_path = $tmp_dir . $tmp_filename; // Ruta física
+
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            @chmod($qr_code_path, 0644);
+
+            if (file_exists($qr_code_path)) {
+                // Añadimos el archivo a la cola de borrado
+                self::$temp_qr_files[] = $qr_code_path;
+                
+                // Construimos la URL pública para la etiqueta <img>
+                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+        }
+
+        // 5. Devolvemos los datos
+        return [
+            'qr_image_url' => $qr_code_path_for_smarty,
+            'qr_data_url'  => $url_to_encode
+        ];
+    }
+
 
     // =================================================================
     // HOOKS
     // =================================================================
     
+    /**
+     * Implementación del hook 'displayVerifactuQR'.
+     * Muestra un código QR en cualquier plantilla TPL.
+     *
+     * @param array $params Debe contener 'id_order_invoice'
+     * @return string HTML del código QR.
+     */
+    public function hookDisplayVerifactuQR($params)
+    {
+        // 1. Verificamos que nos han pasado el ID de la factura
+        if (!isset($params['id_order_invoice']) || !(int)$params['id_order_invoice']) {
+            return ''; // No mostramos nada si no hay ID
+        }
+
+        // 2. Obtenemos los datos del QR usando nuestro método "helper"
+        $qrData = $this->getVerifactuQRData((int)$params['id_order_invoice']);
+
+        // 3. Si no se pudo generar la imagen, no mostramos nada
+        if (empty($qrData['qr_image_url'])) {
+            return '';
+        }
+
+        $id_shop = (int)$this->context->shop->id;
+        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
+
+        // 4. Asignamos las variables a Smarty
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qrData['qr_image_url'],
+            'verifactu_url'          => $qrData['qr_data_url'],
+            'verifactu_qr_width' => $qr_width
+        ]);
+
+        // 5. Reutilizamos la misma plantilla que usas para los PDFs
+        if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) {
+            return $this->context->smarty->fetch('module:verifactu/views/templates/hook/custom_invoice_qr.tpl');
+        } else {
+            return $this->display(__FILE__, 'views/templates/hook/custom_invoice_qr.tpl');
+        }
+    }
+
+    /**
+     * Hook para limpiar archivos temporales al final de cualquier petición.
+     * Esto limpia los QR generados tanto por los PDF como por los hooks de TPL.
+     */
+    public function hookActionShutdown($params)
+    {
+        foreach (self::$temp_qr_files as $path) {
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+        // Reseteamos el array
+        self::$temp_qr_files = [];
+    }
 
     /**
     * Add the CSS & JavaScript files you want to be loaded in the BO.
@@ -1890,6 +2108,15 @@ class Verifactu extends Module
         // Ahora obtenemos el id_shop desde el pedido, que sí es una propiedad pública.
         $id_shop = (int) $order->id_shop;
 
+        $hide_default_qr = (bool)Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', false, null, $id_shop);
+        if ($hide_default_qr) {
+            return ''; // Salir si el usuario quiere ocultarlo
+        }
+        
+        // --- AÑADIDO: Obtener las nuevas configuraciones ---
+        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
+        $qr_text = Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), null, $id_shop);
+
         $sql = new DbQuery();
         $sql->select('urlQR');
         $sql->from('verifactu_order_invoice');
@@ -1952,7 +2179,9 @@ class Verifactu extends Module
         // 5. Asignamos la ruta a la plantilla.
         $this->context->smarty->assign([
             'verifactu_qr_code_path' => $qr_code_path_for_smarty, // Pasamos la URL pública
-            'verifactu_url' => $url_to_encode
+            'verifactu_url' => $url_to_encode,
+            'verifactu_qr_width' => $qr_width,
+            'verifactu_qr_text' => $qr_text
         ]);
         
         
@@ -2004,6 +2233,14 @@ class Verifactu extends Module
         // 3. Obtenemos el id_shop de forma segura desde la propiedad pública del objeto Order.
         $id_shop = (int)$order->id_shop;
 
+        $hide_default_qr = (bool)Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', false, null, $id_shop);
+        if ($hide_default_qr) {
+            return ''; // Salir si el usuario quiere ocultarlo
+        }
+        
+        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
+        $qr_text = Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), null, $id_shop);
+
 
         // El resto de la lógica es la que ya tenías, ¡y era correcta!
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
@@ -2051,7 +2288,9 @@ class Verifactu extends Module
         }
         
         $this->context->smarty->assign([
-            'verifactu_qr_code_path' => $qr_code_path_for_smarty // Pasamos la URL pública
+            'verifactu_qr_code_path' => $qr_code_path_for_smarty, // Pasamos la URL pública
+            'verifactu_qr_width' => $qr_width,
+            'verifactu_qr_text' => $qr_text
         ]);
         
         if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) 
