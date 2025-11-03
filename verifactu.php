@@ -847,10 +847,12 @@ class Verifactu extends Module
         $id_shop_group = Shop::getContextShopGroupID();
         $id_shop = Shop::getContextShopID();
 
-        // Obtenemos los valores guardados como JSON y los decodificamos a un array para el formulario.
         $igic_taxes = json_decode(Configuration::get('VERIFACTU_IGIC_TAXES', null, $id_shop_group, $id_shop), true);
         $ipsi_taxes = json_decode(Configuration::get('VERIFACTU_IPSI_TAXES', null, $id_shop_group, $id_shop), true);
 
+        $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, $id_shop_group, $id_shop);
+        $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, $id_shop_group, $id_shop);
+        
         return array(
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null, $id_shop_group, $id_shop),
             'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0, $id_shop_group, $id_shop),
@@ -860,8 +862,8 @@ class Verifactu extends Module
             'VERIFACTU_USA_OSS' => Configuration::get('VERIFACTU_USA_OSS', 0, $id_shop_group, $id_shop),
             'VERIFACTU_TERRITORIO_ESPECIAL' => Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', 0, $id_shop_group, $id_shop),
             'VERIFACTU_QR_HIDE_DEFAULT' => Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', 0, $id_shop_group, $id_shop),
-            'VERIFACTU_QR_WIDTH' => Configuration::get('VERIFACTU_QR_WIDTH', 60, $id_shop_group, $id_shop),
-            'VERIFACTU_QR_TEXT' => Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), $id_shop_group, $id_shop),
+            'VERIFACTU_QR_WIDTH' => ($qr_width_val !== false) ? $qr_width_val : 60,
+            'VERIFACTU_QR_TEXT' => ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT'),
         );
     }
 
@@ -1824,7 +1826,8 @@ class Verifactu extends Module
         }
 
         $id_shop = (int)$this->context->shop->id;
-        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
+        $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, null, $id_shop);
+        $qr_width = ($qr_width_val !== false) ? (int)$qr_width_val : 60;
 
         // 4. Asignamos las variables a Smarty
         $this->context->smarty->assign([
@@ -2113,9 +2116,11 @@ class Verifactu extends Module
             return ''; // Salir si el usuario quiere ocultarlo
         }
         
-        // --- AÑADIDO: Obtener las nuevas configuraciones ---
-        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
-        $qr_text = Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), null, $id_shop);
+        $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, null, $id_shop);
+        $qr_width = ($qr_width_val !== false) ? (int)$qr_width_val : 60;
+        
+        $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, null, $id_shop);
+        $qr_text = ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT');
 
         $sql = new DbQuery();
         $sql->select('urlQR');
@@ -2238,8 +2243,11 @@ class Verifactu extends Module
             return ''; // Salir si el usuario quiere ocultarlo
         }
         
-        $qr_width = (int)Configuration::get('VERIFACTU_QR_WIDTH', 60, null, $id_shop);
-        $qr_text = Configuration::get('VERIFACTU_QR_TEXT', $this->l('Factura verificable en la sede electrónica de la AEAT'), null, $id_shop);
+        $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, null, $id_shop);
+        $qr_width = ($qr_width_val !== false) ? (int)$qr_width_val : 60;
+        
+        $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, null, $id_shop);
+        $qr_text = ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT');
 
 
         // El resto de la lógica es la que ya tenías, ¡y era correcta!
