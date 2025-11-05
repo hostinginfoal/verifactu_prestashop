@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.3.11';
+        $this->version = '1.3.12';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1736,6 +1736,15 @@ class Verifactu extends Module
             $id_shop = (int)$this->context->shop->id;
         }
 
+        $sql_check = new DbQuery();
+        $sql_check->select('COUNT(*)');
+        $sql_check->from('verifactu_order_invoice');
+        $sql_check->where('id_order_invoice = ' . (int)$id_order_invoice);
+        
+        if ((int)Db::getInstance()->getValue($sql_check) == 0) {
+            return ['qr_image_url' => null, 'qr_data_url' => null]; // Factura antigua
+        }
+
         // 2. Intentamos obtener la URL del QR desde nuestra tabla
         $sql = new DbQuery();
         $sql->select('urlQR');
@@ -2122,6 +2131,18 @@ class Verifactu extends Module
         $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, null, $id_shop);
         $qr_text = ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT');
 
+        //Verificamos que el registro se ha enviado o intentado enviar, y no es una factura antigua
+        $sql_check = new DbQuery();
+        $sql_check->select('COUNT(*)');
+        $sql_check->from('verifactu_order_invoice');
+        $sql_check->where('id_order_invoice = ' . (int)$order_invoice->id);
+        $invoice_exists_in_verifactu = (int)Db::getInstance()->getValue($sql_check);
+
+        if (!$invoice_exists_in_verifactu) {
+            return ''; // Factura antigua, no mostrar QR
+        }
+        //Fin de la verificacion
+
         $sql = new DbQuery();
         $sql->select('urlQR');
         $sql->from('verifactu_order_invoice');
@@ -2167,7 +2188,6 @@ class Verifactu extends Module
                 // Guardamos la ruta del *archivo* para borrarlo después
                 self::$temp_qr_files[] = $qr_code_path;
                 
-                // *** LA SOLUCIÓN ***
                 // Construimos la URL pública completa y esto es lo que pasamos a Smarty
                 $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
 
