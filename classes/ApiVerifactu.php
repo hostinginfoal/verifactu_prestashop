@@ -1322,7 +1322,7 @@ class ApiVerifactu
             ->from('verifactu_order_invoice', 'voi')
             ->leftJoin('order_invoice', 'oi', 'voi.id_order_invoice = oi.id_order_invoice')
             ->leftJoin('orders', 'o', 'oi.id_order = o.id_order')
-            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop);
+            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop . ' AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 1 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
         $pending_invoices = Db::getInstance()->executeS($sql_invoices);
 
         // 2. Buscar abonos pendientes
@@ -1331,7 +1331,7 @@ class ApiVerifactu
             ->from('verifactu_order_slip', 'vos')
             ->leftJoin('order_slip', 'os', 'vos.id_order_slip = os.id_order_slip')
             ->leftJoin('orders', 'o', 'os.id_order = o.id_order')
-            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop);
+            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop. ' AND os.date_add >= DATE_SUB(NOW(), INTERVAL 1 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
         $pending_slips = Db::getInstance()->executeS($sql_slips);
 
         $data = new \stdClass();
