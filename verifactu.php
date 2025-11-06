@@ -219,7 +219,8 @@ class Verifactu extends Module
         $this->registerHook('actionShutdown');
 
         //Custom hooks
-        $this->registerHook('displayVerifactuQR'); // Nuestro nuevo hook para mostrar el QR
+        $this->registerHook('displayVerifactuQR'); 
+        $this->registerHook('displayVerifactuCreditSlipQR');
         
 
         return true;
@@ -1807,6 +1808,119 @@ class Verifactu extends Module
         ];
     }
 
+    /**
+     * Obtiene los datos del QR para una factura de ABONO específica.
+     *
+     * @param int $id_order_slip El ID del abono (order_slip).
+     * @return array Un array con 'qr_image_url' y 'qr_data_url', o array de nulls si falla.
+     */
+    private function getVerifactuCreditSlipQRData($id_order_slip)
+    {
+        // Validamos la entrada
+        if (!$id_order_slip || !Validate::isUnsignedId($id_order_slip)) {
+            return ['qr_image_url' => null, 'qr_data_url' => null];
+        }
+
+        // 1. Obtenemos el id_shop desde el abono
+        $id_shop = (int)Db::getInstance()->getValue(
+            'SELECT o.id_shop FROM `' . _DB_PREFIX_ . 'orders` o 
+             LEFT JOIN `' . _DB_PREFIX_ . 'order_slip` os ON o.id_order = os.id_order
+             WHERE os.id_order_slip = ' . (int)$id_order_slip
+        );
+
+        if (!$id_shop) {
+            $id_shop = (int)$this->context->shop->id;
+        }
+
+        // 2. Comprobar si el abono existe en nuestra tabla
+        $sql_check = new DbQuery();
+        $sql_check->select('urlQR');
+        $sql_check->from('verifactu_order_slip');
+        $sql_check->where('id_order_slip = ' . (int)$id_order_slip);
+        $url_to_encode = Db::getInstance()->getValue($sql_check);
+
+        if (empty($url_to_encode)) {
+            // Si no hay URL, es posible que sea un 'api_error'. Construimos la URL de fallback.
+            $order_slip = new OrderSlip($id_order_slip);
+            if (!Validate::isLoadedObject($order_slip)) {
+                return ['qr_image_url' => null, 'qr_data_url' => null];
+            }
+            
+            $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            
+            $numserie = urlencode($av->getFormattedCreditSlipNumber($order_slip->id));
+            $fecha = date('d-m-Y', strtotime($order_slip->date_add));
+            $importe = -round((float)$order_slip->total_products_tax_incl + (float)$order_slip->total_shipping_tax_incl, 2);
+            $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
+
+            if (empty($nif_emisor)) {
+                return ['qr_image_url' => null, 'qr_data_url' => null];
+            }
+            
+            $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=' . $nif_emisor . '&numserie=' . $numserie . '&fecha=' . $fecha . '&importe=' . $importe;
+        }
+
+        // 4. Generación del QR y guardado temporal
+        require_once(dirname(__FILE__) . '/lib/phpqrcode/qrlib.php');
+        $qr_code_path_for_smarty = null;
+        $tmp_filename = 'verifactu_qr_tpl_slip_' . $id_order_slip . '_' . time() . '.png';
+
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            $qr_code_path = $tmp_dir . $tmp_filename;
+
+            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            @chmod($qr_code_path, 0644);
+
+            if (file_exists($qr_code_path)) {
+                self::$temp_qr_files[] = $qr_code_path;
+                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuCreditSlipQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+        }
+
+        // 5. Devolvemos los datos
+        return [
+            'qr_image_url' => $qr_code_path_for_smarty,
+            'qr_data_url'  => $url_to_encode
+        ];
+    }
+
+    /**
+     * Genera una imagen QR temporal y devuelve su URL pública.
+     *
+     * @param string $urlQR La URL de datos para codificar en el QR.
+     * @param string $file_prefix Un prefijo único para el archivo (ej. 'inv_123' o 'slip_45').
+     * @return string|null La URL pública de la imagen QR generada o null si falla.
+     */
+    private function generateQrImage($urlQR, $file_prefix)
+    {
+        if (empty($urlQR)) {
+            return null;
+        }
+
+        try {
+            $tmp_dir = _PS_TMP_IMG_DIR_;
+            // Usamos el prefijo para asegurar un nombre de archivo único
+            $tmp_filename = 'verifactu_qr_' . $file_prefix . '_' . time() . '.png';
+            $imgQR_path = $tmp_dir . $tmp_filename;
+
+            QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
+
+            if (file_exists($imgQR_path)) {
+                self::$temp_qr_files[] = $imgQR_path; // Añadir a la cola de limpieza
+                return __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename; // Devolver URL pública
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+        }
+
+        return null;
+    }
+
 
     // =================================================================
     // HOOKS
@@ -1846,6 +1960,47 @@ class Verifactu extends Module
         ]);
 
         // 5. Reutilizamos la misma plantilla que usas para los PDFs
+        if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) {
+            return $this->context->smarty->fetch('module:verifactu/views/templates/hook/custom_invoice_qr.tpl');
+        } else {
+            return $this->display(__FILE__, 'views/templates/hook/custom_invoice_qr.tpl');
+        }
+    }
+
+    /**
+     * Implementación del hook 'displayVerifactuCreditSlipQR'.
+     * Muestra un código QR de abono en cualquier plantilla TPL.
+     *
+     * @param array $params Debe contener 'id_order_slip'
+     * @return string HTML del código QR.
+     */
+    public function hookDisplayVerifactuCreditSlipQR($params)
+    {
+        // 1. Verificamos que nos han pasado el ID del abono
+        if (!isset($params['id_order_slip']) || !(int)$params['id_order_slip']) {
+            return ''; // No mostramos nada si no hay ID
+        }
+
+        // 2. Obtenemos los datos del QR usando nuestro nuevo "helper"
+        $qrData = $this->getVerifactuCreditSlipQRData((int)$params['id_order_slip']);
+
+        // 3. Si no se pudo generar la imagen, no mostramos nada
+        if (empty($qrData['qr_image_url'])) {
+            return '';
+        }
+
+        $id_shop = (int)$this->context->shop->id;
+        $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, null, $id_shop);
+        $qr_width = ($qr_width_val !== false) ? (int)$qr_width_val : 60;
+
+        // 4. Asignamos las variables a Smarty
+        $this->context->smarty->assign([
+            'verifactu_qr_code_path' => $qrData['qr_image_url'],
+            'verifactu_url'          => $qrData['qr_data_url'],
+            'verifactu_qr_width' => $qr_width
+        ]);
+
+        // 5. Renderizamos el TPL personalizado
         if (version_compare(_PS_VERSION_, '1.7.7.0', '>=')) {
             return $this->context->smarty->fetch('module:verifactu/views/templates/hook/custom_invoice_qr.tpl');
         } else {
@@ -2015,84 +2170,57 @@ class Verifactu extends Module
     public function hookDisplayAdminOrderSide($params)
     {
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
-
         $id_order = (int) $params['id_order'];
-
-        // 1. La consulta a la base de datos
-        $sql = new DbQuery();
-        $sql->select('voi.*, oi.id_order_invoice');
-        $sql->from('order_invoice', 'oi');
-        $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
-        $sql->where('oi.id_order = ' . $id_order);
-        $result = Db::getInstance()->getRow($sql);
-
-        $show_status_check_button = false;
-        if ($result && isset($result['estado']) && $result['estado'] == 'pendiente') {
-            $show_status_check_button = true;
-        }
-
-        // 2. La comprobación CLAVE: verificamos si $result NO es false
-        if ($result) {
-            // El pedido SÍ tiene una factura, asignamos los valores desde la base de datos.
-            $urlQR = $result['urlQR'];
-            $verifactuEstadoEnvio = $result['verifactuEstadoEnvio'];
-            $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
-            $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
-            $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
-            $anulacion = $result['anulacion'];
-            $estado = $result['estado'];
-            $TipoFactura = $result['TipoFactura'];
-            $id_order_invoice = $result['id_order_invoice'];
-        } else {
-            // El pedido NO tiene factura, asignamos valores por defecto seguros.
-            $urlQR = null;
-            $verifactuEstadoEnvio = 'Sin factura';
-            $verifactuEstadoRegistro = 'N/A';
-            $verifactuCodigoErrorRegistro = null;
-            $verifactuDescripcionErrorRegistro = null;
-            $anulacion = null;
-            $estado = null;
-            $TipoFactura = null;
-            $id_order_invoice = null;
-        }
-
-        // 3. Inicialización segura de la variable del QR
-        $imgQR = null;
         
-        // 4. Esta lógica solo se ejecuta si encontramos una URL en el paso 2
-        if (!empty($urlQR)) {
-            try {
-                $tmp_dir = _PS_TMP_IMG_DIR_;
-                $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
-                $imgQR_path = $tmp_dir . $tmp_filename;
+        // Instanciamos la clase ApiVerifactu para usar sus métodos de formateo
+        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
 
-                QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
+        // 1. --- Obtenemos la Factura Principal ---
+        $verifactu_invoice = null;
+        $sql_invoice = new DbQuery();
+        $sql_invoice->select('voi.*, oi.id_order_invoice');
+        $sql_invoice->from('order_invoice', 'oi');
+        $sql_invoice->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+        $sql_invoice->where('oi.id_order = ' . $id_order);
+        
+        $invoice_data = Db::getInstance()->getRow($sql_invoice);
 
-                if (file_exists($imgQR_path)) {
-                    self::$temp_qr_files[] = $imgQR_path;
-                    $imgQR = __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
-                }
-            } catch (Exception $e) {
-                PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
-                $imgQR = null; // Nos aseguramos de que siga siendo null en caso de error
+        if ($invoice_data && !empty($invoice_data['id_order_invoice'])) {
+            // Formateamos el número de factura
+            $invoice_data['formatted_number'] = $api_verifactu->getFormattedInvoiceNumber($invoice_data['id_order_invoice']);
+            // Generamos la imagen QR
+            $invoice_data['imgQR'] = $this->generateQrImage($invoice_data['urlQR'], 'inv_' . $invoice_data['id_order_invoice']);
+            $verifactu_invoice = $invoice_data;
+        }
+
+        // 2. --- Obtenemos la LISTA de Abonos (Credit Slips) ---
+        $verifactu_slips = [];
+        $sql_slips = new DbQuery();
+        $sql_slips->select('vos.*, os.id_order_slip');
+        $sql_slips->from('order_slip', 'os');
+        // Usamos INNER JOIN para coger SOLO los abonos que existen en nuestra tabla
+        $sql_slips->innerJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip');
+        $sql_slips->where('os.id_order = ' . (int)$id_order);
+        $sql_slips->orderBy('os.id_order_slip ASC');
+
+        $slips_results = Db::getInstance()->executeS($sql_slips);
+
+        if ($slips_results) {
+            foreach ($slips_results as $slip_data) {
+                // Formateamos el número de abono
+                $slip_data['formatted_number'] = $api_verifactu->getFormattedCreditSlipNumber($slip_data['id_order_slip']);
+                // Generamos la imagen QR
+                $slip_data['imgQR'] = $this->generateQrImage($slip_data['urlQR'], 'slip_' . $slip_data['id_order_slip']);
+                $verifactu_slips[] = $slip_data;
             }
         }
 
-        // 5. Asignación a la plantilla. Todas las variables tienen un valor definido.
-         $this->context->smarty->assign(array(
-            'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
-            'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
-            'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
-            'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
-            'anulacion' => $anulacion,
-            'estado' => $estado,
-            'id_order' => $id_order,
-            'TipoFactura' => $TipoFactura,
-            'imgQR' => $imgQR,
-            'urlQR' => $urlQR,
-            'id_order_invoice' => $id_order_invoice,
-            'show_status_check_button' => $show_status_check_button,
-            'current_url' => 'index.php?controller=AdminModules&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'),
+        // 3. --- Asignación a Smarty ---
+        $this->context->smarty->assign(array(
+            'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
+            'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
+            'id_order'          => $id_order,
+            // (Las variables antiguas ya no se asignan individualmente)
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/order_side.tpl');
@@ -2386,7 +2514,7 @@ class Verifactu extends Module
      */
     public function hookDisplayAdminOrder($params)
     {
-        // 1. Obtener el ID del pedido de forma segura desde los parámetros del hook.
+        // 1. Obtener el ID del pedido de forma segura
         $id_order = 0;
         if (isset($params['id_order'])) {
             $id_order = (int)$params['id_order'];
@@ -2394,90 +2522,63 @@ class Verifactu extends Module
             $id_order = (int)$params['order']->id;
         }
 
-        // Si no podemos obtener un ID de pedido válido, no mostramos nada.
         if (!$id_order) {
             return '';
         }
 
-        // 2. Incluir la librería para generar códigos QR.
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
+        
+        // Instanciamos la clase ApiVerifactu para usar sus métodos de formateo
+        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
 
-        // 3. Consultar la base de datos para obtener el estado de VeriFactu de la factura del pedido.
-        $sql = new DbQuery();
-        $sql->select('voi.*, oi.id_order_invoice');
-        $sql->from('order_invoice', 'oi');
-        $sql->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
-        $sql->where('oi.id_order = ' . $id_order);
-        $result = Db::getInstance()->getRow($sql);
+        // 1. --- Obtenemos la Factura Principal ---
+        $verifactu_invoice = null;
+        $sql_invoice = new DbQuery();
+        $sql_invoice->select('voi.*, oi.id_order_invoice');
+        $sql_invoice->from('order_invoice', 'oi');
+        $sql_invoice->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+        $sql_invoice->where('oi.id_order = ' . $id_order);
+        
+        $invoice_data = Db::getInstance()->getRow($sql_invoice);
 
-        // 4. Preparar las variables para la plantilla, gestionando el caso de que no exista factura.
-        if ($result) {
-            // El pedido SÍ tiene una factura, asignamos los valores desde la base de datos.
-            $urlQR = $result['urlQR'];
-            $verifactuEstadoEnvio = $result['verifactuEstadoEnvio'];
-            $verifactuEstadoRegistro = $result['verifactuEstadoRegistro'];
-            $verifactuCodigoErrorRegistro = $result['verifactuCodigoErrorRegistro'];
-            $verifactuDescripcionErrorRegistro = $result['verifactuDescripcionErrorRegistro'];
-            $anulacion = $result['anulacion'];
-            $estado = $result['estado'];
-            $TipoFactura = $result['TipoFactura'];
-            $id_order_invoice = $result['id_order_invoice'];
-        } else {
-            // El pedido AÚN NO tiene factura, asignamos valores por defecto.
-            $urlQR = null;
-            $verifactuEstadoEnvio = 'Sin factura';
-            $verifactuEstadoRegistro = 'N/A';
-            $verifactuCodigoErrorRegistro = null;
-            $verifactuDescripcionErrorRegistro = null;
-            $anulacion = 0;
-            $estado = null;
-            $TipoFactura = null;
-            $id_order_invoice = null;
+        if ($invoice_data && !empty($invoice_data['id_order_invoice'])) {
+            // Formateamos el número de factura
+            $invoice_data['formatted_number'] = $api_verifactu->getFormattedInvoiceNumber($invoice_data['id_order_invoice']);
+            // Generamos la imagen QR
+            $invoice_data['imgQR'] = $this->generateQrImage($invoice_data['urlQR'], 'inv_' . $invoice_data['id_order_invoice']);
+            $verifactu_invoice = $invoice_data;
         }
 
-        // 5. Generar la imagen del código QR si existe la URL.
-        $imgQR = null;
-        if (!empty($urlQR)) {
-            try {
-                $tmp_dir = _PS_TMP_IMG_DIR_;
-                $tmp_filename = 'verifactu_qr_' . $id_order . '_' . time() . '.png';
-                $imgQR_path = $tmp_dir . $tmp_filename;
+        // 2. --- Obtenemos la LISTA de Abonos (Credit Slips) ---
+        $verifactu_slips = [];
+        $sql_slips = new DbQuery();
+        $sql_slips->select('vos.*, os.id_order_slip');
+        $sql_slips->from('order_slip', 'os');
+        // Usamos INNER JOIN para coger SOLO los abonos que existen en nuestra tabla
+        $sql_slips->innerJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip');
+        $sql_slips->where('os.id_order = ' . (int)$id_order);
+        $sql_slips->orderBy('os.id_order_slip ASC');
 
-                QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
+        $slips_results = Db::getInstance()->executeS($sql_slips);
 
-                if (file_exists($imgQR_path)) {
-                    // Guardamos la ruta del archivo temporal para poder borrarlo después.
-                    self::$temp_qr_files[] = $imgQR_path;
-                    // Creamos la URL pública para mostrar la imagen.
-                    $imgQR = __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
-                }
-            } catch (Exception $e) {
-                PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
-                $imgQR = null;
+        if ($slips_results) {
+            foreach ($slips_results as $slip_data) {
+                // Formateamos el número de abono
+                $slip_data['formatted_number'] = $api_verifactu->getFormattedCreditSlipNumber($slip_data['id_order_slip']);
+                // Generamos la imagen QR
+                $slip_data['imgQR'] = $this->generateQrImage($slip_data['urlQR'], 'slip_' . $slip_data['id_order_slip']);
+                $verifactu_slips[] = $slip_data;
             }
         }
-        
-        // Botón para comprobar estado (solo si está pendiente en la API)
-        $show_status_check_button = ($result && isset($result['estado']) && $result['estado'] == 'pendiente');
 
-        // 6. Asignar todas las variables a la plantilla Smarty.
+        // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
-            'verifactuEstadoEnvio' => $verifactuEstadoEnvio,
-            'verifactuEstadoRegistro' => $verifactuEstadoRegistro,
-            'verifactuCodigoErrorRegistro' => $verifactuCodigoErrorRegistro,
-            'verifactuDescripcionErrorRegistro' => $verifactuDescripcionErrorRegistro,
-            'anulacion' => $anulacion,
-            'estado' => $estado,
-            'id_order' => $id_order,
-            'TipoFactura' => $TipoFactura,
-            'imgQR' => $imgQR,
-            'urlQR' => $urlQR,
-            'id_order_invoice' => $id_order_invoice,
-            'show_status_check_button' => $show_status_check_button,
+            'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
+            'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
+            'id_order'          => $id_order,
         ));
 
-        // 7. Renderizar y devolver el contenido de la plantilla.
-        // Usamos la misma plantilla que para displayAdminOrderSide.
+        // 7. Renderizar y devolver el contenido de la plantilla "legacy"
         return $this->display(__FILE__, 'views/templates/admin/order_legacy.tpl');
     }
     
