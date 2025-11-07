@@ -8,12 +8,17 @@ class AdminVerifactuCreditSlipsController extends ModuleAdminController
 {
     public function __construct()
     {
-        parent::__construct();
+        /*parent::__construct();
         // Redirige a la configuración del módulo, forzando la pestaña 'credit_slips'
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules', true, [], [
             'configure' => $this->module->name,
             'tab_module_verifactu' => 'credit_slips', // <-- La clave está aquí
             'token' => Tools::getAdminTokenLite('AdminModules')
-        ]));
+        ]));*/
+
+        Tools::redirectAdmin(
+            Context::getContext()->link->getAdminLink('AdminModules') .
+            '&configure=verifactu&tab_module_verifactu=credit_slips'
+        );
     }
 }

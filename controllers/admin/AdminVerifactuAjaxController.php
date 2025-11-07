@@ -1,8 +1,8 @@
 <?php
 use Verifactu\VerifactuClasses\ApiVerifactu;
-use PrestaShop\PrestaShop\Adapter\Entity\Order;
-use PrestaShop\PrestaShop\Adapter\Entity\Validate;
-use PrestaShop\PrestaShop\Adapter\Entity\Configuration;
+//use PrestaShop\PrestaShop\Adapter\Entity\Order;
+//use PrestaShop\PrestaShop\Adapter\Entity\Validate;
+//use PrestaShop\PrestaShop\Adapter\Entity\Configuration;
 
 class AdminVerifactuAjaxController extends ModuleAdminController
 {

@@ -9,12 +9,17 @@ class AdminVerifactuSalesInvoicesController extends ModuleAdminController
 {
     public function __construct()
     {
-        parent::__construct();
+        /*parent::__construct();
         // Redirige a la configuración del módulo, forzando la pestaña 'sales_invoices'
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules', true, [], [
             'configure' => $this->module->name,
             'tab_module_verifactu' => 'sales_invoices', // <-- La clave está aquí
             'token' => Tools::getAdminTokenLite('AdminModules')
-        ]));
+        ]));*/
+
+        Tools::redirectAdmin(
+            Context::getContext()->link->getAdminLink('AdminModules') .
+            '&configure=verifactu&tab_module_verifactu=sales_invoices'
+        );
     }
 }

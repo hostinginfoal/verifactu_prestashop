@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.4.1';
+        $this->version = '1.4.2';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -72,7 +72,7 @@ class Verifactu extends Module
 
         $this->confirmUninstall = $this->l('Seguro que quieres desinstalar el módulo?');
 
-        $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
+        $this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
     }
 
     /**
@@ -186,6 +186,20 @@ class Verifactu extends Module
             return false;
         }
 
+        //Menu Oculto para el controlador AJAX
+        $tab = new Tab();
+        $tab->active = 1; // Debe estar activo para funcionar
+        $tab->class_name = 'AdminVerifactuAjax'; // El nombre de tu clase de controlador
+        $tab->name = array();
+        foreach (Language::getLanguages(true) as $lang) {
+            $tab->name[$lang['id_lang']] = 'VeriFactu AJAX'; // Nombre interno, no visible
+        }
+        $tab->id_parent = -1; // -1 lo oculta del menú
+        $tab->module = $this->name;
+        if (!$tab->add()) {
+            return false;
+        }
+
         //Fin menu
 
         include(dirname(__FILE__).'/sql/install.php');
@@ -266,6 +280,13 @@ class Verifactu extends Module
 
         // Eliminamos la pestaña oculta 
         $id_tab = (int)Tab::getIdFromClassName('AdminVerifactuDetail');
+        if ($id_tab) {
+            $tab = new Tab($id_tab);
+            $tab->delete();
+        }
+
+        // Eliminamos la pestaña oculta de AJAX
+        $id_tab = (int)Tab::getIdFromClassName('AdminVerifactuAjax');
         if ($id_tab) {
             $tab = new Tab($id_tab);
             $tab->delete();
