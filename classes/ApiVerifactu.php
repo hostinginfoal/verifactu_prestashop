@@ -86,19 +86,29 @@ class ApiVerifactu
             );
         }
 
-        curl_setopt_array($curl, [
-                CURLOPT_URL            => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING       => 'utf-8',
-                CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 10,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
-                CURLOPT_CUSTOMREQUEST  => 'POST',
-                CURLOPT_POSTFIELDS     => $dataString,
-                CURLOPT_HTTPHEADER     => $headers,
-            ]
-        );
+        $curl_options = [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => 'utf-8',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $dataString,
+            CURLOPT_HTTPHEADER     => $headers,
+        ];
+
+        // FIX: Añadimos la versión de HTTP condicionalmente
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            // Si el servidor es moderno (PHP 7.1+), usamos HTTP/2
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        } else {
+            // Si no, usamos el fallback seguro para PHP 5.6 (PS 1.6)
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+        }
+        
+        // Aplicamos las opciones a cURL
+        curl_setopt_array($curl, $curl_options);
 
         $response = curl_exec($curl);
         curl_close($curl);
@@ -940,19 +950,29 @@ class ApiVerifactu
             );
         }
 
-        curl_setopt_array($curl, [
-                CURLOPT_URL            => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING       => 'utf-8',
-                CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 10,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
-                CURLOPT_CUSTOMREQUEST  => 'POST',
-                CURLOPT_POSTFIELDS     => $dataString,
-                CURLOPT_HTTPHEADER     => $headers,
-            ]
-        );
+        $curl_options = [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => 'utf-8',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $dataString,
+            CURLOPT_HTTPHEADER     => $headers,
+        ];
+
+        // FIX: Añadimos la versión de HTTP condicionalmente
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            // Si el servidor es moderno (PHP 7.1+), usamos HTTP/2
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        } else {
+            // Si no, usamos el fallback seguro para PHP 5.6 (PS 1.6)
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+        }
+        
+        // Aplicamos las opciones a cURL
+        curl_setopt_array($curl, $curl_options);
 
         $response = curl_exec($curl);
         $curl_errno = curl_errno($curl);
@@ -1195,18 +1215,29 @@ class ApiVerifactu
             );
         }
 
-        curl_setopt_array($curl, [
+        $curl_options = [
             CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING       => 'utf-8',
             CURLOPT_MAXREDIRS      => 10,
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
             CURLOPT_CUSTOMREQUEST  => 'POST',
             CURLOPT_POSTFIELDS     => $dataString,
             CURLOPT_HTTPHEADER     => $headers,
-        ]);
+        ];
+
+        // FIX: Añadimos la versión de HTTP condicionalmente
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            // Si el servidor es moderno (PHP 7.1+), usamos HTTP/2
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        } else {
+            // Si no, usamos el fallback seguro para PHP 5.6 (PS 1.6)
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+        }
+        
+        // Aplicamos las opciones a cURL
+        curl_setopt_array($curl, $curl_options);
 
         $response = curl_exec($curl);
         $curl_errno = curl_errno($curl);
@@ -1382,18 +1413,29 @@ class ApiVerifactu
                 );
             }
 
-            curl_setopt_array($curl, [
+            $curl_options = [
                 CURLOPT_URL            => $url,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING       => 'utf-8',
                 CURLOPT_MAXREDIRS      => 10,
                 CURLOPT_TIMEOUT        => 10,
                 CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
                 CURLOPT_CUSTOMREQUEST  => 'POST',
                 CURLOPT_POSTFIELDS     => $dataString,
                 CURLOPT_HTTPHEADER     => $headers,
-            ]);
+            ];
+
+            // FIX: Añadimos la versión de HTTP condicionalmente
+            if (defined('CURL_HTTP_VERSION_2TLS')) {
+                // Si el servidor es moderno (PHP 7.1+), usamos HTTP/2
+                $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+            } else {
+                // Si no, usamos el fallback seguro para PHP 5.6 (PS 1.6)
+                $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+            }
+            
+            // Aplicamos las opciones a cURL
+            curl_setopt_array($curl, $curl_options);
 
             $response = curl_exec($curl);
             curl_close($curl);
