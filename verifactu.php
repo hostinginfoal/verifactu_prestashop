@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.4.3';
+        $this->version = '1.4.4';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1044,18 +1044,28 @@ class Verifactu extends Module
 
 
         $ch = curl_init();
-        curl_setopt_array($ch, [
-                CURLOPT_URL            => $apiUrl,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING       => 'utf-8',
-                CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 10,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
-                CURLOPT_CUSTOMREQUEST  => 'POST',
-                CURLOPT_HTTPHEADER     => $headers,
-            ]
-        );
+        $curl_options = [
+            CURLOPT_URL            => $apiUrl,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => 'utf-8',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_HTTPHEADER     => $headers,
+        ];
+
+        // FIX: Añadimos la versión de HTTP condicionalmente
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            // Si el servidor es moderno (PHP 7.1+), usamos HTTP/2
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        } else {
+            // Si no, usamos el fallback seguro para PHP 5.6 (PS 1.6)
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+        }
+        
+        // Aplicamos las opciones a cURL
+        curl_setopt_array($ch, $curl_options);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

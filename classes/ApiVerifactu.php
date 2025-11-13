@@ -421,7 +421,7 @@ class ApiVerifactu
                 }
 
                 // LEGACY: Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
-                if ($line_tax_rate == 0 && $legacy_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+                if ($line_tax_rate == 0 && $legacy_id_tax > 0 /*&& version_compare(_PS_VERSION_, '1.7.7.0', '<')*/) {
                     $sql_tax = new DbQuery();
                     $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $legacy_id_tax);
                     $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
@@ -656,7 +656,7 @@ class ApiVerifactu
                 
 
                 // LEGACY: Si tax_rate es 0 y tenemos un id_tax, buscamos el rate en la tabla 'tax' por seguridad, porqué hay versiones antiguas de prestashop que no guardan el tax_rate en la tabla order_detail
-                if ($line_tax_rate == 0 && $legacy_id_tax > 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) {
+                if ($line_tax_rate == 0 && $legacy_id_tax > 0 /*&& version_compare(_PS_VERSION_, '1.7.7.0', '<')*/) {
                     $sql_tax = new DbQuery();
                     $sql_tax->select('rate')->from('tax')->where('id_tax = ' . $legacy_id_tax);
                     $rate_from_tax_table = (float)Db::getInstance()->getValue($sql_tax);
@@ -817,7 +817,7 @@ class ApiVerifactu
                 foreach ($lines as $line) 
                 {
                     $rate = (float)$line['tax_rate'];
-                    if ($rate == 0 && version_compare(_PS_VERSION_, '1.7.7.0', '<')) 
+                    if ($rate == 0 /*&& version_compare(_PS_VERSION_, '1.7.7.0', '<')*/) 
                     {
                         $line_tax_sql = new DbQuery();
                         $line_tax_sql->select('t.rate')
@@ -1353,7 +1353,7 @@ class ApiVerifactu
             ->from('verifactu_order_invoice', 'voi')
             ->leftJoin('order_invoice', 'oi', 'voi.id_order_invoice = oi.id_order_invoice')
             ->leftJoin('orders', 'o', 'oi.id_order = o.id_order')
-            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop . ' AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 1 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
+            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop . ' AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
         $pending_invoices = Db::getInstance()->executeS($sql_invoices);
 
         // 2. Buscar abonos pendientes
@@ -1362,7 +1362,7 @@ class ApiVerifactu
             ->from('verifactu_order_slip', 'vos')
             ->leftJoin('order_slip', 'os', 'vos.id_order_slip = os.id_order_slip')
             ->leftJoin('orders', 'o', 'os.id_order = o.id_order')
-            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop. ' AND os.date_add >= DATE_SUB(NOW(), INTERVAL 1 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
+            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop. ' AND os.date_add >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
         $pending_slips = Db::getInstance()->executeS($sql_slips);
 
         $data = new \stdClass();
