@@ -8,6 +8,16 @@
 </script>
 
 {if $verifactu_invoice}
+
+    {if $verifactu_invoice.verifactuEstadoRegistro == 'Correcto'}
+        <div class="alert alert-success d-print-none">
+            <div class="alert-text">
+                <strong>AVISO LEGAL OBLIGATORIO - INALTERABILIDAD DE FACTURA</strong><br>
+                La normativa española prohíbe modificar una factura cuyo registro de facturación ha sido aceptado correctamente en Veri*Factu. Para corregirla debe emitirse una Factura por Abono (Reembolso).
+            </div>
+        </div>
+    {/if}
+
     {* --- BLOQUE PARA LA FACTURA PRINCIPAL --- *}
     <div class="panel" id="formVerifactu">
         <div class="panel-heading" style="color: #585a69; background-color:{if $verifactu_invoice.estado == 'pendiente'}#e4e3f7{elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}#eaf7ee{elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}#fff3cd{else}#f7dcde{/if};">
@@ -73,10 +83,12 @@
             </button>
             {/if}
 
+            {if $show_anulacion_button}
             <button class="btn btn-default" id="send_anulacion_verifactu" {if $verifactu_invoice.estado == "pendiente" || $verifactu_invoice.anulacion == "1" || $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto" || !$verifactu_invoice.verifactuEstadoRegistro}disabled="true"{/if}>
                 <i class="icon-trash"></i> {l s='Enviar registro Anulación' mod='verifactu'}
             </button>
-
+            {/if}
+            
             {if $verifactu_invoice.estado == 'pendiente'}
             <button class="btn btn-info" id="check_api_status">
                 <i class="icon-signal"></i> {l s='Comprobar estado AEAT' mod='verifactu'}

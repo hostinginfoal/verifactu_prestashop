@@ -89,12 +89,14 @@ class Verifactu extends Module
             'VERIFACTU_TERRITORIO_ESPECIAL',
             'VERIFACTU_QR_HIDE_DEFAULT',
             'VERIFACTU_QR_WIDTH',
-            'VERIFACTU_QR_TEXT'
+            'VERIFACTU_QR_TEXT',
+            'VERIFACTU_SHOW_ANULACION_BUTTON',
+            'VERIFACTU_LOCK_ORDER_IF_CORRECT',
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
                 $default_value = null;
-                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL') {
+                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT') {
                     $default_value = 0;
                 }
                 elseif ($key === 'VERIFACTU_QR_WIDTH') 
@@ -231,6 +233,7 @@ class Verifactu extends Module
         $this->registerHook('displayPDFOrderSlip');
         $this->registerHook('actionPDFOrderSlipRender');
         $this->registerHook('actionShutdown');
+        $this->registerHook('displayBackOfficeHeader');
 
         //Custom hooks
         $this->registerHook('displayVerifactuQR'); 
@@ -826,6 +829,53 @@ class Verifactu extends Module
                         'col' => 6,
                         'desc' => $this->l('Texto que aparece junto al QR. Nota: Este texto no se mostrará si usa el hook personalizado `displayVerifactuQR`.'),
                     ),
+
+                    array(
+                        'type' => 'html',
+                        'name' => 'verifactu_separator_qr',
+                        'html_content' => '<hr><h4>' . $this->l('Configuración del pedido') . '</h4>',
+                    ),
+
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Mostrar botón de Anulación'),
+                        'name' => 'VERIFACTU_SHOW_ANULACION_BUTTON',
+                        'is_bool' => true,
+                        'desc' => $this->l('Define si se debe mostrar el botón "Enviar registro Anulación" en la página de pedido. (Por defecto: No)'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Sí')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('No')
+                            )
+                        ),
+                    ),
+
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Bloquear UI de pedido con VeriFactu "Correcto"'),
+                        'name' => 'VERIFACTU_LOCK_ORDER_IF_CORRECT',
+                        'is_bool' => true,
+                        'desc' => $this->l('Si se activa, los pedidos que tengan un registro VeriFactu "Correcto" (factura o abono) se bloquearán por UI para prevenir modificaciones por error (editar/borrar líneas, cambiar direcciones, transportista, etc.).'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Sí')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('No')
+                            )
+                        ),
+                    ),
+
                     array(
                         'type' => 'html',
                         'name' => 'verifactu_separator_1', // Nombre único
@@ -886,6 +936,8 @@ class Verifactu extends Module
             'VERIFACTU_QR_HIDE_DEFAULT' => Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', 0, $id_shop_group, $id_shop),
             'VERIFACTU_QR_WIDTH' => ($qr_width_val !== false) ? $qr_width_val : 60,
             'VERIFACTU_QR_TEXT' => ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT'),
+            'VERIFACTU_SHOW_ANULACION_BUTTON' => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_LOCK_ORDER_IF_CORRECT' => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
         );
     }
 
@@ -925,6 +977,9 @@ class Verifactu extends Module
         $verifactu_qr_width = Tools::getValue('VERIFACTU_QR_WIDTH');
         $verifactu_qr_text = Tools::getValue('VERIFACTU_QR_TEXT');
 
+        $verifactu_show_anulacion = Tools::getValue('VERIFACTU_SHOW_ANULACION_BUTTON');
+        $verifactu_lock_order = Tools::getValue('VERIFACTU_LOCK_ORDER_IF_CORRECT');
+
         // Convertimos los arrays a JSON para guardarlos. Si son 'false', los guardamos como un array vacío.
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
         $ipsi_json = json_encode(is_array($verifactu_ipsi_taxes) ? $verifactu_ipsi_taxes : []);
@@ -947,6 +1002,8 @@ class Verifactu extends Module
             Configuration::updateValue('VERIFACTU_QR_HIDE_DEFAULT', $verifactu_qr_hide_default, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_QR_WIDTH', $verifactu_qr_width, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -962,6 +1019,8 @@ class Verifactu extends Module
                 Configuration::updateValue('VERIFACTU_QR_HIDE_DEFAULT', $verifactu_qr_hide_default, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_QR_WIDTH', $verifactu_qr_width, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
             }
         }
     }
@@ -2059,12 +2118,234 @@ class Verifactu extends Module
     /**
     * Add the CSS & JavaScript files you want to be loaded in the BO.
     */
-    public function hookDisplayBackOfficeHeader()
+    public function hookDisplayBackOfficeHeader($params)
     {
-        if (Tools::getValue('configure') == $this->name) {
-            $this->context->controller->addJS($this->_path.'views/js/back.js');
-            $this->context->controller->addCSS($this->_path.'views/css/back.css');
+        // El hook 'hookDisplayBackOfficeHeader' SÍ espera un 'return' con el HTML/JS.
+        
+        $ctl = Tools::getValue('controller');
+        $ctl_l = $ctl ? Tools::strtolower($ctl) : '';
+
+        // 1. Comprobar si la función de bloqueo está activa
+        $lock_if_correct = (int)Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', null, null, $this->context->shop->id);
+
+        // 2. Si está desactivada O no estamos en la página de pedido, devolvemos string vacío
+        if (!$lock_if_correct ) {
+            return ''; // Devolver string vacío
         }
+
+        // --- INICIO LÓGICA MEJORADA PARA OBTENER ID ---
+        $id_order = 0;
+
+        if ($ctl_l == 'adminorders') {
+            // En la página de "Ver Pedido" (PS 1.7+), el ID está en la propiedad del controlador.
+            if (isset($this->context->controller->id_order)) {
+                $id_order = (int)$this->context->controller->id_order;
+            }
+            // Fallback para PS 1.6 o si la propiedad no existe (ej. en la *lista* de pedidos)
+            if ($id_order == 0) {
+                $id_order = (int)Tools::getValue('id_order');
+            }
+        } elseif ($ctl_l == 'adminpdf') {
+            // En el controlador de PDF, necesitamos obtener el id_order desde el id_order_invoice
+            $id_order_invoice = (int)Tools::getValue('id_order_invoice');
+            if ($id_order_invoice > 0) {
+                // Hacemos una consulta para encontrar el id_order asociado
+                $sql = 'SELECT id_order FROM `'._DB_PREFIX_.'order_invoice` WHERE id_order_invoice = '.$id_order_invoice;
+                $id_order = (int)Db::getInstance()->getValue($sql);
+            }
+        }
+
+        // Si, después de todo, no tenemos ID (ej. estamos en la *lista* de pedidos), salimos.
+        if ($id_order == 0) {
+            return '';
+        }
+        // --- FIN LÓGICA MEJORADA PARA OBTENER ID ---
+
+
+        // 3. Comprobar si ESTE pedido específico tiene estado "Correcto"
+        $is_locked = false; 
+
+        if ($id_order > 0) {
+            // Comprobamos la factura principal
+            $sql_invoice = new DbQuery();
+            $sql_invoice->select('voi.verifactuEstadoRegistro');
+            $sql_invoice->from('order_invoice', 'oi');
+            $sql_invoice->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
+            $sql_invoice->where('oi.id_order = ' . $id_order);
+            $sql_invoice->orderBy('oi.id_order_invoice DESC');
+            $status_invoice = Db::getInstance()->getValue($sql_invoice);
+
+            if ($status_invoice === 'Correcto') {
+                $is_locked = true;
+            } else {
+                // Comprobamos si algún abono lo es
+                $sql_slip = new DbQuery();
+                $sql_slip->select('vos.verifactuEstadoRegistro');
+                $sql_slip->from('order_slip', 'os');
+                $sql_slip->leftJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip');
+                $sql_slip->where('os.id_order = ' . $id_order . ' AND vos.verifactuEstadoRegistro = "Correcto"');
+                
+                if (Db::getInstance()->getValue($sql_slip)) {
+                    $is_locked = true;
+                }
+            }
+        }
+
+        // 4. Si el pedido no está bloqueado (no es "Correcto"), devolvemos string vacío
+        if (!$is_locked) {
+            return '';
+        }
+
+        // 5. ¡EL PEDIDO ESTÁ BLOQUEADO!
+        $block_lines_add = 1;
+        $block_lines_edit = 1;
+        $block_lines_del = 1;
+        $block_addr_edit = 1;
+        $block_addr_select = 1;
+        $block_discounts = 1;
+        $block_carrier = 1;
+        $block_states = 1;
+        $block_pdf = 1;
+        
+        $raw_msg = $this->l('Operación deshabilitada: El pedido tiene un registro VeriFactu "Correcto" y está bloqueado para modificaciones.');
+        $msg_js_encoded = rawurlencode($raw_msg);
+
+        $js = '';
+
+        // --- Estilos CSS ---
+        $js .= '
+        <style>
+            .psorderlock-disabled,
+            .psorderlock-disabled:hover,
+            .psorderlock-disabled:focus,
+            .btn.psorderlock-disabled,
+            a.psorderlock-disabled {
+                background-color: #f8d7da !important; 
+                border-color: #f5c6cb !important;
+                color: #721c24 !important; 
+                opacity: 0.7 !important;
+                cursor: not-allowed !important;
+                pointer-events: none !important;
+            }
+            .psorderlock-disabled .material-icons,
+            .psorderlock-disabled .icon { /* Añadido para PS 1.6 */
+                color: #721c24 !important; 
+            }
+        </style>
+        ';
+
+        // --- Script de bloqueo ---
+        $js .= '
+        <script>
+        (function($){
+            $(document).ready(function() {
+                setTimeout(function() {
+                    var msg = decodeURIComponent(\''.$msg_js_encoded.'\'); 
+                    var config = {
+                        lines_add: '.$block_lines_add.', 
+                        lines_edit: '.$block_lines_edit.', 
+                        lines_del: '.$block_lines_del.', 
+                        discounts: '.$block_discounts.', 
+                        addr_edit: '.$block_addr_edit.', 
+                        addr_select: '.$block_addr_select.',
+                        carrier: '.$block_carrier.', 
+                        states: '.$block_states.',
+                        pdf: '.$block_pdf.'
+                    };
+
+                    var elementsToDisable = [];
+
+                    // 1. Bloqueo de Líneas de Pedido (PS 1.7.7+ y 1.6)
+                    if (config.lines_add) {
+                        elementsToDisable.push(\'#addProductBtn\'); // PS 1.7.7+
+                        elementsToDisable.push(\'.js-add-product-btn\'); // PS 1.7.x
+                        elementsToDisable.push(\'#add_product_button\'); // PS 1.6
+                    }
+                    if (config.lines_edit) {
+                        elementsToDisable.push(\'.js-order-product-edit-btn\'); // PS 1.7.7+
+                        elementsToDisable.push(\'.btn-confirm-edit-product\'); // Modal 1.7.7+
+                        elementsToDisable.push(\'.edit_product_change_link\'); // PS 1.7.x
+                        elementsToDisable.push(\'a[id^="edit_product_"]\'); // PS 1.6
+                        elementsToDisable.push(\'button[name="submitUpdateProduct"]\'); // PS 1.6
+                    }
+                    if (config.lines_del) {
+                        elementsToDisable.push(\'.js-order-product-delete-btn\'); // PS 1.7.7+
+                        elementsToDisable.push(\'.cancel-product-link\'); // PS 1.7.x (Cancelar/Borrar)
+                        elementsToDisable.push(\'a[id^="delete_product_"]\'); // PS 1.6
+                    }
+
+                    // 2. Bloqueo de Descuentos (Vouchers)
+                    if (config.discounts) {
+                        elementsToDisable.push(\'button[data-target="#addOrderDiscountModal"]\'); // PS 1.7.7+
+                        elementsToDisable.push(\'#add_voucher_btn\'); // PS 1.7
+                        elementsToDisable.push(\'#add_discount_button\'); // PS 1.6
+                        elementsToDisable.push(\'.order_discount_form a\'); // PS 1.6 (borrar)
+                        elementsToDisable.push(\'button[name="submitNewOrderDiscount"]\'); // PS 1.6
+                    }
+                    
+                    // 3. Bloqueo de Direcciones
+                    if (config.addr_edit) {
+                        elementsToDisable.push(\'#js-delivery-address-edit-btn\'); // PS 1.7.7+
+                        elementsToDisable.push(\'#js-invoice-address-edit-btn\'); // PS 1.7.7+
+                        elementsToDisable.push(\'a[href*="controller=AdminAddresses&id_order"]\'); // PS 1.6/1.7
+                    }
+                    if (config.addr_select) {
+                        elementsToDisable.push(\'.js-update-customer-address-modal-btn[data-address-type="shipping"]\'); // PS 1.7.7+
+                        elementsToDisable.push(\'.js-update-customer-address-modal-btn[data-address-type="invoice"]\'); // PS 1.7.7+
+                        elementsToDisable.push(\'#change_shipping_address\'); // PS 1.6
+                        elementsToDisable.push(\'#change_invoice_address\'); // PS 1.6
+                    }
+
+                    // 4. Bloqueo del Transporte
+                    if (config.carrier) {
+                        elementsToDisable.push(\'.shipping-info button\'); // PS 1.7.7+
+                        elementsToDisable.push(\'.shipping-info a\'); // PS 1.7.7+
+                        elementsToDisable.push(\'a[href*="admin-orders-carrier"]\'); // PS 1.6/1.7
+                        elementsToDisable.push(\'#edit_shipping_number_btn\'); // PS 1.6/1.7
+                        elementsToDisable.push(\'button[name="submitShippingNumber"]\'); // PS 1.6/1.7
+                    }
+                    
+                    // 5. Bloqueo de Estados
+                    if (config.states) {
+                         elementsToDisable.push(\'#id_order_state\'); // PS 1.6
+                         elementsToDisable.push(\'select[name="new_order_state_id"]\'); // PS 1.7+
+                         elementsToDisable.push(\'button[name="submitState"]\'); // PS 1.6 / 1.7
+                    }
+                    
+                    // 6. Bloqueo de PDFs (Regenerar factura)
+                    if (config.pdf) {
+                        // Deshabilitamos SOLO la regeneración, no la descarga
+                        elementsToDisable.push(\'a[href*="generateInvoicePDF"]\');
+                        elementsToDisable.push(\'#generate-invoice-button\');
+                    }
+
+                    // --- APLICACIÓN DEL BLOQUEO ---
+                    elementsToDisable.forEach(function(selector) {
+                        $(selector).each(function() {
+                            var element = $(this);
+                            
+                            element.off(\'click dblclick\').on(\'click dblclick\', function(e) {
+                                e.preventDefault();
+                                e.stopImmediatePropagation();
+                                alert(msg);
+                                return false;
+                            });
+
+                            element.addClass(\'psorderlock-disabled\');
+                            element.attr(\'title\', msg);
+
+                            if(element.is(\'select\') || element.is(\'input[type="text"]\')) {
+                                element.prop(\'disabled\', true);
+                            }
+                        });
+                    });
+                }, 500); // 500ms de retraso
+            });
+        })(jQuery);
+        </script>';
+
+        // Devolvemos el string JS/CSS para que PrestaShop lo inyecte
+        return $js;
     }
 
 
@@ -2248,11 +2529,14 @@ class Verifactu extends Module
             }
         }
 
+        $show_anulacion_button = (bool)Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', false, null, $this->context->shop->id);
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
             'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
             'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
             'id_order'          => $id_order,
+            'show_anulacion_button' => $show_anulacion_button,
             // (Las variables antiguas ya no se asignan individualmente)
         ));
 
@@ -2367,7 +2651,8 @@ class Verifactu extends Module
             'verifactu_qr_code_path' => $qr_code_path_for_smarty, // Pasamos la URL pública
             'verifactu_url' => $url_to_encode,
             'verifactu_qr_width' => $qr_width,
-            'verifactu_qr_text' => $qr_text
+            'verifactu_qr_text' => $qr_text,
+            
         ]);
         
         
@@ -2604,11 +2889,14 @@ class Verifactu extends Module
             }
         }
 
+        $show_anulacion_button = (bool)Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', false, null, $this->context->shop->id);
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
             'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
             'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
             'id_order'          => $id_order,
+            'show_anulacion_button' => $show_anulacion_button,
         ));
 
         // 7. Renderizar y devolver el contenido de la plantilla "legacy"
