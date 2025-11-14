@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.4.4';
+        $this->version = '1.4.5';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1123,6 +1123,7 @@ class Verifactu extends Module
         );
 
         $helper = new HelperList();
+        $helper->shopLinkType = '';
         $helper->title = $this->l('Estado de facturas de venta');
         $helper->table = 'verifactu_order_invoice';
         $helper->identifier = 'id_order_invoice';
@@ -1226,6 +1227,7 @@ class Verifactu extends Module
         );
 
         $helper = new HelperList();
+        $helper->shopLinkType = '';
         $helper->title = $this->l('Estado de facturas por abono');
         $helper->table = 'verifactu_order_slip';
         $helper->identifier = 'id_order_slip';
@@ -1388,7 +1390,7 @@ class Verifactu extends Module
         );
 
         $helper = new HelperList();
-
+        $helper->shopLinkType = '';
         $helper->title = $this->l('Registros de facturación remitidos a Veri*Factu');
         $helper->table = 'verifactu_reg_fact';
         $helper->identifier = 'id_reg_fact'; // El campo ID de la fila
