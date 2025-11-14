@@ -2259,7 +2259,7 @@ class Verifactu extends Module
                     if (config.lines_add) {
                         elementsToDisable.push(\'#addProductBtn\'); // PS 1.7.7+
                         elementsToDisable.push(\'.js-add-product-btn\'); // PS 1.7.x
-                        elementsToDisable.push(\'#add_product_button\'); // PS 1.6
+                        elementsToDisable.push(\'#add_product\'); // PS 1.6
                     }
                     if (config.lines_edit) {
                         elementsToDisable.push(\'.js-order-product-edit-btn\'); // PS 1.7.7+
@@ -2272,13 +2272,14 @@ class Verifactu extends Module
                         elementsToDisable.push(\'.js-order-product-delete-btn\'); // PS 1.7.7+
                         elementsToDisable.push(\'.cancel-product-link\'); // PS 1.7.x (Cancelar/Borrar)
                         elementsToDisable.push(\'a[id^="delete_product_"]\'); // PS 1.6
+                        elementsToDisable.push(\'td.product_action button.dropdown-toggle\');
                     }
 
                     // 2. Bloqueo de Descuentos (Vouchers)
                     if (config.discounts) {
                         elementsToDisable.push(\'button[data-target="#addOrderDiscountModal"]\'); // PS 1.7.7+
                         elementsToDisable.push(\'#add_voucher_btn\'); // PS 1.7
-                        elementsToDisable.push(\'#add_discount_button\'); // PS 1.6
+                        elementsToDisable.push(\'#add_voucher\'); // PS 1.6
                         elementsToDisable.push(\'.order_discount_form a\'); // PS 1.6 (borrar)
                         elementsToDisable.push(\'button[name="submitNewOrderDiscount"]\'); // PS 1.6
                     }
@@ -2288,6 +2289,8 @@ class Verifactu extends Module
                         elementsToDisable.push(\'#js-delivery-address-edit-btn\'); // PS 1.7.7+
                         elementsToDisable.push(\'#js-invoice-address-edit-btn\'); // PS 1.7.7+
                         elementsToDisable.push(\'a[href*="controller=AdminAddresses&id_order"]\'); // PS 1.6/1.7
+                        elementsToDisable.push(\'#address_delivery .panel-heading a[href*="controller=AdminAddresses"]\');
+                        elementsToDisable.push(\'#address_invoice .panel-heading a[href*="controller=AdminAddresses"]\');
                     }
                     if (config.addr_select) {
                         elementsToDisable.push(\'.js-update-customer-address-modal-btn[data-address-type="shipping"]\'); // PS 1.7.7+
