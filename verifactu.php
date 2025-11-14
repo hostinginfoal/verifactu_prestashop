@@ -2203,9 +2203,9 @@ class Verifactu extends Module
         $block_addr_edit = 1;
         $block_addr_select = 1;
         $block_discounts = 1;
-        $block_carrier = 1;
-        $block_states = 1;
-        $block_pdf = 1;
+        $block_carrier = 0;
+        $block_states = 0;
+        $block_pdf = 0;
         
         $raw_msg = $this->l('Operación deshabilitada: El pedido tiene un registro VeriFactu "Correcto" y está bloqueado para modificaciones.');
         $msg_js_encoded = rawurlencode($raw_msg);
