@@ -146,6 +146,11 @@ class ApiVerifactu
         $igic_tax_ids = json_decode(Configuration::get('VERIFACTU_IGIC_TAXES', null, null, $this->id_shop), true) ?: [];
         $ipsi_tax_ids = json_decode(Configuration::get('VERIFACTU_IPSI_TAXES', null, null, $this->id_shop), true) ?: [];
 
+        $re_compat_module = Configuration::get('VERIFACTU_RECARGO_COMPAT', null, null, $this->id_shop);
+        $is_re_active = ($re_compat_module === 'equivalencesurcharge');
+
+        $re_valid_rates = [22.75, 26.2, 11.4, 4.5, 8.5, 5.5, 2.26 ];
+
         $id_order_invoice_or_slip = 0;
         $InvoiceNumber = '';
         $api_error_message = '';
@@ -486,6 +491,32 @@ class ApiVerifactu
                     $line->TaxAmountTotal = 0;
                 }
 
+                //Miramos si está activa la compatibilidad con RE
+                if ($is_re_active && in_array((float)$l['tax_rate'],$re_valid_rates)) { //Si la configuración de RE está activada, y el tax_rate coincide con los de la tabla
+                    $line_total_rate = (float)$l['tax_rate'];
+                    $vat_rate = $line_total_rate;
+                    $re_rate = 0;
+
+                    $rates = $this->getVatAndRecargoFromRate($line_total_rate);
+                    $vat_rate = $rates['vat'];
+                    $re_rate = $rates['re'];
+
+                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                
+                    $vat_amount = round($base_amount * ($vat_rate / 100), 2);
+                    $re_amount = 0;
+                    if ($re_rate > 0) {
+                        $re_amount = round($base_amount * ($re_rate / 100), 2);
+                    }
+
+                    //Hacemos override de los campos TaxRate y TaxAmountTotal, y añadimos los del RE
+                    $line->TaxRate = $vat_rate;
+                    $line->TaxAmountTotal = $vat_amount;
+                    $line->EquivalenceSurchargeRate = $re_rate;
+                    $line->EquivalenceSurchargeAmount = $re_amount;
+
+                }
+
                 $seq++;
 
                 $data->invoice->lines[] = $line;
@@ -568,6 +599,32 @@ class ApiVerifactu
                     $shipping_line->TaxRate = 0;
                     $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_incl']);
                     $shipping_line->TaxAmountTotal = 0;
+                }
+
+                //Miramos si está activa la compatibilidad con RE
+                if ($is_re_active && in_array((float)$shipping_tax_rate,$re_valid_rates)) { //Si la configuración de RE está activada, y el tax_rate coincide con los de la tabla
+                    $line_total_rate = (float)$shipping_tax_rate;
+                    $vat_rate = $line_total_rate;
+                    $re_rate = 0;
+
+                    $rates = $this->getVatAndRecargoFromRate($line_total_rate);
+                    $vat_rate = $rates['vat'];
+                    $re_rate = $rates['re'];
+
+                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                
+                    $vat_amount = round($base_amount * ($vat_rate / 100), 2);
+                    $re_amount = 0;
+                    if ($re_rate > 0) {
+                        $re_amount = round($base_amount * ($re_rate / 100), 2);
+                    }
+
+                    //Hacemos override de los campos TaxRate y TaxAmountTotal, y añadimos los del RE
+                    $shipping_line->TaxRate = $vat_rate;
+                    $shipping_line->TaxAmountTotal = $vat_amount;
+                    $shipping_line->EquivalenceSurchargeRate = $re_rate;
+                    $shipping_line->EquivalenceSurchargeAmount = $re_amount;
+
                 }
                 
                 $data->invoice->lines[] = $shipping_line;
@@ -720,6 +777,32 @@ class ApiVerifactu
                     $line->TaxAmountTotal = 0;
                 }
 
+                //Miramos si está activa la compatibilidad con RE
+                if ($is_re_active && in_array((float)$l['tax_rate'],$re_valid_rates)) { //Si la configuración de RE está activada, y el tax_rate coincide con los de la tabla
+                    $line_total_rate = (float)$l['tax_rate'];
+                    $vat_rate = $line_total_rate;
+                    $re_rate = 0;
+
+                    $rates = $this->getVatAndRecargoFromRate($line_total_rate);
+                    $vat_rate = $rates['vat'];
+                    $re_rate = $rates['re'];
+
+                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                
+                    $vat_amount = round($base_amount * ($vat_rate / 100), 2);
+                    $re_amount = 0;
+                    if ($re_rate > 0) {
+                        $re_amount = round($base_amount * ($re_rate / 100), 2);
+                    }
+
+                    //Hacemos override de los campos TaxRate y TaxAmountTotal, y añadimos los del RE
+                    $line->TaxRate = $vat_rate;
+                    $line->TaxAmountTotal = $vat_amount;
+                    $line->EquivalenceSurchargeRate = $re_rate;
+                    $line->EquivalenceSurchargeAmount = $re_amount;
+
+                }
+
                 $data->invoice->lines[] = $line;
             } 
 
@@ -803,6 +886,32 @@ class ApiVerifactu
                     $shipping_line->TaxRate = 0;
                     $shipping_line->TaxableBaseAmount = ((float) $invoice['total_price_tax_incl']);
                     $shipping_line->TaxAmountTotal = 0;
+                }
+
+                //Miramos si está activa la compatibilidad con RE
+                if ($is_re_active && in_array((float)$shipping_tax_rate,$re_valid_rates)) { //Si la configuración de RE está activada, y el tax_rate coincide con los de la tabla
+                    $line_total_rate = (float)$shipping_tax_rate;
+                    $vat_rate = $line_total_rate;
+                    $re_rate = 0;
+
+                    $rates = $this->getVatAndRecargoFromRate($line_total_rate);
+                    $vat_rate = $rates['vat'];
+                    $re_rate = $rates['re'];
+
+                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                
+                    $vat_amount = round($base_amount * ($vat_rate / 100), 2);
+                    $re_amount = 0;
+                    if ($re_rate > 0) {
+                        $re_amount = round($base_amount * ($re_rate / 100), 2);
+                    }
+
+                    //Hacemos override de los campos TaxRate y TaxAmountTotal, y añadimos los del RE
+                    $shipping_line->TaxRate = $vat_rate;
+                    $shipping_line->TaxAmountTotal = $vat_amount;
+                    $shipping_line->EquivalenceSurchargeRate = $re_rate;
+                    $shipping_line->EquivalenceSurchargeAmount = $re_amount;
+
                 }
                 
                 $data->invoice->lines[] = $shipping_line;
@@ -930,6 +1039,32 @@ class ApiVerifactu
                             $discount_line->TaxRate = 0;
                             $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
                             $discount_line->TaxAmountTotal = 0;
+                        }
+
+                        //Miramos si está activa la compatibilidad con RE
+                        if ($is_re_active && in_array((float)$rate,$re_valid_rates)) { //Si la configuración de RE está activada, y el tax_rate coincide con los de la tabla
+                            $line_total_rate = (float)$rate;
+                            $vat_rate = $line_total_rate;
+                            $re_rate = 0;
+
+                            $rates = $this->getVatAndRecargoFromRate($line_total_rate);
+                            $vat_rate = $rates['vat'];
+                            $re_rate = $rates['re'];
+
+                            $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                        
+                            $vat_amount = round($base_amount * ($vat_rate / 100), 2);
+                            $re_amount = 0;
+                            if ($re_rate > 0) {
+                                $re_amount = round($base_amount * ($re_rate / 100), 2);
+                            }
+
+                            //Hacemos override de los campos TaxRate y TaxAmountTotal, y añadimos los del RE
+                            $discount_line->TaxRate = $vat_rate;
+                            $discount_line->TaxAmountTotal = $vat_amount;
+                            $discount_line->EquivalenceSurchargeRate = $re_rate;
+                            $discount_line->EquivalenceSurchargeAmount = $re_amount;
+
                         }
                         
                         $data->invoice->lines[] = $discount_line;
@@ -1830,28 +1965,23 @@ class ApiVerifactu
         
         $year = date('Y', strtotime($result['date_add']));
         
-        $final_invoice_number = $prefix;
+        // 5. Construimos la parte del número y año.
+        $number_and_year_part = $padded_number; // Valor por defecto: solo el número
 
-        // 5. Construimos el número final basándonos en la configuración del año.
-        if ($use_year == '1')
+        if ($use_year === 1)
         {
             switch ($year_position) {
-                case 1: // Año antes del número
-                    $final_invoice_number .= $year .'/'. $padded_number;
+                case 1: // Año antes del número (e.g., YYYY/NNNNNN)
+                    $number_and_year_part = $year .'/'. $padded_number;
                     break;
-                case 2: // Año después del número
-                    $final_invoice_number .= $padded_number .'/'. $year;
+                case 0: // Año después del número (e.g., NNNNNN/YYYY)
+                    $number_and_year_part = $padded_number .'/'. $year;
                     break;
-                case 0: // Sin año
-                default:
-                    $final_invoice_number .= $padded_number;
-                    break;
+                // case 0 (Sin año) y default caen aquí, manteniendo $padded_number, que es correcto
             }
         }
-        else
-        {
-            $final_invoice_number .= $padded_number;
-        }
+        
+        $final_invoice_number = $prefix . $number_and_year_part;
         
 
         return $final_invoice_number;
@@ -2170,6 +2300,58 @@ class ApiVerifactu
 
         // Devolvemos true si el iso_code del país (en mayúsculas) está en el array
         return in_array(strtoupper($country_obj->iso_code), $eu_iso_codes, true);
+    }
+
+    /**
+     * Helper para descomponer una tasa compuesta (IVA + RE) en sus partes.
+     * Basado en la tabla hardcoded proporcionada.
+     * * @param float $total_rate La tasa total encontrada en order_detail (ej: 26.2)
+     * @return array ['vat' => float, 're' => float]
+     */
+    private function getVatAndRecargoFromRate($total_rate)
+    {
+        // Normalizamos a string para evitar problemas de coma flotante en comparaciones directas
+        // Usamos round para asegurar limpieza antes de string
+        $rate_str = (string)round((float)$total_rate, 2);
+
+        switch ($rate_str) {
+            // Tipo General 21%
+            case '22.75': // 21 + 1.75
+                return ['vat' => 21.0, 're' => 1.75];
+            case '26.2':  // 21 + 5.2
+            case '26.20':
+                return ['vat' => 21.0, 're' => 5.2];
+            
+            // Tipo Reducido 10%
+            case '11.4': // 10 + 1.4
+            case '11.40':
+                return ['vat' => 10.0, 're' => 1.4];
+            
+            // Tipo Super Reducido 4%
+            case '4.5': // 4 + 0.5
+            case '4.50':
+                return ['vat' => 4.0, 're' => 0.5];
+
+            // --- Tipos Especiales ---
+            
+            // Tipo 7.5% (¿IGIC?)
+            case '8.5': // 7.5 + 1
+            case '8.50':
+                return ['vat' => 7.5, 're' => 1.0];
+
+            // Tipo 5%
+            case '5.5': // 5 + 0.5
+            case '5.50':
+                return ['vat' => 5.0, 're' => 0.5];
+
+            // Tipo 2% (¿Libros?)
+            case '2.26': // 2 + 0.26
+                return ['vat' => 2.0, 're' => 0.26];
+
+            // Sin recargo o no coincide con tabla
+            default:
+                return ['vat' => (float)$total_rate, 're' => 0.0];
+        }
     }
 
 }

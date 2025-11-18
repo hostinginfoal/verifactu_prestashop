@@ -92,6 +92,7 @@ class Verifactu extends Module
             'VERIFACTU_QR_TEXT',
             'VERIFACTU_SHOW_ANULACION_BUTTON',
             'VERIFACTU_LOCK_ORDER_IF_CORRECT',
+            'VERIFACTU_RECARGO_COMPAT',
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
@@ -103,6 +104,9 @@ class Verifactu extends Module
                 {
                     $default_value = 60; // 60px por defecto
                 } 
+                elseif ($key === 'VERIFACTU_RECARGO_COMPAT') {
+                    $default_value = 'none'; // Valor por defecto "No utilizo..."
+                }
                 elseif ($key === 'VERIFACTU_QR_TEXT') 
                 {
                     $default_value = 'Factura verificable en la sede electrónica de la AEAT';
@@ -691,6 +695,17 @@ class Verifactu extends Module
             ];
         }
 
+        $re_options = array(
+            array(
+                'id_option' => 'none', // Valor interno para "ninguno"
+                'name' => $this->l('No utilizo recargo de equivalencia')
+            ),
+            array(
+                'id_option' => 'equivalencesurcharge', // Nombre del módulo
+                'name' => $this->l('equivalencesurcharge (de Dusnic)')
+            ),
+        );
+
         return array(
             'form' => array(
                 'legend' => array(
@@ -782,6 +797,18 @@ class Verifactu extends Module
                             )
                         )
                     ),
+                    array(
+                        'type' => 'select',
+                        'label' => $this->l('Compatibilidad Recargo de Equivalencia'),
+                        'name' => 'VERIFACTU_RECARGO_COMPAT',
+                        'desc' => $this->l('Seleccione el módulo de Recargo de Equivalencia (R.E.) que utiliza. Si no usa R.E., déjelo en "No utilizo".'),
+                        'options' => array(
+                            'query' => $re_options, // El array que definimos arriba
+                            'id' => 'id_option',    // La clave para el 'value' del option
+                            'name' => 'name'      // La clave para el texto visible del option
+                        ),
+                    ),
+
                     array(
                         'type' => 'html',
                         'name' => 'verifactu_separator_qr',
@@ -938,6 +965,7 @@ class Verifactu extends Module
             'VERIFACTU_QR_TEXT' => ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT'),
             'VERIFACTU_SHOW_ANULACION_BUTTON' => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
             'VERIFACTU_LOCK_ORDER_IF_CORRECT' => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_RECARGO_COMPAT' => Configuration::get('VERIFACTU_RECARGO_COMPAT', 'none', $id_shop_group, $id_shop),
         );
     }
 
@@ -984,6 +1012,8 @@ class Verifactu extends Module
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
         $ipsi_json = json_encode(is_array($verifactu_ipsi_taxes) ? $verifactu_ipsi_taxes : []);
 
+        $verifactu_recargo_compat = Tools::getValue('VERIFACTU_RECARGO_COMPAT');
+
         // Tu lógica para guardar en multitienda se mantiene, pero ahora guardamos los nuevos valores.
         $shops = Tools::getValue('checkBoxShopAsso_configuration');
         
@@ -1004,6 +1034,7 @@ class Verifactu extends Module
             Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -1021,6 +1052,7 @@ class Verifactu extends Module
                 Configuration::updateValue('VERIFACTU_QR_TEXT', $verifactu_qr_text, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
             }
         }
     }
