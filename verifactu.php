@@ -2076,11 +2076,15 @@ class Verifactu extends Module
         $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, null, $id_shop);
         $qr_width = ($qr_width_val !== false) ? (int)$qr_width_val : 60;
 
+        $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, null, $id_shop);
+        $qr_text = ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT');
+
         // 4. Asignamos las variables a Smarty
         $this->context->smarty->assign([
             'verifactu_qr_code_path' => $qrData['qr_image_url'],
             'verifactu_url'          => $qrData['qr_data_url'],
-            'verifactu_qr_width' => $qr_width
+            'verifactu_qr_width' => $qr_width,
+            'verifactu_qr_text' => $qr_text
         ]);
 
         // 5. Reutilizamos la misma plantilla que usas para los PDFs
