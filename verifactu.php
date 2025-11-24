@@ -55,7 +55,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.4.6';
+        $this->version = '1.4.7';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -97,16 +97,13 @@ class Verifactu extends Module
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
                 $default_value = null;
-                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT') {
+                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT' || $key === 'VERIFACTU_RECARGO_COMPAT') {
                     $default_value = 0;
                 }
                 elseif ($key === 'VERIFACTU_QR_WIDTH') 
                 {
                     $default_value = 60; // 60px por defecto
                 } 
-                elseif ($key === 'VERIFACTU_RECARGO_COMPAT') {
-                    $default_value = 'none'; // Valor por defecto "No utilizo..."
-                }
                 elseif ($key === 'VERIFACTU_QR_TEXT') 
                 {
                     $default_value = 'Factura verificable en la sede electrónica de la AEAT';
@@ -798,14 +795,21 @@ class Verifactu extends Module
                         )
                     ),
                     array(
-                        'type' => 'select',
+                        'type' => 'switch',
                         'label' => $this->l('Compatibilidad Recargo de Equivalencia'),
                         'name' => 'VERIFACTU_RECARGO_COMPAT',
-                        'desc' => $this->l('Seleccione el módulo de Recargo de Equivalencia (R.E.) que utiliza. Si no usa R.E., déjelo en "No utilizo".'),
-                        'options' => array(
-                            'query' => $re_options, // El array que definimos arriba
-                            'id' => 'id_option',    // La clave para el 'value' del option
-                            'name' => 'name'      // La clave para el texto visible del option
+                        'desc' => $this->l('Seleccione esta opción para activar la compatibilidad con los módulos de terceros que integran la funcionalidad de Recargo de Equivalencia (R.E.). Si no usa R.E., déjelo en "No utilizo". Módulos testeados y que funcionan correctamente: Equivalencesurcharge (de Dusnic) y Imaxrecargoequivalencia (de Imax)'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Activado')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('Desactivado')
+                            )
                         ),
                     ),
 
@@ -823,9 +827,14 @@ class Verifactu extends Module
                                   $this->l('Esto es útil si prefiere posicionar el QR manualmente editando la plantilla de su tema.') . '<br>' .
                                   sprintf(
                                       $this->l('Para ello, sobrescriba el fichero %s en su tema (%s) y añada el siguiente hook donde desee: %s'),
-                                      '<strong>pdf/invoice.tpl</strong>',
-                                      '<strong>themes/su-tema/pdf/invoice.tpl</strong>',
+                                      '<strong>pdf/invoice*.tpl</strong>',
+                                      '<strong>themes/su-tema/pdf/invoice*.tpl</strong>',
                                       '<code>{hook h=\'displayVerifactuQR\' id_order_invoice=$order_invoice->id}</code>'
+                                  ).'<br>'.sprintf(
+                                      $this->l('Para las facturas de abono, sobrescriba el fichero %s en su tema (%s) y añada el siguiente hook donde desee: %s'),
+                                      '<strong>pdf/order-slip*.tpl</strong>',
+                                      '<strong>themes/su-tema/pdf/order-slip*.tpl</strong>',
+                                      '<code>{hook h=\'displayVerifactuQR\' id_order_slip=$order_slip->id}</code>'
                                   ),
                         'values' => array(
                             array(
@@ -965,7 +974,7 @@ class Verifactu extends Module
             'VERIFACTU_QR_TEXT' => ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT'),
             'VERIFACTU_SHOW_ANULACION_BUTTON' => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
             'VERIFACTU_LOCK_ORDER_IF_CORRECT' => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
-            'VERIFACTU_RECARGO_COMPAT' => Configuration::get('VERIFACTU_RECARGO_COMPAT', 'none', $id_shop_group, $id_shop),
+            'VERIFACTU_RECARGO_COMPAT' => Configuration::get('VERIFACTU_RECARGO_COMPAT', 0, $id_shop_group, $id_shop),
         );
     }
 

@@ -147,7 +147,7 @@ class ApiVerifactu
         $ipsi_tax_ids = json_decode(Configuration::get('VERIFACTU_IPSI_TAXES', null, null, $this->id_shop), true) ?: [];
 
         $re_compat_module = Configuration::get('VERIFACTU_RECARGO_COMPAT', null, null, $this->id_shop);
-        $is_re_active = ($re_compat_module === 'equivalencesurcharge');
+        $is_re_active = ($re_compat_module == 1);
 
         $re_valid_rates = [22.75, 26.2, 11.4, 4.5, 8.5, 5.5, 2.26 ];
 
@@ -501,7 +501,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                    $base_amount = (float) $l['total_price_tax_excl'];
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
@@ -611,7 +611,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                    $base_amount = (float) $l['total_price_tax_excl'];
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
@@ -787,7 +787,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                    $base_amount = (float) $l['total_price_tax_excl'];
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
@@ -898,7 +898,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                    $base_amount = (float) $l['total_price_tax_excl'];
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
@@ -1051,7 +1051,7 @@ class ApiVerifactu
                             $vat_rate = $rates['vat'];
                             $re_rate = $rates['re'];
 
-                            $base_amount = (float) $l['unit_price_tax_excl'] * (float) $l['product_quantity'];
+                            $base_amount = (float) $l['total_price_tax_excl'];
                         
                             $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                             $re_amount = 0;
