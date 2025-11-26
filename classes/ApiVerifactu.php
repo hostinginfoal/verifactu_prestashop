@@ -445,19 +445,9 @@ class ApiVerifactu
                 } 
                 elseif ($is_export_invoice) 
                 {
-                    if ($line_tax_rate == 0) 
-                    {
-                        //$line->OperationQualification = "N1";
-                        $line->RegimeKey = "02";
-                        $line->ExemptOperation = "E2";
-                    } 
-                    else 
-                    {
-                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
-                        $line->OperationQualification = "S1";
-                        $line->RegimeKey = "01";
-                    }
-                    
+                    //$line->OperationQualification = "N1";
+                    $line->RegimeKey = "02";
+                    $line->ExemptOperation = "E2";
                 } 
                 elseif ($is_b2b_intra_invoice) 
                 {
@@ -469,7 +459,7 @@ class ApiVerifactu
                     } 
                     else 
                     {
-                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada)
+                        // Es B2B Intra pero PrestaShop HA COBRADO IVA (Tienda mal configurada o no gestiona ROI/VIES)
                         // Lo enviamos como una venta normal S1 para que coincida con la factura.
                         $line->OperationQualification = "S1";
                         $line->RegimeKey = "01";
@@ -486,6 +476,12 @@ class ApiVerifactu
                 $line->TaxTypeCode = $lineTaxTypeCode;
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $line->TaxRate = 0;
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
+                    $line->TaxAmountTotal = 0;
+                }
+                elseif ($is_export_invoice) 
                 {
                     $line->TaxRate = 0;
                     $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
@@ -559,19 +555,9 @@ class ApiVerifactu
                 } 
                 elseif ($is_export_invoice) 
                 {
-                    if ($shipping_tax_rate == 0) 
-                    {
-                        //$line->OperationQualification = "N1";
-                        $shipping_line->RegimeKey = "02";
-                        $shipping_line->ExemptOperation = "E2";
-                    } 
-                    else 
-                    {
-                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
-                        $shipping_line->OperationQualification = "S1";
-                        $shipping_line->RegimeKey = "01";
-                    }
-                    
+                    //$line->OperationQualification = "N1";
+                    $shipping_line->RegimeKey = "02";
+                    $shipping_line->ExemptOperation = "E2";
                 } 
                 elseif ($is_b2b_intra_invoice) 
                 {
@@ -596,6 +582,12 @@ class ApiVerifactu
                 }
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $shipping_line->TaxRate = 0;
+                    $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_excl']);
+                    $shipping_line->TaxAmountTotal = 0;
+                }
+                elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
                     $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_incl']);
@@ -732,19 +724,9 @@ class ApiVerifactu
                 } 
                 elseif ($is_export_invoice) 
                 {
-                    if ($line_tax_rate == 0) 
-                    {
-                        //$line->OperationQualification = "N1";
-                        $line->RegimeKey = "02";
-                        $line->ExemptOperation = "E2";
-                    } 
-                    else 
-                    {
-                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
-                        $line->OperationQualification = "S1";
-                        $line->RegimeKey = "01";
-                    }
-                    
+                    //$line->OperationQualification = "N1";
+                    $line->RegimeKey = "02";
+                    $line->ExemptOperation = "E2";
                 } 
                 elseif ($is_b2b_intra_invoice) 
                 {
@@ -772,6 +754,12 @@ class ApiVerifactu
                 $line->TaxTypeCode = $lineTaxTypeCode;
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $line->TaxRate = 0;
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
+                    $line->TaxAmountTotal = 0;
+                }
+                elseif ($is_export_invoice) 
                 {
                     $line->TaxRate = 0;
                     $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
@@ -845,19 +833,9 @@ class ApiVerifactu
                 } 
                 elseif ($is_export_invoice) 
                 {
-                    if ($shipping_tax_rate == 0) 
-                    {
-                        //$line->OperationQualification = "N1";
-                        $shipping_line->RegimeKey = "02";
-                        $shipping_line->ExemptOperation = "E2";
-                    } 
-                    else 
-                    {
-                        // Lo enviamos como una venta normal S1 para que coincida con la factura.
-                        $shipping_line->OperationQualification = "S1";
-                        $shipping_line->RegimeKey = "01";
-                    }
-                    
+                    //$line->OperationQualification = "N1";
+                    $shipping_line->RegimeKey = "02";
+                    $shipping_line->ExemptOperation = "E2";  
                 } 
                 elseif ($is_b2b_intra_invoice) 
                 {
@@ -883,6 +861,12 @@ class ApiVerifactu
                 }
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                {
+                    $shipping_line->TaxRate = 0;
+                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_excl']);
+                    $shipping_line->TaxAmountTotal = 0;
+                }
+                elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
                     $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_incl']);
@@ -999,19 +983,9 @@ class ApiVerifactu
                         } 
                         elseif ($is_export_invoice) 
                         {
-                            if ($rate == 0) 
-                            {
-                                //$line->OperationQualification = "N1";
-                                $discount_line->RegimeKey = "02";
-                                $discount_line->ExemptOperation = "E2";
-                            } 
-                            else 
-                            {
-                                // Lo enviamos como una venta normal S1 para que coincida con la factura.
-                                $discount_line->OperationQualification = "S1";
-                                $discount_line->RegimeKey = "01";
-                            }
-                            
+                            //$line->OperationQualification = "N1";
+                            $discount_line->RegimeKey = "02";
+                            $discount_line->ExemptOperation = "E2";
                         } 
                         elseif ($is_b2b_intra_invoice) 
                         {
@@ -1036,6 +1010,12 @@ class ApiVerifactu
                         }
 
                         if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+                        {
+                            $discount_line->TaxRate = 0;
+                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
+                            $discount_line->TaxAmountTotal = 0;
+                        }
+                        elseif ($is_export_invoice) 
                         {
                             $discount_line->TaxRate = 0;
                             $discount_line->TaxableBaseAmount = -round($discount_portion_tax_incl, 2);

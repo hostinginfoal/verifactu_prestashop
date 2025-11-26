@@ -80,3 +80,18 @@ tr:has(td .verifactu_error):hover td,
 tr:has(td .verifactu_warning):hover td {
     background-color: #d9edf7 !important;
 }
+
+.verifactu_correct {
+    background-color: #4cbb6c; /* Verde */
+    color: white;
+    padding: 5px;
+    border-radius: 3px;
+}
+.verifactu_error {
+    background-color: #e74c3c; /* Rojo */
+    color: white;
+}
+.verifactu_warning {
+    background-color: #f39c12; /* Naranja */
+    color: white;
+}
