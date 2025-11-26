@@ -2982,7 +2982,7 @@ class Verifactu extends Module
     
     public function getQRCodeUrl($params)
     {
-        require_once _PS_MODULE_DIR_ . $this->module_name . '/lib/phpqrcode/qrlib.php';
+        require_once(dirname(__FILE__) . '/lib/phpqrcode/qrlib.php');
         $order_invoice = $params['order_invoice'];
         if (!Validate::isLoadedObject($order_invoice)) {
             return '';
