@@ -93,12 +93,11 @@ class Verifactu extends Module
             'VERIFACTU_SHOW_ANULACION_BUTTON',
             'VERIFACTU_LOCK_ORDER_IF_CORRECT',
             'VERIFACTU_RECARGO_COMPAT',
-            'VERIFACTU_ROCKPOS_COMPAT',
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
                 $default_value = null;
-                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT' || $key === 'VERIFACTU_RECARGO_COMPAT'|| $key === 'VERIFACTU_ROCKPOS_COMPAT') {
+                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT' || $key === 'VERIFACTU_RECARGO_COMPAT') {
                     $default_value = 0;
                 }
                 elseif ($key === 'VERIFACTU_QR_WIDTH') 
@@ -915,32 +914,6 @@ class Verifactu extends Module
 
                     array(
                         'type' => 'html',
-                        'name' => 'verifactu_separator_qr',
-                        'html_content' => '<hr><h4>' . $this->l('Compatibilidad módulos de terceros') . '</h4>',
-                    ),
-
-                    array(
-                        'type' => 'switch',
-                        'label' => $this->l('Activar compatibilidad con RockPOS'),
-                        'name' => 'VERIFACTU_ROCKPOS_COMPAT',
-                        'is_bool' => true,
-                        'desc' => $this->l('Active esta opción si utiliza el módulo RockPOS para gestionar su TPV. Esto habilitará funciones específicas para la impresión de tickets.'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Sí')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('No')
-                            )
-                        )
-                    ),
-
-                    array(
-                        'type' => 'html',
                         'name' => 'verifactu_separator_1', // Nombre único
                         'html_content' => '<hr>',
                     ),
@@ -1002,7 +975,6 @@ class Verifactu extends Module
             'VERIFACTU_SHOW_ANULACION_BUTTON' => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
             'VERIFACTU_LOCK_ORDER_IF_CORRECT' => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
             'VERIFACTU_RECARGO_COMPAT' => Configuration::get('VERIFACTU_RECARGO_COMPAT', 0, $id_shop_group, $id_shop),
-            'VERIFACTU_ROCKPOS_COMPAT' => Configuration::get('VERIFACTU_ROCKPOS_COMPAT', 0, $id_shop_group, $id_shop),
         );
     }
 
@@ -1051,8 +1023,6 @@ class Verifactu extends Module
 
         $verifactu_recargo_compat = Tools::getValue('VERIFACTU_RECARGO_COMPAT');
 
-        $verifactu_rockpos_compat = Tools::getValue('VERIFACTU_ROCKPOS_COMPAT');
-
         // Tu lógica para guardar en multitienda se mantiene, pero ahora guardamos los nuevos valores.
         $shops = Tools::getValue('checkBoxShopAsso_configuration');
         
@@ -1074,7 +1044,6 @@ class Verifactu extends Module
             Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
-            Configuration::updateValue('VERIFACTU_ROCKPOS_COMPAT', $verifactu_rockpos_compat, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -1093,7 +1062,6 @@ class Verifactu extends Module
                 Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
-                Configuration::updateValue('VERIFACTU_ROCKPOS_COMPAT', $verifactu_rockpos_compat, false, $id_shop_group, $id_shop);
             }
         }
     }
@@ -2435,15 +2403,24 @@ class Verifactu extends Module
 
     public function hookActionSetInvoice($params)
     {
-        $order = $params['Order'];
-        $id_shop = (int)$order->id_shop;
 
-        $rockpos_compat = (bool)Configuration::get('VERIFACTU_ROCKPOS_COMPAT', false, null, $id_shop); //Añadimos la compatibilidad con RockPOS
-        if ($rockpos_compat)
-        {
-            $order = isset($params['Order']) ? $params['Order'] : $params['PosOrder'];
-        }       
-        
+        $order = null;
+
+        if (isset($params['Order'])) {
+            // Caso Estándar PrestaShop
+            $order = $params['Order'];
+        } elseif (isset($params['PosOrder'])) {
+            // Caso RockPOS
+            $order = $params['PosOrder'];
+        }
+
+        // 2. Fallback de seguridad: Si no tenemos pedido, no podemos seguir
+        if (!Validate::isLoadedObject($order)) {
+            PrestaShopLogger::addLog('Módulo Verifactu: HookActionSetInvoice disparado sin objeto Order válido.', 3);
+            return;
+        }
+
+        $id_shop = (int)$order->id_shop;
         $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
         
