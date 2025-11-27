@@ -370,7 +370,7 @@ class ApiVerifactu
             $inv->CorrectiveInvoiceNumber = $this->getFormattedInvoiceNumber($invoice['id_order_invoice']); 
             $inv->CorrectiveIssueDate = date('Y-m-d', strtotime($invoice['date_add']));
 
-            if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+            if ($is_oss_invoice || $is_export_invoice) 
             {
                 $inv->TotalTaxOutputs = 0;
             }
@@ -649,7 +649,7 @@ class ApiVerifactu
             $sql->where('ocr.id_order = ' . (int)$id_order);
             $discounts = Db::getInstance()->executeS($sql);
 
-            if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
+            if ($is_oss_invoice || $is_export_invoice)
             {
                 $inv->TotalTaxOutputs = 0;
             }
@@ -2245,7 +2245,7 @@ class ApiVerifactu
             'DE', // Alemania
             'DK', // Dinamarca
             'EE', // Estonia
-            'ES', // España (Como solicitaste, para las excepciones de Canarias se añadirá lógica después)
+            'ES', // España
             'FI', // Finlandia
             'FR', // Francia
             'GR', // Grecia
