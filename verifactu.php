@@ -2933,14 +2933,23 @@ class Verifactu extends Module
         $verifactuColumn->setOptions([
             'field' => 'verifactu',
             'clickable' => false, // Generalmente no queremos que el texto sea un enlace
+            'sortable' => true,
         ]);
 
-        $definition
-            ->getColumns()
-            ->addAfter(
-                'osname',
-                $verifactuColumn
-            );
+        // 2. Añadimos la columna a la rejilla
+        $definition->getColumns()->addAfter('osname', $verifactuColumn);
+
+        // 3. Añadimos el FILTRO (la cajita de búsqueda)
+        $definition->getFilters()->add(
+            (new Filter('verifactu', TextType::class))
+                ->setTypeOptions([
+                    'required' => false,
+                    'attr' => [
+                        'placeholder' => $this->l('Buscar estado...'),
+                    ],
+                ])
+                ->setAssociatedColumn('verifactu')
+        );
     }
 
     public function hookActionOrderGridQueryBuilderModifier(array $params)
