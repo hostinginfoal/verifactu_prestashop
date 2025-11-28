@@ -3007,6 +3007,9 @@ class Verifactu extends Module
         }
     }
     
+    
+    //---------------FUNCIONES LEGACY PARA VERSIONES ENTRE 1.7.0 y 1.7.7.0 -----------------------------------------------------------------
+    
     /**
      * Hook para modificar la lista de pedidos en versiones de PrestaShop < 1.7.7.0
      */
@@ -3026,7 +3029,13 @@ class Verifactu extends Module
             'callback' => 'printVerifactuBadge', // Llamada a tu función
             'callback_object' => $this,          // Importante: indica que la función está en este módulo
             'escape' => false,                   // IMPRESCINDIBLE: Permite renderizar HTML (los badges)
+            'havingFilter' => true,
         ];
+
+        // CORRECCIÓN NOTICES: Inicializar 'select' si no existe
+        if (!isset($params['select'])) {
+            $params['select'] = '';
+        }
 
         // 2. Modificar SELECT con lógica para priorizar el estado 'pendiente'
         $params['select'] .= ', 
@@ -3036,6 +3045,11 @@ class Verifactu extends Module
             WHEN i.id_order_invoice IS NOT NULL THEN "No enviada"
             ELSE "Sin factura"
         END AS verifactu';
+
+        // CORRECCIÓN NOTICES: Inicializar 'join' si no existe
+        if (!isset($params['join'])) {
+            $params['join'] = '';
+        }
         
         // 3. Añadir los JOINS
         $params['join'] .= ' LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` i ON (a.`id_order` = i.`id_order`)';
@@ -3078,9 +3092,7 @@ class Verifactu extends Module
                 return $value;
         }
     }
-    
-    //---------------FUNCIONES LEGACY PARA VERSIONES ENTRE 1.7.0 y 1.7.7.0 -----------------------------------------------------------------
-    
+
     /**
      * Hook para mostrar el panel de VeriFactu en la página de un pedido (versiones < 1.7.7.0).
      * Este es el equivalente "legacy" de displayAdminOrderSide.
