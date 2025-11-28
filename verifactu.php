@@ -312,6 +312,22 @@ class Verifactu extends Module
     {
         $output = '';
 
+        // --- LOGICA DE REINICIALIZAR (RESET) ---
+        $baseUrl = $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name;
+        // Si se pulsa reinicializar en Facturas
+        if (Tools::isSubmit('submitResetverifactu_order_invoice')) {
+            Tools::redirectAdmin($baseUrl . '&tab_module_verifactu=sales_invoices');
+        }
+        // Si se pulsa reinicializar en Abonos
+        if (Tools::isSubmit('submitResetverifactu_order_slip')) {
+            Tools::redirectAdmin($baseUrl . '&tab_module_verifactu=credit_slips');
+        }
+        // Si se pulsa reinicializar en Registros
+        if (Tools::isSubmit('submitResetverifactu_reg_fact')) {
+            Tools::redirectAdmin($baseUrl . '&tab_module_verifactu=reg_facts');
+        }
+        // ---------------------------------------
+
         // Si se cambia de tienda en el selector, PrestaShop recarga la página.
         if (Tools::isSubmit('changeShopContext')) {
             $this->context->cookie->shopContext = Tools::getValue('shop_id');
@@ -1219,7 +1235,7 @@ class Verifactu extends Module
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
             'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
-            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
+            'TipoFactura' => array('title' => $this->l('Tipo Factura'), 'type' => 'text-center', 'search' => true, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
@@ -1264,14 +1280,69 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
         
-        // Aquí puedes añadir más filtros si los necesitas en el futuro
-        // ...
+        $filters = Tools::getAllValues();
+        $table_prefix = 'verifactu_order_invoiceFilter_';
+        
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
+                
+                if ($field == 'id_order') 
+                {
+                    $sql->where('o.id_order = ' . (int)$value);
+                    $orderBy = 'o`.`id_order';
+                } 
+                elseif ($field == 'number') 
+                {
+                    $sql->where('oi.number LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'oi`.`number';
+                } 
+                elseif ($field == 'customer') 
+                {
+                    $sql->having('customer LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'customer';
+                }
+                elseif ($field == 'total_paid_tax_incl') 
+                {
+                    $sql->where('oi.total_paid_tax_incl LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'oi`.`total_paid_tax_incl';
+                } 
+                elseif ($field == 'estado') 
+                {
+                    $sql->where('t.estado LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`estado';
+                } 
+                elseif ($field == 'verifactuEstadoRegistro') 
+                {
+                    $sql->where('t.verifactuEstadoRegistro LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`verifactuEstadoRegistro';
+                } 
+                elseif ($field == 'apiMode') 
+                {
+                    $sql->where('t.apiMode LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`apiMode';
+                } 
+                elseif ($field == 'TipoFactura') 
+                {
+                    $sql->where('t.TipoFactura LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`TipoFactura';
+                } 
+                elseif ($field == 'anulacion') 
+                {
+                    $sql->where('t.anulacion =' . (int)$value);
+                    $orderBy = 't`.`anulacion';
+                } 
+                
+            }
+        }
 
         if (!empty($whereClauses)) {
             $sql->where(implode(' AND ', $whereClauses));
         }
 
-        $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
+        if ($orderBy == 'id_order_invoice') $orderBy = 'oi`.`id_order_invoice';
+
+        $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
         $sql->limit($pagination, ($page - 1) * $pagination);
         
         return $db->executeS($sql);
@@ -1290,6 +1361,62 @@ class Verifactu extends Module
         $whereClauses = [];
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
+        $filters = Tools::getAllValues();
+        $table_prefix = 'verifactu_order_invoiceFilter_';
+
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
+                
+                if ($field == 'id_order') 
+                {
+                    $sql->where('o.id_order = ' . (int)$value);
+                    $orderBy = 'o`.`id_order';
+                } 
+                elseif ($field == 'number') 
+                {
+                    $sql->where('oi.number LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'oi`.`number';
+                } 
+                elseif ($field == 'customer') 
+                {
+                    $sql->where('CONCAT(c.firstname, " ", c.lastname) LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'customer';
+                }
+                elseif ($field == 'total_paid_tax_incl') 
+                {
+                    $sql->where('oi.total_paid_tax_incl LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'oi`.`total_paid_tax_incl';
+                } 
+                elseif ($field == 'estado') 
+                {
+                    $sql->where('t.estado LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`estado';
+                } 
+                elseif ($field == 'verifactuEstadoRegistro') 
+                {
+                    $sql->where('t.verifactuEstadoRegistro LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`verifactuEstadoRegistro';
+                } 
+                elseif ($field == 'apiMode') 
+                {
+                    $sql->where('t.apiMode LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`apiMode';
+                } 
+                elseif ($field == 'TipoFactura') 
+                {
+                    $sql->where('t.TipoFactura LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`TipoFactura';
+                } 
+                elseif ($field == 'anulacion') 
+                {
+                    $sql->where('t.anulacion =' . (int)$value);
+                    $orderBy = 't`.`anulacion';
+                } 
+                
+            }
         }
 
         if (!empty($whereClauses)) {
@@ -1323,7 +1450,7 @@ class Verifactu extends Module
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true,),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
             'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
-            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
+            'TipoFactura' => array('title' => $this->l('Tipo Factura'), 'type' => 'text', 'search' => true, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
@@ -1368,11 +1495,69 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
 
+        $filters = Tools::getAllValues();
+        $table_prefix = 'verifactu_order_slipFilter_';
+
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
+                
+                if ($field == 'id_order') 
+                {
+                    $sql->where('o.id_order = ' . (int)$value);
+                    $orderBy = 'o`.`id_order';
+                } 
+                elseif ($field == 'number') 
+                {
+                    $sql->where('os.number LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'os`.`number';
+                } 
+                elseif ($field == 'customer') 
+                {
+                    $sql->having('customer LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'customer';
+                }
+                elseif ($field == 'total_paid_tax_incl') 
+                {
+                    $sql->where('os.total_paid_tax_incl LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'os`.`total_paid_tax_incl';
+                } 
+                elseif ($field == 'estado') 
+                {
+                    $sql->where('t.estado LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`estado';
+                } 
+                elseif ($field == 'verifactuEstadoRegistro') 
+                {
+                    $sql->where('t.verifactuEstadoRegistro LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`verifactuEstadoRegistro';
+                } 
+                elseif ($field == 'apiMode') 
+                {
+                    $sql->where('t.apiMode LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`apiMode';
+                } 
+                elseif ($field == 'TipoFactura') 
+                {
+                    $sql->where('t.TipoFactura LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`TipoFactura';
+                } 
+                elseif ($field == 'anulacion') 
+                {
+                    $sql->where('t.anulacion =' . (int)$value);
+                    $orderBy = 't`.`anulacion';
+                } 
+                
+            }
+        }
+
         if (!empty($whereClauses)) {
             $sql->where(implode(' AND ', $whereClauses));
         }
 
-        $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
+        if ($orderBy == 'id_order_slip') $orderBy = 'os`.`id_order_slip';
+
+        $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
         $sql->limit($pagination, ($page - 1) * $pagination);
         
         return $db->executeS($sql);
@@ -1391,6 +1576,62 @@ class Verifactu extends Module
         $whereClauses = [];
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+        }
+
+        $filters = Tools::getAllValues();
+        $table_prefix = 'verifactu_order_slipFilter_';
+
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
+                
+                if ($field == 'id_order') 
+                {
+                    $sql->where('o.id_order = ' . (int)$value);
+                    $orderBy = 'o`.`id_order';
+                } 
+                elseif ($field == 'number') 
+                {
+                    $sql->where('os.number LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'os`.`number';
+                } 
+                elseif ($field == 'customer') 
+                {
+                    $sql->where('CONCAT(c.firstname, " ", c.lastname) LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'customer';
+                }
+                elseif ($field == 'total_paid_tax_incl') 
+                {
+                    $sql->where('os.total_paid_tax_incl LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'os`.`total_paid_tax_incl';
+                } 
+                elseif ($field == 'estado') 
+                {
+                    $sql->where('t.estado LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`estado';
+                } 
+                elseif ($field == 'verifactuEstadoRegistro') 
+                {
+                    $sql->where('t.verifactuEstadoRegistro LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`verifactuEstadoRegistro';
+                } 
+                elseif ($field == 'apiMode') 
+                {
+                    $sql->where('t.apiMode LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`apiMode';
+                } 
+                elseif ($field == 'TipoFactura') 
+                {
+                    $sql->where('t.TipoFactura LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 't`.`TipoFactura';
+                } 
+                elseif ($field == 'anulacion') 
+                {
+                    $sql->where('t.anulacion =' . (int)$value);
+                    $orderBy = 't`.`anulacion';
+                } 
+                
+            }
         }
 
         if (!empty($whereClauses)) {
@@ -1534,42 +1775,30 @@ class Verifactu extends Module
         $sql->leftJoin('order_slip', 'os', 't.id_order_invoice = os.id_order_slip AND t.tipo = "abono"');
         $sql->leftJoin('orders', 'o', 'o.id_order = IF(t.tipo = "alta", oi.id_order, os.id_order)');
 
-
-        // Lista blanca de campos permitidos para ordenar
-        $allowedOrderBy = [
-            'id_reg_fact', 'InvoiceNumber', 'BuyerName', 'InvoiceTotal', 'EstadoRegistro'
-        ];
-        if (!in_array($orderBy, $allowedOrderBy)) {
-            $orderBy = 'id_reg_fact'; // Valor por defecto seguro
-        }
-        $orderWay = strtoupper($orderWay) === 'ASC' ? 'ASC' : 'DESC';
-        $sql->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
-
-        $whereClauses = [];
-
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
-            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+            $sql->where('o.id_shop = ' . (int)$this->context->shop->id);
         }
 
+        // --- FILTROS MANUALES REGISTROS ---
         $filters = Tools::getAllValues();
+        // El $table que llega aquí es 'verifactu_reg_fact'
+        $table_prefix = $table . 'Filter_';
+
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
-                $field = substr($key, strlen($table . 'Filter_'));
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
                 
-                // Lista blanca de campos permitidos para filtrar
-                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro'];
+                // Lista blanca para evitar inyección en campos desconocidos
+                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
+                
                 if (in_array($field, $allowedFilters)) {
-                    $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                    $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
                 }
             }
         }
+        // ----------------------------------
 
-        
-
-        if (!empty($whereClauses)) {
-            $sql->where(implode(' AND ', $whereClauses));
-        }
-
+        $sql->orderBy('t.`' . pSQL($orderBy) . '` ' . pSQL($orderWay));
         $sql->limit($pagination, ($page - 1) * $pagination);
 
         return $db->executeS($sql);
@@ -1589,26 +1818,23 @@ class Verifactu extends Module
         $whereClauses = [];
 
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
-            $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
+            $sql->where('o.id_shop = ' . (int)$this->context->shop->id);
         }
 
+        // --- FILTROS PARA EL TOTAL ---
         $filters = Tools::getAllValues();
-        foreach ($filters as $key => $value) {
-            if (strpos($key, $table . 'Filter_') === 0 && !empty($value)) {
-                $field = substr($key, strlen($table . 'Filter_'));
+        $table_prefix = $table . 'Filter_';
 
-                // Usar la misma lista blanca de campos que en getListContent
-                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro'];
+        foreach ($filters as $key => $value) {
+            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+                $field = substr($key, strlen($table_prefix));
+                
+                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
+                
                 if (in_array($field, $allowedFilters)) {
-                    $whereClauses[] = 't.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"';
+                    $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
                 }
             }
-        }
-
-        
-
-        if (!empty($whereClauses)) {
-            $sql->where(implode(' AND ', $whereClauses));
         }
 
         return (int)$db->getValue($sql);
@@ -3068,13 +3294,13 @@ class Verifactu extends Module
         // Usamos las clases que ya tienes definidas en views/css/back.css para mantener coherencia
         switch ($value) {
             case 'Correcto':
-                return '<span class="verifactu_correct">'.$this->l('Correcto').'</span>';
+                return '<span class="badge badge-success">'.$this->l('Correcto').'</span>';
             
             case 'Incorrecto':
-                return '<span class="verifactu_error">'.$this->l('Incorrecto').'</span>';
+                return '<span class="badge badge-danger">'.$this->l('Incorrecto').'</span>';
             
             case 'AceptadoConErrores':
-                return '<span class="verifactu_warning">'.$this->l('Aceptado con Errores').'</span>';
+                return '<span class="badge badge-warning">'.$this->l('Aceptado con Errores').'</span>';
             
             case 'Pendiente':
                 // Estilo manual para pendiente (lila claro)
@@ -3082,11 +3308,11 @@ class Verifactu extends Module
             
             case 'No enviada':
                 // Estilo manual para no enviada (azul info)
-                return '<span class="badge" style="background-color: #17a2b8; color: white; padding: 5px; border-radius: 3px;">'.$this->l('No enviada').'</span>';
+                return '<span class="badge badge-secondary" >'.$this->l('No enviada').'</span>';
             
             case 'Sin factura':
                 // Estilo discreto para cuando no hay factura (gris)
-                return '<span class="badge" style="background-color: #6c757d; color: white; padding: 5px; border-radius: 3px;">'.$this->l('Sin factura').'</span>';
+                return '<span class="badge badge-secondary" >'.$this->l('Sin factura').'</span>';
             
             default:
                 return $value;
