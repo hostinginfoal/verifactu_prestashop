@@ -45,6 +45,7 @@ use PrestaShopBundle\Form\Admin\Type\SearchAndResetType;
 use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Verifactu\VerifactuClasses\ApiVerifactu;
+use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\HtmlColumn;
 
 class Verifactu extends Module
 {
@@ -56,7 +57,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.4.9';
+        $this->version = '1.5.0';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1205,21 +1206,21 @@ class Verifactu extends Module
                 'title' => $this->l('ID Pedido'),
                 'align' => 'text-center',
                 'class' => 'fixed-width-xs',
-                'search' => false,
+                'search' => true,
             ),
             'number' => array(
                 'title' => $this->l('Nº Factura'),
                 'callback' => 'getFormattedInvoiceNumberForList',
                 'callback_object' => $this,
-                'search' => false,
+                'search' => true,
             ),
-            'customer' => array('title' => $this->l('Cliente'), 'search' => false, 'orderby' => false),
-            'total_paid_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
-            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false),
-            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
-            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => false,),
-            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
-            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'customer' => array('title' => $this->l('Cliente'), 'search' => true, 'orderby' => true),
+            'total_paid_tax_incl' => array('title' => $this->l('Total'), 'search' => true, 'type' => 'price'),
+            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
+            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
+            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
+            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
 
@@ -1309,21 +1310,21 @@ class Verifactu extends Module
                 'title' => $this->l('ID Pedido'),
                 'align' => 'text-center',
                 'class' => 'fixed-width-xs',
-                'search' => false,
+                'search' => true,
             ),
             'id_order_slip' => array(
                 'title' => $this->l('Nº Abono'),
                 'callback' => 'getFormattedSlipNumberForList',
                 'callback_object' => $this,
-                'search' => false,
+                'search' => true,
             ),
-            'customer' => array('title' => $this->l('Cliente'), 'search' => false, 'orderby' => false),
-            'total_products_tax_incl' => array('title' => $this->l('Total'), 'search' => false, 'type' => 'price'),
-            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => false,),
-            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => false, 'escape' => false),
-            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => false,),
-            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
-            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => false, 'align' => 'center'),
+            'customer' => array('title' => $this->l('Cliente'), 'search' => true, 'orderby' => true),
+            'total_products_tax_incl' => array('title' => $this->l('Total'), 'search' => true, 'type' => 'price'),
+            'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true,),
+            'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
+            'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
+            'TipoFactura' => array('title' => $this->l('Simplificada'), 'type' => 'bool', 'callback' => 'printSimplifiedInvoiceTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
+            'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
             'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
         );
 
@@ -1417,49 +1418,49 @@ class Verifactu extends Module
                 'title' => $this->l('Nº Factura'),
                 'type' => 'text',
                 'orderby' => true,
-                'search' => false,
+                'search' => true,
             ),
             'BuyerName' => array(
                 'title' => $this->l('Cliente'),
                 'type' => 'text',
-                'search' => false,
+                'search' => true,
             ),
             'TipoOperacion' => array(
                 'title' => $this->l('Operación'),
                 'type' => 'text',
-                'search' => false,
-                'orderby' => false,
+                'search' => true,
+                'orderby' => true,
             ),
             'TipoFactura' => array(
                 'title' => $this->l('Tipo'),
                 'type' => 'text',
                 'align' => 'center',
-                'search' => false,
-                'orderby' => false,
+                'search' => true,
+                'orderby' => true,
             ),
             'FacturaSinIdentifDestinatarioArt61d' => array(
                 'title' => $this->l('Simplif.'),
                 'type' => 'bool',
                 'active' => 'status',
                 'align' => 'center',
-                'search' => false,
-                'orderby' => false,
+                'search' => true,
+                'orderby' => true,
             ),
             
             'TotalTaxOutputs' => array(
                 'title' => $this->l('Impuestos'),
                 'type' => 'price',
-                'search' => false,
+                'search' => true,
             ),
             'InvoiceTotal' => array(
                 'title' => $this->l('Total'),
                 'type' => 'price',
-                'search' => false,
+                'search' => true,
             ),
             'EstadoRegistro' => array(
                 'title' => $this->l('Estado'),
                 'type' => 'text',
-                'search' => false,
+                'search' => true,
                 'callback' => 'colorEncodeState', // Nombre de nuestra nueva función
                 'callback_object' => $this,      // Le decimos que la función está en este objeto
                 'escape' => false 
@@ -1467,12 +1468,12 @@ class Verifactu extends Module
             'apiMode' => array(
                 'title' => $this->l('Modo API'),
                 'align' => 'text-center',
-                'search' => false, // Puedes ponerlo a true y añadir 'apiMode' a la lista $allowedFilters más abajo
+                'search' => true, // Puedes ponerlo a true y añadir 'apiMode' a la lista $allowedFilters más abajo
             ),
             'DescripcionErrorRegistro' => array(
                 'title' => $this->l('Error'),
                 'type' => 'text',
-                'search' => false,
+                'search' => true,
                 'orderby' => false,
                 'callback' => 'printErrorColumn',
                 'callback_object' => $this,
@@ -2055,6 +2056,125 @@ class Verifactu extends Module
         return null;
     }
 
+    /**
+     * Construye el array de eventos para el timeline basado en los datos disponibles.
+     * * @param array $data Datos de la fila (factura o abono)
+     * @return array Lista de eventos
+     */
+    private function buildTimelineData($data)
+    {
+        $timeline = [];
+
+        // 1. Evento: Creación en PrestaShop
+        // Intentamos coger date_add_prestashop (definido en el hook) o date_add por defecto
+        $date_ps = isset($data['date_add_prestashop']) ? $data['date_add_prestashop'] : (isset($data['date_add']) ? $data['date_add'] : null);
+        
+        if ($date_ps) {
+            $timeline[] = [
+                'type' => 'created',
+                'title' => $this->l('Factura creada en PrestaShop'),
+                'date' => $date_ps,
+                'color' => '#6c757d', // Gris
+                'icon' => 'icon-file-text'
+            ];
+        }
+
+        // 2. Eventos: Consultar histórico de envíos en verifactu_reg_fact
+        $id_search = 0;
+        $tipo_search = '';
+
+        // Determinamos si es factura o abono para filtrar la query
+        if (isset($data['id_order_invoice']) && !isset($data['id_order_slip'])) {
+            $id_search = (int)$data['id_order_invoice'];
+            $tipo_search = 'alta'; // Valor en columna 'tipo' para facturas
+        } elseif (isset($data['id_order_slip'])) {
+            $id_search = (int)$data['id_order_slip'];
+            $tipo_search = 'abono'; // Valor en columna 'tipo' para abonos
+        }
+
+        if ($id_search > 0) {
+            $db = \Db::getInstance();
+            $sql = new \DbQuery();
+            $sql->select('*');
+            $sql->from('verifactu_reg_fact');
+            $sql->where('id_order_invoice = ' . $id_search);
+            $sql->where('tipo = "' . pSQL($tipo_search) . '"');
+            // Ordenamos por ID ascendente para ver la secuencia histórica
+            $sql->orderBy('id_reg_fact ASC');
+
+            $history = $db->executeS($sql);
+
+            if ($history) {
+                foreach ($history as $reg) {
+                    $status = $reg['EstadoRegistro'];
+                    $date = $reg['fechaHoraRegistro']; // Fecha respuesta AEAT
+                    
+                    // Si no hay fecha de registro (ej. error de conexión previo), intentamos usar IssueDate o una fecha nula
+                    if (empty($date)) {
+                        // Opcional: Si guardaras fecha de creación en reg_fact, úsala aquí.
+                        // Como no está en el schema, lo dejamos null o indicamos "Intento de envío".
+                        $date = null; 
+                    }
+
+                    $title = '';
+                    $color = '';
+                    $icon = '';
+                    $detail = '';
+
+                    if ($status === 'Correcto') {
+                        $title = $this->l('Aceptado por AEAT (Correcto)');
+                        $color = '#28a745'; // Verde
+                        $icon = 'icon-check';
+                    } elseif ($status === 'AceptadoConErrores') {
+                        $title = $this->l('Aceptado con Errores');
+                        $color = '#ffc107'; // Amarillo
+                        $icon = 'icon-exclamation-triangle';
+                        $detail = $reg['CodigoErrorRegistro'] . ' - ' . $reg['DescripcionErrorRegistro'];
+                    } elseif ($status === 'Incorrecto') {
+                        $title = $this->l('Rechazado por AEAT');
+                        $color = '#dc3545'; // Rojo
+                        $icon = 'icon-remove';
+                        $detail = $reg['CodigoErrorRegistro'] . ' - ' . $reg['DescripcionErrorRegistro'];
+                    } else {
+                        // Otros estados (ej. errores de conexión, timeouts, etc guardados en EstadoEnvio)
+                        if (!empty($reg['EstadoEnvio']) && $reg['EstadoEnvio'] !== 'Enviado') {
+                             $title = $this->l('Error de Envío: ') . $reg['EstadoEnvio'];
+                             $color = '#17a2b8'; // Azul info
+                             $icon = 'icon-exchange';
+                        } else {
+                             $title = $this->l('Registro Enviado');
+                             $color = '#17a2b8';
+                             $icon = 'icon-cloud-upload';
+                        }
+                    }
+
+                    $timeline[] = [
+                        'type' => 'aeat_response',
+                        'title' => $title,
+                        'date' => $date,
+                        'color' => $color,
+                        'icon' => $icon,
+                        'detail' => $detail
+                    ];
+                }
+            }
+        }
+        
+        // 3. Evento: Anulación (si aplica y está marcado en la tabla resumen)
+        if (!empty($data['anulacion']) && $data['anulacion'] == 1) {
+             $timeline[] = [
+                'type' => 'canceled',
+                'title' => $this->l('Factura Anulada'),
+                'date' => null, 
+                'color' => '#343a40', // Negro
+                'icon' => 'icon-ban',
+                'detail' => $this->l('Se ha enviado un registro de anulación para esta factura.')
+            ];
+        }
+
+        return $timeline;
+    }
+
 
     // =================================================================
     // HOOKS
@@ -2462,68 +2582,7 @@ class Verifactu extends Module
 
     }
 
-    public function hookActionOrderGridDefinitionModifier(array $params)
-    {
-        /** @var GridDefinitionInterface $definition */
-        $definition = $params['definition'];
-
-        $translator = $this->getTranslator();
-
-        $verifactuColumn = new DataColumn('Verifactu');
-        $verifactuColumn->setName('Verifactu');
-        $verifactuColumn->setOptions([
-             'field' => 'verifactu',
-        ]);
-
-        $columns = new ColumnCollection();
-        $columns->add($verifactuColumn);
-
-        $definition
-            ->getColumns()
-            ->addAfter(
-                'osname',
-                $verifactuColumn
-            )
-        ;
-    }
-
-    public function hookActionOrderGridQueryBuilderModifier(array $params)
-    {
-        /** @var QueryBuilder $searchQueryBuilder */
-        $searchQueryBuilder = $params['search_query_builder'];
-
-        $searchCriteria = $params['search_criteria'];
-
-        $searchQueryBuilder->addSelect(
-            'IF(ISNULL(vi.verifactuEstadoRegistro),IF(ISNULL(i.id_order_invoice),"Sin factura","No enviada"),vi.verifactuEstadoRegistro) AS `verifactu`'
-        );
-
-        $searchQueryBuilder->leftJoin(
-            'o',
-            '`' . pSQL(_DB_PREFIX_) . 'order_invoice`',
-            'i',
-            'i.`id_order` = o.`id_order`'
-        );
-
-        $searchQueryBuilder->leftJoin(
-            'o',
-            '`' . pSQL(_DB_PREFIX_) . 'verifactu_order_invoice`',
-            'vi',
-            'vi.`id_order_invoice` = i.`id_order_invoice`'
-        );
-
-        if ('verifactu' === $searchCriteria->getOrderBy()) {
-            $searchQueryBuilder->orderBy('vi.`verifactuEstadoRegistro`', $searchCriteria->getOrderWay());
-        }
-
-        foreach ($searchCriteria->getFilters() as $filterName => $filterValue) 
-        {
-            if ('verifactu' === $filterName) {
-                $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
-                $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
-            }
-        }
-    }
+    
     
 
     public function hookActionAdminControllerSetMedia($params)
@@ -2560,7 +2619,7 @@ class Verifactu extends Module
         // 1. --- Obtenemos la Factura Principal ---
         $verifactu_invoice = null;
         $sql_invoice = new DbQuery();
-        $sql_invoice->select('voi.*, oi.id_order_invoice');
+        $sql_invoice->select('voi.*, oi.id_order_invoice,oi.date_add');
         $sql_invoice->from('order_invoice', 'oi');
         $sql_invoice->leftJoin('verifactu_order_invoice', 'voi', 'oi.id_order_invoice = voi.id_order_invoice');
         $sql_invoice->where('oi.id_order = ' . $id_order);
@@ -2572,13 +2631,14 @@ class Verifactu extends Module
             $invoice_data['formatted_number'] = $api_verifactu->getFormattedInvoiceNumber($invoice_data['id_order_invoice']);
             // Generamos la imagen QR
             $invoice_data['imgQR'] = $this->generateQrImage($invoice_data['urlQR'], 'inv_' . $invoice_data['id_order_invoice']);
+            $invoice_data['timeline'] = $this->buildTimelineData($invoice_data);
             $verifactu_invoice = $invoice_data;
         }
 
         // 2. --- Obtenemos la LISTA de Abonos (Credit Slips) ---
         $verifactu_slips = [];
         $sql_slips = new DbQuery();
-        $sql_slips->select('vos.*, os.id_order_slip');
+        $sql_slips->select('vos.*, os.id_order_slip, os.date_add');
         $sql_slips->from('order_slip', 'os');
         // Usamos INNER JOIN para coger SOLO los abonos que existen en nuestra tabla
         $sql_slips->innerJoin('verifactu_order_slip', 'vos', 'os.id_order_slip = vos.id_order_slip');
@@ -2593,6 +2653,7 @@ class Verifactu extends Module
                 $slip_data['formatted_number'] = $api_verifactu->getFormattedCreditSlipNumber($slip_data['id_order_slip']);
                 // Generamos la imagen QR
                 $slip_data['imgQR'] = $this->generateQrImage($slip_data['urlQR'], 'slip_' . $slip_data['id_order_slip']);
+                $slip_data['timeline'] = $this->buildTimelineData($slip_data);
                 $verifactu_slips[] = $slip_data;
             }
         }
@@ -2860,6 +2921,82 @@ class Verifactu extends Module
         // Reseteamos el array para la siguiente ejecución.
         self::$temp_qr_files = [];
     }
+
+    public function hookActionOrderGridDefinitionModifier(array $params)
+    {
+        /** @var \PrestaShop\PrestaShop\Core\Grid\Definition\GridDefinitionInterface $definition */
+        $definition = $params['definition'];
+
+        // Usamos HtmlColumn en lugar de DataColumn para permitir HTML (badges)
+        $verifactuColumn = new HtmlColumn('verifactu'); 
+        $verifactuColumn->setName($this->l('Verifactu'));
+        $verifactuColumn->setOptions([
+            'field' => 'verifactu',
+            'clickable' => false, // Generalmente no queremos que el texto sea un enlace
+        ]);
+
+        $definition
+            ->getColumns()
+            ->addAfter(
+                'osname',
+                $verifactuColumn
+            );
+    }
+
+    public function hookActionOrderGridQueryBuilderModifier(array $params)
+    {
+        /** @var Doctrine\DBAL\Query\QueryBuilder $searchQueryBuilder */
+        $searchQueryBuilder = $params['search_query_builder'];
+        $searchCriteria = $params['search_criteria'];
+
+        // --- CAMBIO IMPORTANTE: Generamos el HTML directamente en la SQL ---
+        // Usamos CASE para devolver la etiqueta <span> completa según el estado.
+        // Las clases CSS (verifactu_correct, etc.) deben estar en tu back.css
+        $searchQueryBuilder->addSelect(
+            'CASE 
+                WHEN vi.estado = "pendiente" THEN "<span class=\'badge badge-info\'>Pendiente</span>"
+                
+                WHEN vi.verifactuEstadoRegistro = "Correcto" THEN "<span class=\'badge badge-success\'>Correcto</span>"
+                
+                WHEN vi.verifactuEstadoRegistro = "Incorrecto" THEN "<span class=\'badge badge-danger\'>Incorrecto</span>"
+                
+                WHEN vi.verifactuEstadoRegistro = "AceptadoConErrores" THEN "<span class=\'badge badge-warning\'>Aceptado con Errores</span>"
+                
+                WHEN i.id_order_invoice IS NOT NULL THEN "<span class=\'badge badge-secondary\'>No enviada</span>"
+                
+                ELSE "<span class=\'badge badge-secondary\'>Sin factura</span>"
+            END AS `verifactu`'
+        );
+
+        $searchQueryBuilder->leftJoin(
+            'o',
+            '`' . _DB_PREFIX_ . 'order_invoice`',
+            'i',
+            'i.`id_order` = o.`id_order`'
+        );
+
+        $searchQueryBuilder->leftJoin(
+            'o',
+            '`' . _DB_PREFIX_ . 'verifactu_order_invoice`',
+            'vi',
+            'vi.`id_order_invoice` = i.`id_order_invoice`'
+        );
+
+        // Lógica de filtrado (Search)
+        if ('verifactu' === $searchCriteria->getOrderBy()) {
+            // Ordenamos por el valor texto, no por el HTML completo para evitar caos
+            $searchQueryBuilder->orderBy('vi.`verifactuEstadoRegistro`', $searchCriteria->getOrderWay());
+        }
+
+        foreach ($searchCriteria->getFilters() as $filterName => $filterValue) 
+        {
+            if ('verifactu' === $filterName) {
+                // Filtramos por el texto que contiene el estado
+                $searchQueryBuilder->andWhere('vi.`verifactuEstadoRegistro` LIKE :verifactu_filter');
+                $searchQueryBuilder->setParameter('verifactu_filter', '%' . $filterValue . '%');
+            }
+        }
+    }
     
     /**
      * Hook para modificar la lista de pedidos en versiones de PrestaShop < 1.7.7.0
@@ -2870,23 +3007,67 @@ class Verifactu extends Module
             $params['fields']['total_paid_tax_incl']['filter_key'] = 'a!total_paid_tax_incl';
         }
 
-        // 1. Añadir la nueva columna "Verifactu" a la definición de la lista.
+        // 1. Añadir la columna con el callback y escape desactivado
         $params['fields']['verifactu'] = [
             'title' => $this->l('Verifactu'),
             'align' => 'text-center',
-            'class' => 'fixed-width-xs',
-            'orderby' => false, // No se puede ordenar fácilmente en legacy
-            'search' => false,
+            'class' => 'fixed-width-sm',
+            'orderby' => true,
+            'search' => true,
+            'callback' => 'printVerifactuBadge', // Llamada a tu función
+            'callback_object' => $this,          // Importante: indica que la función está en este módulo
+            'escape' => false,                   // IMPRESCINDIBLE: Permite renderizar HTML (los badges)
         ];
 
-        // 2. Modificar la consulta SQL para obtener los datos de la nueva columna.
-        // Asegúrate de que `verifactuEstadoRegistro` es el nombre correcto en tu tabla.
-        $params['select'] .= ', IFNULL(vi.verifactuEstadoRegistro, IF(i.id_order_invoice IS NULL, "Sin factura", "No enviada")) AS verifactu';
+        // 2. Modificar SELECT con lógica para priorizar el estado 'pendiente'
+        $params['select'] .= ', 
+        CASE 
+            WHEN vi.estado = "pendiente" THEN "Pendiente"
+            WHEN vi.verifactuEstadoRegistro IS NOT NULL AND vi.verifactuEstadoRegistro != "" THEN vi.verifactuEstadoRegistro
+            WHEN i.id_order_invoice IS NOT NULL THEN "No enviada"
+            ELSE "Sin factura"
+        END AS verifactu';
         
-        // 3. Añadir los JOINS necesarios a la consulta.
-        // El JOIN a 'order_invoice' debe hacerse sobre el alias 'a' de la tabla de pedidos.
+        // 3. Añadir los JOINS
         $params['join'] .= ' LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` i ON (a.`id_order` = i.`id_order`)';
         $params['join'] .= ' LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_order_invoice` vi ON (i.`id_order_invoice` = vi.`id_order_invoice`)';
+    }
+
+    /**
+     * Callback para mostrar el estado de Verifactu como un badge en el listado de pedidos.
+     *
+     * @param string $value El valor calculado en la consulta SQL (Correcto, Pendiente, etc.)
+     * @param array $row La fila completa (no se usa en este caso simple)
+     * @return string HTML del badge
+     */
+    public function printVerifactuBadge($value, $row)
+    {
+        // Usamos las clases que ya tienes definidas en views/css/back.css para mantener coherencia
+        switch ($value) {
+            case 'Correcto':
+                return '<span class="verifactu_correct">'.$this->l('Correcto').'</span>';
+            
+            case 'Incorrecto':
+                return '<span class="verifactu_error">'.$this->l('Incorrecto').'</span>';
+            
+            case 'AceptadoConErrores':
+                return '<span class="verifactu_warning">'.$this->l('Aceptado con Errores').'</span>';
+            
+            case 'Pendiente':
+                // Estilo manual para pendiente (lila claro)
+                return '<span class="badge" style="background-color: #e4e3f7; color: #333; padding: 5px; border-radius: 3px;">'.$this->l('Pendiente').'</span>';
+            
+            case 'No enviada':
+                // Estilo manual para no enviada (azul info)
+                return '<span class="badge" style="background-color: #17a2b8; color: white; padding: 5px; border-radius: 3px;">'.$this->l('No enviada').'</span>';
+            
+            case 'Sin factura':
+                // Estilo discreto para cuando no hay factura (gris)
+                return '<span class="badge" style="background-color: #6c757d; color: white; padding: 5px; border-radius: 3px;">'.$this->l('Sin factura').'</span>';
+            
+            default:
+                return $value;
+        }
     }
     
     //---------------FUNCIONES LEGACY PARA VERSIONES ENTRE 1.7.0 y 1.7.7.0 -----------------------------------------------------------------
@@ -2932,6 +3113,7 @@ class Verifactu extends Module
             $invoice_data['formatted_number'] = $api_verifactu->getFormattedInvoiceNumber($invoice_data['id_order_invoice']);
             // Generamos la imagen QR
             $invoice_data['imgQR'] = $this->generateQrImage($invoice_data['urlQR'], 'inv_' . $invoice_data['id_order_invoice']);
+            $invoice_data['timeline'] = $this->buildTimelineData($invoice_data);
             $verifactu_invoice = $invoice_data;
         }
 
@@ -2953,6 +3135,7 @@ class Verifactu extends Module
                 $slip_data['formatted_number'] = $api_verifactu->getFormattedCreditSlipNumber($slip_data['id_order_slip']);
                 // Generamos la imagen QR
                 $slip_data['imgQR'] = $this->generateQrImage($slip_data['urlQR'], 'slip_' . $slip_data['id_order_slip']);
+                $slip_data['timeline'] = $this->buildTimelineData($slip_data);
                 $verifactu_slips[] = $slip_data;
             }
         }

@@ -478,13 +478,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
+                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                     $line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
+                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_incl']);
                     $line->TaxAmountTotal = 0;
                 }
 
@@ -498,7 +498,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $l['total_price_tax_excl'];
+                    $base_amount = -((float) $l['total_price_tax_excl']);
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
@@ -584,13 +584,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_excl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = ((float) $slip['total_price_tax_incl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_incl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
 
@@ -604,7 +604,7 @@ class ApiVerifactu
                     $vat_rate = $rates['vat'];
                     $re_rate = $rates['re'];
 
-                    $base_amount = (float) $slip['total_shipping_tax_excl'];
+                    $base_amount = -((float) $slip['total_shipping_tax_excl']);
                 
                     $vat_amount = round($base_amount * ($vat_rate / 100), 2);
                     $re_amount = 0;
