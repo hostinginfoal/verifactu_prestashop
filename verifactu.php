@@ -57,7 +57,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.5.0';
+        $this->version = '1.5.1';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -3154,7 +3154,12 @@ class Verifactu extends Module
         $definition = $params['definition'];
 
         // Usamos HtmlColumn en lugar de DataColumn para permitir HTML (badges)
-        $verifactuColumn = new HtmlColumn('verifactu'); 
+        if (version_compare(_PS_VERSION_, '8.0.1', '>=')) {
+            $verifactuColumn = new HtmlColumn('verifactu');
+        } else {
+            // Fallback para 1.7.7.x: Usamos DataColumn (texto plano sin colores)
+            $verifactuColumn = new DataColumn('verifactu');
+        }
         $verifactuColumn->setName($this->l('Verifactu'));
         $verifactuColumn->setOptions([
             'field' => 'verifactu',
@@ -3184,24 +3189,30 @@ class Verifactu extends Module
         $searchQueryBuilder = $params['search_query_builder'];
         $searchCriteria = $params['search_criteria'];
 
-        // --- CAMBIO IMPORTANTE: Generamos el HTML directamente en la SQL ---
-        // Usamos CASE para devolver la etiqueta <span> completa según el estado.
-        // Las clases CSS (verifactu_correct, etc.) deben estar en tu back.css
-        $searchQueryBuilder->addSelect(
-            'CASE 
-                WHEN vi.estado = "pendiente" THEN "<span class=\'badge badge-info\'>Pendiente</span>"
-                
-                WHEN vi.verifactuEstadoRegistro = "Correcto" THEN "<span class=\'badge badge-success\'>Correcto</span>"
-                
-                WHEN vi.verifactuEstadoRegistro = "Incorrecto" THEN "<span class=\'badge badge-danger\'>Incorrecto</span>"
-                
-                WHEN vi.verifactuEstadoRegistro = "AceptadoConErrores" THEN "<span class=\'badge badge-warning\'>Aceptado con Errores</span>"
-                
-                WHEN i.id_order_invoice IS NOT NULL THEN "<span class=\'badge badge-secondary\'>No enviada</span>"
-                
-                ELSE "<span class=\'badge badge-secondary\'>Sin factura</span>"
-            END AS `verifactu`'
-        );
+        // Detectamos si podemos usar HTML (8+) o solo texto (1.7.7)
+        $useHtml = version_compare(_PS_VERSION_, '8.0.1', '>=');
+
+        if ($useHtml) {
+            // LÓGICA PARA 1.7.8+ y 8.X (Con Badges de colores)
+            $selectCase = 'CASE 
+                WHEN vi.estado = "pendiente" THEN "<span class=\'badge\' style=\'background-color:#e4e3f7;color:#333\'>Pendiente</span>"
+                WHEN vi.verifactuEstadoRegistro = "Correcto" THEN "<span class=\'badge\' style=\'background-color:#28a745;color:white\'>Correcto</span>"
+                WHEN vi.verifactuEstadoRegistro = "Incorrecto" THEN "<span class=\'badge\' style=\'background-color:#dc3545;color:white\'>Incorrecto</span>"
+                WHEN vi.verifactuEstadoRegistro = "AceptadoConErrores" THEN "<span class=\'badge\' style=\'background-color:#ffc107;color:#333\'>Aceptado con Errores</span>"
+                WHEN i.id_order_invoice IS NOT NULL THEN "<span class=\'badge badge-info\' style=\'background-color:#17a2b8;color:white\'>No enviada</span>"
+                ELSE "<span class=\'badge badge-secondary\' style=\'background-color:#6c757d;color:white\'>Sin factura</span>"
+            END';
+        } else {
+            // LÓGICA PARA 1.7.7.x (Solo texto plano para evitar que se vea el código HTML escapado)
+            $selectCase = 'CASE 
+                WHEN vi.estado = "pendiente" THEN "Pendiente"
+                WHEN vi.verifactuEstadoRegistro IS NOT NULL AND vi.verifactuEstadoRegistro != "" THEN vi.verifactuEstadoRegistro
+                WHEN i.id_order_invoice IS NOT NULL THEN "No enviada"
+                ELSE "Sin factura"
+            END';
+        }
+
+        $searchQueryBuilder->addSelect($selectCase . ' AS `verifactu`');
 
         $searchQueryBuilder->leftJoin(
             'o',
