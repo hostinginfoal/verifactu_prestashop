@@ -43,7 +43,7 @@
                             {if $verifactu_invoice.verifactuEstadoRegistro == ""}
                                 {l s='No enviado' mod='verifactu'}
                             {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
-                                {l s='Enviado correctamente a Veri*Factu' mod='verifactu'}
+                                {l s='Correcto' mod='verifactu'}
                             {else}
                                 {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$verifactu_invoice.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
                             {/if}
@@ -54,7 +54,7 @@
                 {if $verifactu_invoice.anulacion == "1"}
                      <span class="badge badge-dark">{l s='Anulado' mod='verifactu'}</span>
                 {/if}
-            
+
                 {if $verifactu_invoice.verifactuEstadoRegistro == "Correcto" || $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}
                     {if $verifactu_invoice.TipoFactura == "F2"}
                         <span class="badge badge-light border tipo_factura">{l s='Factura Simplificada' mod='verifactu'}</span>
@@ -177,7 +177,7 @@
                         {if $slip.verifactuEstadoRegistro == ""}
                             {l s='No enviado' mod='verifactu'}
                         {elseif $slip.verifactuEstadoRegistro == "Correcto"}
-                            {l s='Enviado correctamente a Veri*Factu' mod='verifactu'}
+                            {l s='Correcto' mod='verifactu'}
                         {else}
                             {$slip.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$slip.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
                         {/if}
