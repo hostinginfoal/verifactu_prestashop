@@ -32,16 +32,35 @@
         </div>
         <div class="card-body">
             Estado actual: <span class="badge estado_verifactu {if $verifactu_invoice.estado == 'pendiente'}badge-info{elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}">
-                    {if $verifactu_invoice.verifactuEstadoRegistro}
-                        {$verifactu_invoice.verifactuEstadoRegistro}
+                    {if $verifactu_invoice.anulacion == "1"}
+                            {l s='Registro Anulado' mod='verifactu'}
                     {else}
-                        {l s='Enviado correctamente. En espera de respuesta de la AEAT' mod='verifactu'}
+                        {if $verifactu_invoice.estado == "pendiente"}
+                            {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                        {elseif $verifactu_invoice.estado == "api_error"}
+                            <span class="text-danger">{$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                        {else}
+                            {if $verifactu_invoice.verifactuEstadoRegistro == ""}
+                                {l s='No enviado' mod='verifactu'}
+                            {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
+                                {l s='Enviado correctamente a Veri*Factu' mod='verifactu'}
+                            {else}
+                                {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$verifactu_invoice.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
+                            {/if}
+                        {/if}
                     {/if}
                 </span>
-                {if $verifactu_invoice.TipoFactura == "F2"}
-                    <span class="badge badge-light border tipo_factura">{l s='Factura Simplificada' mod='verifactu'}</span>
-                {else}
-                    <span class="badge badge-light border tipo_factura">{l s='Factura Completa' mod='verifactu'}</span>
+
+                {if $verifactu_invoice.anulacion == "1"}
+                     <span class="badge badge-dark">{l s='Anulado' mod='verifactu'}</span>
+                {/if}
+            
+                {if $verifactu_invoice.verifactuEstadoRegistro == "Correcto" || $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}
+                    {if $verifactu_invoice.TipoFactura == "F2"}
+                        <span class="badge badge-light border tipo_factura">{l s='Factura Simplificada' mod='verifactu'}</span>
+                    {else}
+                        <span class="badge badge-light border tipo_factura">{l s='Factura Completa' mod='verifactu'}</span>
+                    {/if}
                 {/if}
                 <br><br>
             {* --- TIMELINE --- *}
@@ -147,10 +166,22 @@
         </div>
         <div class="card-body">
             Estado: <span class="badge estado_verifactu {if $slip.estado == 'pendiente'}badge-info{elseif $slip.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $slip.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}">
-                {if $slip.verifactuEstadoRegistro}
-                    {$slip.verifactuEstadoRegistro}
+                {if $slip.anulacion == "1"}
+                    {l s='Registro Anulado' mod='verifactu'}
                 {else}
-                    {l s='Enviado correctamente. En espera de respuesta de la AEAT' mod='verifactu'}
+                    {if $slip.estado == "pendiente"}
+                        {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                    {elseif $slip.estado == "api_error"}
+                        <span class="text-danger">{$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                    {else}
+                        {if $slip.verifactuEstadoRegistro == ""}
+                            {l s='No enviado' mod='verifactu'}
+                        {elseif $slip.verifactuEstadoRegistro == "Correcto"}
+                            {l s='Enviado correctamente a Veri*Factu' mod='verifactu'}
+                        {else}
+                            {$slip.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$slip.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
+                        {/if}
+                    {/if}
                 {/if}
             </span>
             
@@ -158,10 +189,12 @@
                  <span class="badge badge-dark">{l s='Anulado' mod='verifactu'}</span>
             {/if}
 
-            {if $slip.TipoFactura == "R5"}
-                <span class="badge badge-light border tipo_factura">{l s='Factura Simplificada' mod='verifactu'}</span>
-            {else}
-                 <span class="badge badge-light border tipo_factura">{l s='Factura Completa' mod='verifactu'}</span>
+            {if $slip.verifactuEstadoRegistro == "Correcto" || $slip.verifactuEstadoRegistro == "AceptadoConErrores"}
+                {if $slip.TipoFactura == "R5"}
+                    <span class="badge badge-light border tipo_factura">{l s='Factura Simplificada' mod='verifactu'}</span>
+                {else}
+                     <span class="badge badge-light border tipo_factura">{l s='Factura Completa' mod='verifactu'}</span>
+                {/if}
             {/if}
             <br><br>
             {* --- TIMELINE ABONO --- *}
