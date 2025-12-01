@@ -1280,7 +1280,7 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
         
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         $table_prefix = 'verifactu_order_invoiceFilter_';
         
         foreach ($filters as $key => $value) {
@@ -1363,7 +1363,7 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
 
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         $table_prefix = 'verifactu_order_invoiceFilter_';
 
         foreach ($filters as $key => $value) {
@@ -1495,7 +1495,7 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
 
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         $table_prefix = 'verifactu_order_slipFilter_';
 
         foreach ($filters as $key => $value) {
@@ -1578,7 +1578,7 @@ class Verifactu extends Module
             $whereClauses[] = 'o.id_shop = ' . (int)$this->context->shop->id;
         }
 
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         $table_prefix = 'verifactu_order_slipFilter_';
 
         foreach ($filters as $key => $value) {
@@ -1780,7 +1780,7 @@ class Verifactu extends Module
         }
 
         // --- FILTROS MANUALES REGISTROS ---
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         // El $table que llega aquí es 'verifactu_reg_fact'
         $table_prefix = $table . 'Filter_';
 
@@ -1822,7 +1822,7 @@ class Verifactu extends Module
         }
 
         // --- FILTROS PARA EL TOTAL ---
-        $filters = Tools::getAllValues();
+        $filters = $this->getAllValues();
         $table_prefix = $table . 'Filter_';
 
         foreach ($filters as $key => $value) {
@@ -3470,6 +3470,19 @@ class Verifactu extends Module
             PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
         }
         return $qr_code_path_for_smarty;
+    }
+
+    /**
+     * Polyfill para Tools::getAllValues() en versiones PS < 1.6.1
+     * Devuelve todos los valores de $_GET y $_POST combinados.
+     */
+    private function getAllValues()
+    {
+        if (method_exists('Tools', 'getAllValues')) {
+            return Tools::getAllValues();
+        }
+        // Fallback para PS 1.6.0.x
+        return array_merge($_GET, $_POST);
     }
     
 }
