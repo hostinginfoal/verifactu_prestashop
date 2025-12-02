@@ -45,7 +45,7 @@
                             {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
                                 {l s='Correcto' mod='verifactu'}
                             {else}
-                                {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$verifactu_invoice.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
+                                {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
                             {/if}
                         {/if}
                     {/if}
@@ -179,7 +179,7 @@
                         {elseif $slip.verifactuEstadoRegistro == "Correcto"}
                             {l s='Correcto' mod='verifactu'}
                         {else}
-                            {$slip.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'} - {$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'} ({$slip.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'})
+                            {$slip.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
                         {/if}
                     {/if}
                 {/if}
