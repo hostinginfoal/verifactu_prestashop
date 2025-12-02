@@ -92,10 +92,22 @@
                 <div class="col-md-8">
                     <div class="form-group">
                         Estado actual: <span class="badge {if $verifactu_invoice.estado == 'pendiente'}badge-info{elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
-                            {if $verifactu_invoice.verifactuEstadoRegistro}
-                                {$verifactu_invoice.verifactuEstadoRegistro}
+                            {if $verifactu_invoice.anulacion == "1"}
+                                    {l s='Registro Anulado' mod='verifactu'}
                             {else}
-                                {l s='Enviado correctamente. En espera de respuesta de la AEAT' mod='verifactu'}
+                                {if $verifactu_invoice.estado == "pendiente"}
+                                    {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                                {elseif $verifactu_invoice.estado == "api_error"}
+                                    {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
+                                {else}
+                                    {if $verifactu_invoice.verifactuEstadoRegistro == ""}
+                                        {l s='No enviado' mod='verifactu'}
+                                    {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
+                                        {l s='Correcto' mod='verifactu'}
+                                    {else}
+                                        {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
+                                    {/if}
+                                {/if}
                             {/if}
                         </span>
                         
@@ -103,10 +115,12 @@
                              <span class="badge badge-dark">{l s='Registro Anulado' mod='verifactu'}</span>
                         {/if}
 
-                         - Tipo factura: {if $verifactu_invoice.TipoFactura == "F2"}
-                            <span class="badge badge-light border">{l s='Simplificada' mod='verifactu'}</span>
-                        {else}
-                            <span class="badge badge-light border">{l s='Completa' mod='verifactu'}</span>
+                        {if $verifactu_invoice.verifactuEstadoRegistro == "Correcto" || $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}
+                             - Tipo factura: {if $verifactu_invoice.TipoFactura == "F2"}
+                                <span class="badge badge-light border">{l s='Simplificada' mod='verifactu'}</span>
+                            {else}
+                                <span class="badge badge-light border">{l s='Completa' mod='verifactu'}</span>
+                            {/if}
                         {/if}
                     </div>
 
@@ -211,10 +225,22 @@
                 <div class="col-md-8">
                     <div class="form-group">
                         Estado actual: <span class="badge {if $slip.estado == 'pendiente'}badge-info{elseif $slip.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $slip.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
-                            {if $slip.verifactuEstadoRegistro}
-                                {$slip.verifactuEstadoRegistro}
+                            {if $verifactu_invoice.anulacion == "1"}
+                                {l s='Registro Anulado' mod='verifactu'}
                             {else}
-                                {l s='Enviado correctamente. En espera de respuesta de la AEAT' mod='verifactu'}
+                                {if $verifactu_invoice.estado == "pendiente"}
+                                    {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                                {elseif $verifactu_invoice.estado == "api_error"}
+                                    {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
+                                {else}
+                                    {if $verifactu_invoice.verifactuEstadoRegistro == ""}
+                                        {l s='No enviado' mod='verifactu'}
+                                    {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
+                                        {l s='Correcto' mod='verifactu'}
+                                    {else}
+                                        {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
+                                    {/if}
+                                {/if}
                             {/if}
                         </span>
                         
@@ -222,10 +248,12 @@
                              <span class="badge badge-dark">{l s='Anulado' mod='verifactu'}</span>
                         {/if}
 
-                         - Tipo factura: {if $slip.TipoFactura == "R5"}
-                            <span class="badge badge-light border">{l s='Simplificada (R5)' mod='verifactu'}</span>
-                        {else}
-                            <span class="badge badge-light border">{l s='Completa' mod='verifactu'}</span>
+                        {if $slip.verifactuEstadoRegistro == "Correcto" || $slip.verifactuEstadoRegistro == "AceptadoConErrores"}
+                             - Tipo factura: {if $slip.TipoFactura == "R5"}
+                                <span class="badge badge-light border">{l s='Simplificada (R5)' mod='verifactu'}</span>
+                            {else}
+                                <span class="badge badge-light border">{l s='Completa' mod='verifactu'}</span>
+                            {/if}
                         {/if}
                     </div>
                     

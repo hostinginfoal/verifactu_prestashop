@@ -38,7 +38,7 @@
                         {if $verifactu_invoice.estado == "pendiente"}
                             {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
                         {elseif $verifactu_invoice.estado == "api_error"}
-                            <span class="text-danger">{$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                            {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
                         {else}
                             {if $verifactu_invoice.verifactuEstadoRegistro == ""}
                                 {l s='No enviado' mod='verifactu'}
@@ -172,7 +172,7 @@
                     {if $slip.estado == "pendiente"}
                         {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
                     {elseif $slip.estado == "api_error"}
-                        <span class="text-danger">{$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                        {$slip.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
                     {else}
                         {if $slip.verifactuEstadoRegistro == ""}
                             {l s='No enviado' mod='verifactu'}
