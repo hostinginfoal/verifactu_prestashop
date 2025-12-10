@@ -373,6 +373,7 @@ class ApiVerifactu
             if ($is_oss_invoice || $is_export_invoice) 
             {
                 $inv->TotalTaxOutputs = 0;
+                $inv->InvoiceTotal = -((float) $totalTaxExcl);
             }
 
             $data->invoice = $inv;
@@ -478,13 +479,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_incl']);
+                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                     $line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_incl']);
+                    $line->TaxableBaseAmount = -((float) $l['total_price_tax_excl']);
                     $line->TaxAmountTotal = 0;
                 }
 
@@ -584,13 +585,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_incl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_incl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
 
@@ -652,6 +653,7 @@ class ApiVerifactu
             if ($is_oss_invoice || $is_export_invoice)
             {
                 $inv->TotalTaxOutputs = 0;
+                $inv->InvoiceTotal = $invoice['total_paid_tax_excl'];
             }
 
             $data->invoice = $inv;
@@ -756,13 +758,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
                     $line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $line->TaxRate = 0;
-                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_incl']);
+                    $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
                     $line->TaxAmountTotal = 0;
                 }
 
@@ -863,13 +865,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_incl']);
+                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_incl']);
+                    $shipping_line->TaxableBaseAmount = ((float) $invoice['total_shipping_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
 
@@ -1012,13 +1014,13 @@ class ApiVerifactu
                         if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                         {
                             $discount_line->TaxRate = 0;
-                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_incl, 2);
+                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
                             $discount_line->TaxAmountTotal = 0;
                         }
                         elseif ($is_export_invoice) 
                         {
                             $discount_line->TaxRate = 0;
-                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_incl, 2);
+                            $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
                             $discount_line->TaxAmountTotal = 0;
                         }
 
