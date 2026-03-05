@@ -6,7 +6,7 @@ Nuestro módulo conecta tu tienda directamente al sistema Veri*Factu, enviando l
 - Envío automático de registros de facturación.
 - Respuesta de verifactu con código QR y enlace.
 - Sin necesidad de certificado digital.
-- Compatible con PrestaShop 1.6 y versiones posteriores.
+- Compatible con PrestaShop 1.6, 1.7, 8 y 9.
 - Panel de gestión y visualización de logs.
 - Cumplimiento con la normativa VeriFactu.
 
