@@ -1,6 +1,0 @@
-[11-Apr-2026 10:33:02 UTC] PHP Warning:  Undefined array key 1 in Command line code on line 8
-[11-Apr-2026 10:33:02 UTC] PHP Warning:  Undefined array key 1 in Command line code on line 8
-[11-Apr-2026 10:33:02 UTC] PHP Warning:  Undefined array key 1 in Command line code on line 8
-[11-Apr-2026 10:33:02 UTC] PHP Warning:  Undefined array key 1 in Command line code on line 8
-[12-Apr-2026 10:13:23 UTC] PHP Warning:  file_get_contents(/home/demopresta8infoa/public_html/install/install_version.php): Failed to open stream: No such file or directory in Command line code on line 1
-[12-Apr-2026 10:29:26 UTC] PHP Parse error:  syntax error, unexpected identifier "Tools" in /home/demopresta8infoa/public_html/modules/verifactu/verifactu.php on line 4152
