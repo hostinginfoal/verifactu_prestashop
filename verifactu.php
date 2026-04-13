@@ -53,7 +53,8 @@ require_once __DIR__ . '/services/VerifactuDiagnostic.php';
 //use Symfony\Component\Form\Extension\Core\Type\TextType;
 //use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\HtmlColumn;
 // ApiVerifactu: disponible via PSR-4 (Composer) en PS 1.7+ y via require_once en PS 1.6
-use Verifactu\VerifactuClasses\ApiVerifactu;
+// ApiVerifactu se referencia con nombre completamente calificado (\Verifactu\VerifactuClasses\ApiVerifactu)
+// para evitar el 'use' que no está permitido dentro de eval() (mecanismo de PS 1.6).
 
 class Verifactu extends Module
 {
@@ -2662,7 +2663,7 @@ $(document).ready(function() {
     public function getFormattedInvoiceNumberForList($value, $row)
     {
         // Reutilizamos la lógica que ya tienes en la clase ApiVerifactu
-        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        $api_verifactu = new \Verifactu\VerifactuClasses\ApiVerifactu(null, false, $this->context->shop->id);
         return $api_verifactu->getFormattedInvoiceNumber($row['id_order_invoice']);
     }
 
@@ -2676,7 +2677,7 @@ $(document).ready(function() {
     public function getFormattedSlipNumberForList($value, $row)
     {
         // Reutilizamos la lógica que ya tienes en la clase ApiVerifactu
-        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        $api_verifactu = new \Verifactu\VerifactuClasses\ApiVerifactu(null, false, $this->context->shop->id);
         return $api_verifactu->getFormattedCreditSlipNumber($row['id_order_slip']);
     }
 
@@ -2746,7 +2747,7 @@ $(document).ready(function() {
 
             $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
 
             $numserie = urlencode($av->getFormattedInvoiceNumber($invoice->id));
             $fecha = date('d-m-Y', strtotime($invoice->date_add));
@@ -2831,7 +2832,7 @@ $(document).ready(function() {
             
             $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
             
             $numserie = urlencode($av->getFormattedCreditSlipNumber($order_slip->id));
             $fecha = date('d-m-Y', strtotime($order_slip->date_add));
@@ -3396,7 +3397,7 @@ $(document).ready(function() {
         if (!empty($api_token) && !empty($nif_emisor)) {
              $id_order = $order->id;
              $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-             $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+             $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
              $av->sendAltaVerifactu($id_order, 'alta');
         } else {
              Verifactu::writeLog('Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
@@ -3416,7 +3417,7 @@ $(document).ready(function() {
         if (!empty($api_token) && !empty($nif_emisor)) {
             $id_order = $order->id;
             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
             $av->sendAltaVerifactu($id_order, 'abono');
         } else {
              Verifactu::writeLog('Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
@@ -3456,7 +3457,7 @@ $(document).ready(function() {
         $id_order = (int) $params['id_order'];
         
         // Instanciamos la clase ApiVerifactu para usar sus métodos de formateo
-        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        $api_verifactu = new \Verifactu\VerifactuClasses\ApiVerifactu(null, false, $this->context->shop->id);
 
         // 1. --- Obtenemos la Factura Principal ---
         $verifactu_invoice = null;
@@ -3612,7 +3613,7 @@ $(document).ready(function() {
 
             $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
             $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
             $fecha = date('d-m-Y', strtotime($invoice['date_add']));
             $importe = round((float) $invoice['total_paid_tax_incl'],2);
@@ -3806,10 +3807,10 @@ $(document).ready(function() {
 
         // Usamos HtmlColumn en lugar de DataColumn para permitir HTML (badges)
         if (version_compare(_PS_VERSION_, '8.0.1', '>=')) {
-            $verifactuColumn = new HtmlColumn('verifactu');
+            $verifactuColumn = new \PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\HtmlColumn('verifactu');
         } else {
             // Fallback para 1.7.7.x: Usamos DataColumn (texto plano sin colores)
-            $verifactuColumn = new DataColumn('verifactu');
+            $verifactuColumn = new \PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn('verifactu');
         }
         $verifactuColumn->setName($this->l('Verifactu'));
         $verifactuColumn->setOptions([
@@ -3823,7 +3824,7 @@ $(document).ready(function() {
 
         // 3. Añadimos el FILTRO (la cajita de búsqueda)
         $definition->getFilters()->add(
-            (new Filter('verifactu', TextType::class))
+            (new \PrestaShop\PrestaShop\Core\Grid\Filter\Filter('verifactu', \Symfony\Component\Form\Extension\Core\Type\TextType::class))
                 ->setTypeOptions([
                     'required' => false,
                     'attr' => [
@@ -4005,7 +4006,7 @@ $(document).ready(function() {
         require_once(dirname(__FILE__).'/lib/phpqrcode/qrlib.php');
         
         // Instanciamos la clase ApiVerifactu para usar sus métodos de formateo
-        $api_verifactu = new ApiVerifactu(null, false, $this->context->shop->id);
+        $api_verifactu = new \Verifactu\VerifactuClasses\ApiVerifactu(null, false, $this->context->shop->id);
 
         // 1. --- Obtenemos la Factura Principal ---
         $verifactu_invoice = null;
@@ -4097,7 +4098,7 @@ $(document).ready(function() {
             $invoice = Db::getInstance()->getRow($sql);
             $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
             $debug_mode = (bool) Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
             $numserie = urlencode($av->getFormattedInvoiceNumber($invoice['id_order_invoice']));
             $fecha = date('d-m-Y', strtotime($invoice['date_add']));
             $importe = round((float) $invoice['total_paid_tax_incl'], 2);
