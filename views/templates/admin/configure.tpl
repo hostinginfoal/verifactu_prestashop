@@ -64,6 +64,11 @@
 </div>
 
 <ul class="nav nav-tabs">
+    <li class="{if $active_tab == 'dashboard'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=dashboard">
+            <i class="icon-dashboard"></i> {l s='Dashboard' mod='verifactu'}
+        </a>
+    </li>
     <li class="{if $active_tab == 'configure'}active{/if}">
         <a href="{$current}&tab_module_verifactu=configure">
             <i class="icon-cogs"></i> {l s='Configuración' mod='verifactu'}
@@ -82,6 +87,11 @@
     <li class="{if $active_tab == 'reg_facts'}active{/if}">
         <a href="{$current}&tab_module_verifactu=reg_facts">
             <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'help'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=help">
+            <i class="icon-question-circle"></i> {l s='Ayuda' mod='verifactu'}
         </a>
     </li>
 </ul>

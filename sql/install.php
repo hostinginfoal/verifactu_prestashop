@@ -76,6 +76,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_reg_fact` (
     `SIFIndicadorMultiplesOT` varchar(45) DEFAULT NULL,
     `apiMode` varchar(20) DEFAULT NULL,
     `id_shop` int NOT NULL,
+    `date_sent` datetime DEFAULT NULL,
     PRIMARY KEY  (`id_reg_fact`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
@@ -93,6 +94,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_invoice
     `TipoFactura` VARCHAR(100),
     `avisos` TEXT,
     `apiMode` varchar(20) DEFAULT NULL,
+    `retry_count` int(11) NOT NULL DEFAULT 0,
+    `last_retry_at` datetime DEFAULT NULL,
     PRIMARY KEY  (`id_order_invoice`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
@@ -109,6 +112,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     `TipoFactura` VARCHAR(100),
     `avisos` TEXT,
     `apiMode` varchar(20) DEFAULT NULL,
+    `retry_count` int(11) NOT NULL DEFAULT 0,
+    `last_retry_at` datetime DEFAULT NULL,
     PRIMARY KEY  (`id_order_slip`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 

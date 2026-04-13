@@ -52,6 +52,19 @@ class ApiVerifactu
         $this->id_shop = (int)$id_shop;
     }
 
+    /**
+     * Escribe un mensaje de log enrutando a Verifactu::writeLog().
+     * writeLog() solo escribe si VERIFACTU_DEBUG_MODE esta activo,
+     * y siempre escribe en fichero, nunca en ps_log.
+     *
+     * @param string $message  Mensaje a loguear.
+     * @param int    $severity 1=Info, 2=Warning, 3=Error, 4=Critical.
+     */
+    private function _log($message, $severity = 1)
+    {
+        \Verifactu::writeLog($message, $severity, $this->id_shop);
+    }
+
     public function checkDNI($id_order)
     {
         $sql = new DbQuery();
@@ -78,14 +91,8 @@ class ApiVerifactu
         $data->nombre = $address['firstname'].' '.$address['lastname'];
         $dataString = json_encode($data);
 
-        if ($this->debugMode)
-        {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: CDI - Envío a api ' . $dataString.'
-                ',
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: CDI - Envío a api ' . $dataString.'
+                ', 1);
 
         $curl_options = [
             CURLOPT_URL            => $url,
@@ -114,22 +121,18 @@ class ApiVerifactu
         $response = curl_exec($curl);
         curl_close($curl);
 
-        if ($this->debugMode)
-        {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: CDI - Respuesta api ' . $response.'
-                ',
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: CDI - Respuesta api ' . $response.'
+                ', 1);
 
         $obj = json_decode($response);
 
         return $response;
     }
 
+
     public function sendAltaVerifactu($id_order,$tipo='alta')
     {
+
         $reply = array();
 
         $sql = new DbQuery();
@@ -139,7 +142,7 @@ class ApiVerifactu
         if (!$order_data) 
         {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2);
             }
             return json_encode(['response' => 'KO', 'error' => 'Pedido no encontrado.']);
         }
@@ -171,11 +174,27 @@ class ApiVerifactu
             if ($slip) {
                 $id_order_invoice_or_slip = (int)$slip['id_order_slip'];
                 $InvoiceNumber = $this->getFormattedCreditSlipNumber($id_order_invoice_or_slip);
-                
-                // Si está pendiente, no hacemos nada. Si es 'api_error', el cron lo reintentará.
+
+                // Bloquear reenvío si ya está en pendiente (esperando confirmación AEAT)
                 if (isset($slip['estado']) && $slip['estado'] == 'pendiente') {
                     $reply['response'] = 'pendiente';
                     return json_encode($reply);
+                }
+
+                // Si está 'stalled' o 'api_error', reseteamos el estado para que la API no lo rechace
+                // como registro expirado. Este reset es manual/forzado por el administrador.
+                if (isset($slip['estado']) && in_array($slip['estado'], ['stalled', 'api_error', 'failed'])) {
+                    Db::getInstance()->update(
+                        'verifactu_order_slip',
+                        [
+                            'estado'                           => 'nuevo',
+                            'verifactuEstadoRegistro'          => '',
+                            'verifactuDescripcionErrorRegistro'=> '',
+                            'verifactuCodigoErrorRegistro'     => '',
+                        ],
+                        'id_order_slip = ' . (int)$id_order_invoice_or_slip
+                    );
+                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — abono #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $slip['estado'] . '" a "nuevo".', 1);
                 }
             }
 
@@ -186,22 +205,11 @@ class ApiVerifactu
                 ->where('sd.id_order_slip = ' . (int)$id_order_invoice_or_slip);
             $slipLines = Db::getInstance()->executeS($sql);
                 
-            if ($this->debugMode)
-            {
-                PrestaShopLogger::addLog(
-                    'Módulo Verifactu: <br>
+            $this->_log('Módulo Verifactu: <br>
                     Factura de abono: '.json_encode($slip).'<br>
                     Lineas: '.json_encode($slipLines).'<br>
-                    ',
-                    1, null, null, null, true, $this->id_shop
-                );
-            }
+                    ', 1);
 
-            if (isset($slip['estado']) && $slip['estado'] == 'pendiente') //Si el estado es pendiente evitamos que se vuelva a enviar.
-            {
-                $reply['response'] = 'pendiente';
-                return json_encode($reply);
-            }
                 
         }
         else
@@ -218,18 +226,34 @@ class ApiVerifactu
             if ($invoice) {
                 $id_order_invoice_or_slip = (int)$invoice['id_order_invoice'];
                 $InvoiceNumber = $this->getFormattedInvoiceNumber($id_order_invoice_or_slip);
-                
-                // Si está pendiente, no hacemos nada. Si es 'api_error', el cron lo reintentará.
+
+                // Bloquear reenvío si ya está en pendiente (esperando confirmación AEAT)
                 if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') {
                     $reply['response'] = 'pendiente';
                     return json_encode($reply);
+                }
+
+                // Si está 'stalled' o 'api_error', reseteamos el estado para que la API no lo rechace
+                // como registro expirado. Este reset es manual/forzado por el administrador.
+                if (isset($invoice['estado']) && in_array($invoice['estado'], ['stalled', 'api_error', 'failed'])) {
+                    Db::getInstance()->update(
+                        'verifactu_order_invoice',
+                        [
+                            'estado'                           => 'nuevo',
+                            'verifactuEstadoRegistro'          => '',
+                            'verifactuDescripcionErrorRegistro'=> '',
+                            'verifactuCodigoErrorRegistro'     => '',
+                        ],
+                        'id_order_invoice = ' . (int)$id_order_invoice_or_slip
+                    );
+                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — factura #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $invoice['estado'] . '" a "nuevo".', 1);
                 }
             }
         }
 
         if ($id_order_invoice_or_slip == 0) {
              if ($this->debugMode) {
-                 PrestaShopLogger::addLog("Módulo Verifactu: No se encontró factura/abono para el pedido ID $id_order y tipo $tipo.", 2, null, null, null, true, $this->id_shop);
+                 $this->_log("Módulo Verifactu: No se encontró factura/abono para el pedido ID $id_order y tipo $tipo.", 2);
              }
              return json_encode(['response' => 'KO', 'error' => 'Factura o abono no encontrado.']);
         }
@@ -241,7 +265,7 @@ class ApiVerifactu
 
         if (!$address) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontró dirección de facturación para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontró dirección de facturación para el pedido ID ' . $id_order, 2);
             }
             return json_encode(['response' => 'KO', 'error' => 'Dirección de facturación no encontrada.']);
         }
@@ -252,7 +276,7 @@ class ApiVerifactu
 
         if (!$prov) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron provincias para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron provincias para el pedido ID ' . $id_order, 2);
             }
             //return json_encode(['response' => 'KO', 'error' => 'Provincia no encontrada.']);
         }
@@ -263,7 +287,7 @@ class ApiVerifactu
 
         if (!$pais) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron paises para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron paises para el pedido ID ' . $id_order, 2);
             }
             //return json_encode(['response' => 'KO', 'error' => 'País no encontrado.']);
         }
@@ -274,7 +298,7 @@ class ApiVerifactu
 
         if (!$currency) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron monedas para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron monedas para el pedido ID ' . $id_order, 2);
             }
             //return json_encode(['response' => 'KO', 'error' => 'Moneda no encontrada.']);
         }
@@ -285,7 +309,7 @@ class ApiVerifactu
 
         if (!$lines) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron lineas de pedido para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron lineas de pedido para el pedido ID ' . $id_order, 2);
             }
             //return json_encode(['response' => 'KO', 'error' => 'Lineas de factura no encontradas.']);
         }
@@ -1059,14 +1083,8 @@ class ApiVerifactu
 
         $dataString = json_encode($data);
 
-        if ($this->debugMode)
-        {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: Alta - Envío a api ' . $dataString.'
-                ',
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: Alta - Envío a api ' . $dataString.'
+                ', 1);
 
         $curl_options = [
             CURLOPT_URL            => $url,
@@ -1098,14 +1116,8 @@ class ApiVerifactu
         curl_close($curl);
 
         //die($response);
-        if ($this->debugMode)
-        {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: Alta - Respuesta de api ' . $response.', curl_errno: '.$curl_errno.', curl_error: '.$curl_error.'
-                ',
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: Alta - Respuesta de api ' . $response.', curl_errno: '.$curl_errno.', curl_error: '.$curl_error.'
+                ', 1);
 
         //Guardamos el campo verifactuEstadoRegistro y verifactuEstadoEnvio en base de datos si ha sido correcto
         $obj = json_decode($response);
@@ -1157,6 +1169,7 @@ class ApiVerifactu
                     'urlQR' => pSQL($obj->urlQR),
                     'apiMode' => $apiMode,
                     'id_shop' => (int)$this->id_shop,
+                    'date_sent' => date('Y-m-d H:i:s'), // TODO-16: fecha de envío
                  ];
                  Db::getInstance()->insert('verifactu_reg_fact', $insert_data);
             }
@@ -1233,7 +1246,7 @@ class ApiVerifactu
                 }
             } catch (\Exception $e) {
                  if ($this->debugMode) {
-                    PrestaShopLogger::addLog("Módulo Verifactu: Error al guardar estado 'api_error' en $table: " . $e->getMessage(), 3, null, null, null, true, $this->id_shop);
+                    $this->_log("Módulo Verifactu: Error al guardar estado 'api_error' en $table: " . $e->getMessage(), 3);
                 }
             }
 
@@ -1255,7 +1268,7 @@ class ApiVerifactu
 
         if (!$order_data) {
             if ($this->debugMode) {
-                PrestaShopLogger::addLog('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2, null, null, null, true, $this->id_shop);
+                $this->_log('Módulo Verifactu: No se encontraron datos para el pedido ID ' . $id_order, 2);
             }
             return json_encode(['response' => 'KO', 'error' => 'Pedido no encontrado.']);
         }
@@ -1326,12 +1339,7 @@ class ApiVerifactu
         $data->InvoiceNumber = $InvoiceNumber; // Ahora contiene el número correcto
         $dataString = json_encode($data);
 
-        if ($this->debugMode) {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: Anulación - Envío a api ' . $dataString,
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: Anulación - Envío a api ' . $dataString, 1);
 
         $curl_options = [
             CURLOPT_URL            => $url,
@@ -1362,12 +1370,7 @@ class ApiVerifactu
         $curl_error = curl_error($curl);
         curl_close($curl);
 
-        if ($this->debugMode) {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: Anulación - Respuesta de api ' . $response .', curl_errno: '.$curl_errno.', curl_error: '.$curl_error,
-                1, null, null, null, true, $this->id_shop
-            );
-        }
+        $this->_log('Módulo Verifactu: Anulación - Respuesta de api ' . $response .', curl_errno: '.$curl_errno.', curl_error: '.$curl_error, 1);
 
         $obj = json_decode($response);
 
@@ -1389,7 +1392,7 @@ class ApiVerifactu
             // Actualizamos la tabla original (factura o abono)
             if (!Db::getInstance()->update($table, $update_data, $id_field . ' = ' . (int)$id_order_invoice_or_slip)) {
                  if ($this->debugMode) {
-                    PrestaShopLogger::addLog('Módulo Verifactu: Anulación - Error al actualizar '.$table.': ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                    $this->_log('Módulo Verifactu: Anulación - Error al actualizar '.$table.': ' . Db::getInstance()->getMsgError(), 3);
                 }
             }
 
@@ -1404,11 +1407,12 @@ class ApiVerifactu
                     'InvoiceNumber' => pSQL($obj->InvoiceNumber), // El número de la factura/abono anulada
                     'apiMode' => $apiMode,
                     'id_shop' => (int)$this->id_shop,
+                    'date_sent' => date('Y-m-d H:i:s'), // TODO-16: fecha de envío
                 ];
 
                 if (!Db::getInstance()->insert('verifactu_reg_fact', $reg_fact_data)) {
                      if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Anulación - Error al insertar en verifactu_reg_fact: ' . Db::getInstance()->getMsgError(), 3, null, null, null, true, $this->id_shop);
+                        $this->_log('Módulo Verifactu: Anulación - Error al insertar en verifactu_reg_fact: ' . Db::getInstance()->getMsgError(), 3);
                     }
                 }
             }
@@ -1442,7 +1446,7 @@ class ApiVerifactu
                 Db::getInstance()->update($table, $error_data, $id_field . ' = ' . (int)$id_order_invoice_or_slip);
             } catch (\Exception $e) {
                  if ($this->debugMode) {
-                    PrestaShopLogger::addLog("Módulo Verifactu: Error al guardar estado 'api_error' (anulación) en $table: " . $e->getMessage(), 3, null, null, null, true, $this->id_shop);
+                    $this->_log("Módulo Verifactu: Error al guardar estado 'api_error' (anulación) en $table: " . $e->getMessage(), 3);
                 }
             }
 
@@ -1466,21 +1470,44 @@ class ApiVerifactu
         $updated_count = 0;
 
         // 1. Buscar facturas pendientes
+        // Filtramos por date_sent de verifactu_reg_fact para incluir facturas antiguas
+        // que hayan sido reenviadas recientemente, no por la fecha de creación.
         $sql_invoices = new DbQuery();
         $sql_invoices->select('voi.id_order_invoice, voi.id_reg_fact')
             ->from('verifactu_order_invoice', 'voi')
             ->leftJoin('order_invoice', 'oi', 'voi.id_order_invoice = oi.id_order_invoice')
             ->leftJoin('orders', 'o', 'oi.id_order = o.id_order')
-            ->where('voi.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop . ' AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
+            ->leftJoin('verifactu_reg_fact', 'vrf', 'vrf.id_reg_fact = voi.id_reg_fact AND voi.id_reg_fact > 0')
+            ->where(
+                'voi.estado = "pendiente"'
+                . ' AND o.id_shop = ' . (int)$this->id_shop
+                . ' AND ('
+                    // Caso A: se envió a la API y el envio fue en los últimos 30 dias
+                    . '(voi.id_reg_fact > 0 AND vrf.date_sent >= DATE_SUB(NOW(), INTERVAL 30 DAY))'
+                    . ' OR '
+                    // Caso B: nunca llegó a la API (id_reg_fact=0) pero la factura es reciente
+                    . '(voi.id_reg_fact = 0 AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY))'
+                . ')'
+            );
         $pending_invoices = Db::getInstance()->executeS($sql_invoices);
 
         // 2. Buscar abonos pendientes
+        // Misma lógica: filtramos por date_sent de verifactu_reg_fact.
         $sql_slips = new DbQuery();
         $sql_slips->select('vos.id_order_slip, vos.id_reg_fact')
             ->from('verifactu_order_slip', 'vos')
             ->leftJoin('order_slip', 'os', 'vos.id_order_slip = os.id_order_slip')
             ->leftJoin('orders', 'o', 'os.id_order = o.id_order')
-            ->where('vos.estado = "pendiente" AND o.id_shop = ' . (int)$this->id_shop. ' AND os.date_add >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'); //Añadimos un seguro de un mes, para que no se quede pendiente de sincronizar eternamente por error
+            ->leftJoin('verifactu_reg_fact', 'vrf', 'vrf.id_reg_fact = vos.id_reg_fact AND vos.id_reg_fact > 0')
+            ->where(
+                'vos.estado = "pendiente"'
+                . ' AND o.id_shop = ' . (int)$this->id_shop
+                . ' AND ('
+                    . '(vos.id_reg_fact > 0 AND vrf.date_sent >= DATE_SUB(NOW(), INTERVAL 30 DAY))'
+                    . ' OR '
+                    . '(vos.id_reg_fact = 0 AND os.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY))'
+                . ')'
+            );
         $pending_slips = Db::getInstance()->executeS($sql_slips);
 
         $data = new \stdClass();
@@ -1523,13 +1550,7 @@ class ApiVerifactu
 
             $dataString = json_encode($data);
 
-            if ($this->debugMode)
-            {
-                PrestaShopLogger::addLog(
-                    'Módulo Verifactu: Update pendientes (check): Envío a api ' . $dataString,
-                    1, null, null, null, true, $this->id_shop
-                );
-            }
+            $this->_log('Módulo Verifactu: Update pendientes (check): Envío a api ' . $dataString, 1);
 
             $curl_options = [
                 CURLOPT_URL            => $url,
@@ -1558,13 +1579,7 @@ class ApiVerifactu
             $response = curl_exec($curl);
             curl_close($curl);
 
-            if ($this->debugMode)
-            {
-                PrestaShopLogger::addLog(
-                    'Módulo Verifactu: Update pendientes (check): Respuesta de api ' . $response,
-                    1, null, null, null, true, $this->id_shop
-                );
-            }
+            $this->_log('Módulo Verifactu: Update pendientes (check): Respuesta de api ' . $response, 1);
 
             $obj = json_decode($response);
 
@@ -1572,13 +1587,7 @@ class ApiVerifactu
             {
                 foreach ($obj as $o)
                 {
-                    if ($this->debugMode)
-                    {
-                        PrestaShopLogger::addLog(
-                            'Procesando:' . (isset($o->id_reg_fact) ? $o->id_reg_fact : 'N/A'),
-                            1, null, null, null, true, $this->id_shop
-                        );
-                    }
+                    $this->_log('Procesando:' . (isset($o->id_reg_fact) ? $o->id_reg_fact : 'N/A'), 1);
                     
                     if (!isset($o->id_reg_fact)) {
                         continue; // Si el objeto no tiene id_reg_fact, saltar
@@ -1723,89 +1732,261 @@ class ApiVerifactu
     }
 
     /**
-     * TAREA 2 (Privada): Reintenta los envíos que fallaron (estado = "api_error").
+     * TAREA 2 (Privada): Reintenta los envíos que fallaron (estado = "api_error")
+     * aplicando backoff exponencial para no saturar la API ni los logs.
+     *
+     * Intervalos de backoff según retry_count:
+     *   0 → inmediato (primer reintento)
+     *   1 → 5 minutos
+     *   2 → 15 minutos
+     *   3 → 1 hora
+     *   4 → 6 horas
+     *  ≥5 → marcado como "failed" (sin más reintentos automáticos)
+     *
      * @return int El número de envíos reintentados.
      */
     private function _retryApiErrors()
     {
-        $retry_count = 0;
+        $retry_count_executed = 0;
 
-        // 1. Buscar facturas con error de API para reenviarlas
+        // Intervalos en segundos indexados por retry_count actual
+        $backoff_intervals = [
+            0 => 0,          // primer reintento: inmediato
+            1 => 300,        // 5 min
+            2 => 900,        // 15 min
+            3 => 3600,       // 1 h
+            4 => 21600,      // 6 h
+        ];
+        $max_retries = 5; // A partir de aquí → "failed"
+
+        $now = time();
+
+        // ---------------------------------------------------------------
+        // Helper closure: decide si un registro puede ser reintentado ahora
+        // ---------------------------------------------------------------
+        $canRetry = function (array $row) use ($backoff_intervals, $max_retries, $now) {
+            $count      = (int)$row['retry_count'];
+            $last_retry = $row['last_retry_at'] ? strtotime($row['last_retry_at']) : 0;
+
+            if ($count >= $max_retries) {
+                return false; // Agotado: no reintentar
+            }
+
+            $interval = isset($backoff_intervals[$count]) ? $backoff_intervals[$count] : 86400;
+            return ($now - $last_retry) >= $interval;
+        };
+
+        // ---------------------------------------------------------------
+        // 1. Buscar facturas con error de API
+        // ---------------------------------------------------------------
         $sql_retry_invoices = new DbQuery();
-        $sql_retry_invoices->select('oi.id_order, voi.anulacion'); // <-- MODIFICADO: Seleccionamos 'anulacion'
+        $sql_retry_invoices->select('oi.id_order, voi.id_order_invoice, voi.anulacion, voi.retry_count, voi.last_retry_at');
         $sql_retry_invoices->from('verifactu_order_invoice', 'voi');
         $sql_retry_invoices->leftJoin('order_invoice', 'oi', 'voi.id_order_invoice = oi.id_order_invoice');
         $sql_retry_invoices->leftJoin('orders', 'o', 'oi.id_order = o.id_order');
         $sql_retry_invoices->where('voi.estado = "api_error" AND o.id_shop = ' . (int)$this->id_shop);
         $retry_invoices = Db::getInstance()->executeS($sql_retry_invoices);
 
+        // ---------------------------------------------------------------
         // 2. Buscar abonos con error de API
+        // ---------------------------------------------------------------
         $sql_retry_slips = new DbQuery();
-        $sql_retry_slips->select('os.id_order, vos.anulacion'); // <-- MODIFICADO: Seleccionamos 'anulacion'
+        $sql_retry_slips->select('os.id_order, vos.id_order_slip, vos.anulacion, vos.retry_count, vos.last_retry_at');
         $sql_retry_slips->from('verifactu_order_slip', 'vos');
         $sql_retry_slips->leftJoin('order_slip', 'os', 'vos.id_order_slip = os.id_order_slip');
         $sql_retry_slips->leftJoin('orders', 'o', 'os.id_order = o.id_order');
         $sql_retry_slips->where('vos.estado = "api_error" AND o.id_shop = ' . (int)$this->id_shop);
         $retry_slips = Db::getInstance()->executeS($sql_retry_slips);
 
+        // ---------------------------------------------------------------
         // 3. Reintentar facturas
+        // ---------------------------------------------------------------
         if (!empty($retry_invoices)) {
-            // Usamos el id_order como clave y guardamos el estado de anulación
-            $unique_invoice_orders = [];
-            foreach ($retry_invoices as $invoice) {
-                // <-- MODIFICADO: Almacenamos el estado de anulación
-                $unique_invoice_orders[(int)$invoice['id_order']] = (int)$invoice['anulacion'];
-            }
+            foreach ($retry_invoices as $row) {
+                $id_order          = (int)$row['id_order'];
+                $id_order_invoice  = (int)$row['id_order_invoice'];
+                $anulacion         = (int)$row['anulacion'];
+                $count             = (int)$row['retry_count'];
 
-            // <-- MODIFICADO: Iteramos sobre clave y valor (id_order => anulacion)
-            foreach ($unique_invoice_orders as $id_order => $anulacion) {
-                
-                if ($anulacion == 1) {
-                    // Es un reintento de ANULACIÓN
-                    if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Reintentando ANULACIÓN (alta) para id_order: ' . $id_order, 1, null, null, null, true, $this->id_shop);
-                    }
-                    $this->sendAnulacionVerifactu((int)$id_order, 'alta');
-                } else {
-                    // Es un reintento de ALTA
-                    if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Reintentando envío (alta) para id_order: ' . $id_order, 1, null, null, null, true, $this->id_shop);
-                    }
-                    $this->sendAltaVerifactu((int)$id_order, 'alta');
+                // ¿Máximo de reintentos superado?
+                if ($count >= $max_retries) {
+                    Db::getInstance()->update(
+                        'verifactu_order_invoice',
+                        ['estado' => 'failed'],
+                        'id_order_invoice = ' . $id_order_invoice
+                    );
+                    $this->_log('Módulo Verifactu: Factura id_order_invoice=' . $id_order_invoice .
+                            ' marcada como "failed" tras ' . $count . ' reintentos.', 2);
+                    continue;
                 }
-                $retry_count++;
+
+                // ¿Ha pasado suficiente tiempo desde el último intento?
+                if (!$canRetry($row)) {
+                    $this->_log('Módulo Verifactu: Factura id_order_invoice=' . $id_order_invoice .
+                            ' en backoff (retry_count=' . $count . '). Saltando.', 1);
+                    continue;
+                }
+
+                // Actualizar contadores antes de reintentar
+                Db::getInstance()->update(
+                    'verifactu_order_invoice',
+                    [
+                        'retry_count'   => $count + 1,
+                        'last_retry_at' => date('Y-m-d H:i:s'),
+                    ],
+                    'id_order_invoice = ' . $id_order_invoice
+                );
+
+                $this->_log('Módulo Verifactu: Reintentando ' . ($anulacion ? 'ANULACIÓN' : 'ALTA') .
+                        ' (factura) para id_order=' . $id_order .
+                        ' (intento ' . ($count + 1) . '/' . $max_retries . ')', 1);
+
+                if ($anulacion == 1) {
+                    $this->sendAnulacionVerifactu($id_order, 'alta');
+                } else {
+                    $this->sendAltaVerifactu($id_order, 'alta');
+                }
+                $retry_count_executed++;
             }
         }
-        
+
+        // ---------------------------------------------------------------
         // 4. Reintentar abonos
+        // ---------------------------------------------------------------
         if (!empty($retry_slips)) {
-            $unique_slip_orders = [];
-            foreach ($retry_slips as $slip) {
-                // <-- MODIFICADO: Almacenamos el estado de anulación
-                $unique_slip_orders[(int)$slip['id_order']] = (int)$slip['anulacion'];
-            }
+            foreach ($retry_slips as $row) {
+                $id_order      = (int)$row['id_order'];
+                $id_order_slip = (int)$row['id_order_slip'];
+                $anulacion     = (int)$row['anulacion'];
+                $count         = (int)$row['retry_count'];
 
-            // <-- MODIFICADO: Iteramos sobre clave y valor (id_order => anulacion)
-            foreach ($unique_slip_orders as $id_order => $anulacion) {
-                
-                if ($anulacion == 1) {
-                     // Es un reintento de ANULACIÓN
-                    if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Reintentando ANULACIÓN (abono) para id_order: ' . $id_order, 1, null, null, null, true, $this->id_shop);
-                    }
-                    $this->sendAnulacionVerifactu((int)$id_order, 'abono');
-                } else {
-                    // Es un reintento de ALTA
-                    if ($this->debugMode) {
-                        PrestaShopLogger::addLog('Módulo Verifactu: Reintentando envío (abono) para id_order: ' . $id_order, 1, null, null, null, true, $this->id_shop);
-                    }
-                    $this->sendAltaVerifactu((int)$id_order, 'abono');
+                // ¿Máximo de reintentos superado?
+                if ($count >= $max_retries) {
+                    Db::getInstance()->update(
+                        'verifactu_order_slip',
+                        ['estado' => 'failed'],
+                        'id_order_slip = ' . $id_order_slip
+                    );
+                    $this->_log('Módulo Verifactu: Abono id_order_slip=' . $id_order_slip .
+                            ' marcado como "failed" tras ' . $count . ' reintentos.', 2);
+                    continue;
                 }
-                $retry_count++;
+
+                // ¿Ha pasado suficiente tiempo?
+                if (!$canRetry($row)) {
+                    $this->_log('Módulo Verifactu: Abono id_order_slip=' . $id_order_slip .
+                            ' en backoff (retry_count=' . $count . '). Saltando.', 1);
+                    continue;
+                }
+
+                // Actualizar contadores antes de reintentar
+                Db::getInstance()->update(
+                    'verifactu_order_slip',
+                    [
+                        'retry_count'   => $count + 1,
+                        'last_retry_at' => date('Y-m-d H:i:s'),
+                    ],
+                    'id_order_slip = ' . $id_order_slip
+                );
+
+                $this->_log('Módulo Verifactu: Reintentando ' . ($anulacion ? 'ANULACIÓN' : 'ALTA') .
+                        ' (abono) para id_order=' . $id_order .
+                        ' (intento ' . ($count + 1) . '/' . $max_retries . ')', 1);
+
+                if ($anulacion == 1) {
+                    $this->sendAnulacionVerifactu($id_order, 'abono');
+                } else {
+                    $this->sendAltaVerifactu($id_order, 'abono');
+                }
+                $retry_count_executed++;
             }
         }
-        
-        return $retry_count;
+
+        return $retry_count_executed;
+    }
+
+    /**
+     * TAREA 0 (Privada): Marca como 'stalled' los registros atascados en 'pendiente'
+     * usando la fecha de envio real (date_sent de verifactu_reg_fact) como referencia.
+     *
+     * Regla:
+     *  - Si date_sent < 7 dias  → el registro AUN puede recibir respuesta de la AEAT → NO expirar.
+     *  - Si date_sent > 7 dias  → la AEAT no va a responder ya              → marcar como stalled.
+     *  - Si id_reg_fact = 0 (nunca llegó a la API InFoAL) y la factura tiene
+     *    mas de 7 dias → también marcar como stalled.
+     *
+     * @return int Numero de registros marcados como 'stalled'.
+     */
+    private function _expireStalledPendingRecords()
+    {
+        $expired  = 0;
+        $timeout_days = 7;
+
+        // -------------------------------------------------------
+        // FACTURAS: unimos con verifactu_reg_fact para obtener
+        // la fecha real de envio. Expiramos cuando:
+        //   a) Existe un reg_fact y su date_sent es > 7 dias, O
+        //   b) No existe reg_fact (id_reg_fact = 0) y la factura
+        //      fue creada hace > 7 dias (nunca llegó a encolar).
+        // -------------------------------------------------------
+        $sql_inv = '
+            UPDATE `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+            INNER JOIN `' . _DB_PREFIX_ . 'order_invoice` oi
+                ON voi.id_order_invoice = oi.id_order_invoice
+            INNER JOIN `' . _DB_PREFIX_ . 'orders` o
+                ON oi.id_order = o.id_order
+            LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_reg_fact` vrf
+                ON vrf.id_reg_fact = voi.id_reg_fact AND voi.id_reg_fact > 0
+            SET voi.estado = "stalled",
+                voi.verifactuDescripcionErrorRegistro = "Registro expirado: mas de ' . (int)$timeout_days . ' dias desde el envio sin confirmacion AEAT."
+            WHERE voi.estado = "pendiente"
+              AND o.id_shop = ' . (int)$this->id_shop . '
+              AND (
+                    -- Caso A: se envio a la API pero no hubo respuesta en 7 dias
+                    (voi.id_reg_fact > 0 AND vrf.date_sent < DATE_SUB(NOW(), INTERVAL ' . (int)$timeout_days . ' DAY))
+                    OR
+                    -- Caso B: nunca se llego a enviar a la API (id_reg_fact=0) y han pasado 7 dias desde la factura
+                    (voi.id_reg_fact = 0 AND oi.date_add < DATE_SUB(NOW(), INTERVAL ' . (int)$timeout_days . ' DAY))
+              )';
+
+        if (Db::getInstance()->execute($sql_inv)) {
+            $expired += (int)Db::getInstance()->Affected_Rows();
+        }
+
+        // -------------------------------------------------------
+        // ABONOS: misma logica
+        // -------------------------------------------------------
+        $sql_slip = '
+            UPDATE `' . _DB_PREFIX_ . 'verifactu_order_slip` vos
+            INNER JOIN `' . _DB_PREFIX_ . 'order_slip` os
+                ON vos.id_order_slip = os.id_order_slip
+            INNER JOIN `' . _DB_PREFIX_ . 'orders` o
+                ON os.id_order = o.id_order
+            LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_reg_fact` vrf
+                ON vrf.id_reg_fact = vos.id_reg_fact AND vos.id_reg_fact > 0
+            SET vos.estado = "stalled",
+                vos.verifactuDescripcionErrorRegistro = "Registro expirado: mas de ' . (int)$timeout_days . ' dias desde el envio sin confirmacion AEAT."
+            WHERE vos.estado = "pendiente"
+              AND o.id_shop = ' . (int)$this->id_shop . '
+              AND (
+                    (vos.id_reg_fact > 0 AND vrf.date_sent < DATE_SUB(NOW(), INTERVAL ' . (int)$timeout_days . ' DAY))
+                    OR
+                    (vos.id_reg_fact = 0 AND os.date_add < DATE_SUB(NOW(), INTERVAL ' . (int)$timeout_days . ' DAY))
+              )';
+
+        if (Db::getInstance()->execute($sql_slip)) {
+            $expired += (int)Db::getInstance()->Affected_Rows();
+        }
+
+        if ($expired > 0) {
+            Verifactu::writeLog(
+                'ExpireStalledPending: ' . $expired . ' registro(s) marcados como "stalled" por superar ' . $timeout_days . ' dias sin confirmacion desde el envio.',
+                2,
+                $this->id_shop
+            );
+        }
+
+        return $expired;
     }
 
     /**
@@ -1815,12 +1996,10 @@ class ApiVerifactu
      */
     public function checkPendingInvoices()
     {
-        /*if ($this->debugMode) {
-            PrestaShopLogger::addLog(
-                'Módulo Verifactu: Iniciando tareas automáticas...',
-                1, null, null, null, true, $this->id_shop
-            );
-        }*/
+        /*$this->_log('Módulo Verifactu: Iniciando tareas automáticas...', 1);*/
+
+        // Tarea 0: Expirar 'pendiente' bloqueados (más de 7 días sin resolverse)
+        $expired_count = $this->_expireStalledPendingRecords();
 
         // Tarea 1: Consultar estados pendientes
         $updated_count = $this->_checkPendingStatuses();
@@ -1829,7 +2008,7 @@ class ApiVerifactu
         $retry_count = $this->_retryApiErrors();
 
         // Devolvemos la respuesta JSON combinada
-        $final_message = $updated_count . ' registros de estado actualizados. ' . $retry_count . ' envíos fallidos reintentados.';
+        $final_message = $expired_count . ' pendientes expirados. ' . $updated_count . ' registros de estado actualizados. ' . $retry_count . ' envíos fallidos reintentados.';
 
         header('Content-Type: application/json');
         die(json_encode([
@@ -1924,7 +2103,7 @@ class ApiVerifactu
         }
 
         if ($this->debugMode) {
-            PrestaShopLogger::addLog(json_encode($result), 1, null, null, null, true, $this->id_shop);
+            $this->_log(json_encode($result), 1);
         }
 
         $id_shop = (int)$result['id_shop'];

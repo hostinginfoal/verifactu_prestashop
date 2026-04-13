@@ -34,6 +34,11 @@ if (file_exists($autoloadPath)) {
     require_once $autoloadPath;
 }
 
+// TODO-14: Servicios extraídos de verifactu.php para reducir su tamaño
+require_once __DIR__ . '/services/VerifactuQRService.php';
+require_once __DIR__ . '/services/VerifactuListHelper.php';
+require_once __DIR__ . '/services/VerifactuDiagnostic.php';
+
 use PrestaShop\PrestaShop\Core\Grid\Column\Type\Employee\EmployeeNameWithAvatarColumn;
 use PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn;
 use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollection;
@@ -57,7 +62,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.5.3';
+        $this->version = '1.5.4';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -364,12 +369,16 @@ class Verifactu extends Module
             $this->postProcess();
             $output .= $this->displayConfirmation($this->l('Configuración actualizada'));
         }
+        // TODO-24: Enviar / Descargar diagnóstico a InFoAL
+        elseif (Tools::getValue('run_vf_diagnostic') == '1') {
+            $output .= $this->processDiagnostic();
+        }
 
         $update_info = $this->checkForUpdate();
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $tab = Tools::getValue('tab_module_verifactu', 'configure');
+        $tab = Tools::getValue('tab_module_verifactu', 'dashboard');
 
         $current_url = $this->context->link->getAdminLink('AdminModules', true) .
                        '&configure=' . $this->name .
@@ -382,24 +391,437 @@ class Verifactu extends Module
             'current' => $current_url,
             'update_available' => $update_info['update_available'],
             'latest_version' => $update_info['latest_version'],
-            'github_releases_url' => 'https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip' // URL a tus releases
+            'github_releases_url' => 'https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip'
         ));
         
         $output .= $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
 
-        //$output .= $this->renderShopList();
-
-        if ($tab == 'configure') {
-            $output .= $this->renderForm();
-        } elseif ($tab == 'sales_invoices') { // Nueva pestaña
-            $output .= $this->renderSalesInvoicesList();
-        } elseif ($tab == 'credit_slips') { // Nueva pestaña
-            $output .= $this->renderCreditSlipsList();
-        } elseif ($tab == 'reg_facts') {
-            $output .= $this->renderList();
+        // TODO-19: Purgar logs si se solicita
+        if (Tools::getValue('purge_vf_logs')) {
+            $this->purgeDebugLogs();
+            $output .= $this->displayConfirmation($this->l('Logs de debug purgados correctamente.'));
         }
 
+        // TODO-19: Aviso visual si el modo debug está activo
+        $id_shop = Shop::getContextShopID();
+        if (Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop)) {
+            $output .= '<div class="alert alert-warning" style="margin: 5px 0; font-size: 13px;">' .
+                       '<i class="icon-warning-sign"></i> <strong>' . $this->l('Modo debug activo') . '</strong> — ' .
+                       $this->l('El módulo está registrando logs detallados. Desactívalo en producción cuando no necesites depurar.') .
+                       '</div>';
+        }
+
+        if ($tab == 'dashboard') {
+            $output .= $this->renderDashboard();
+        } elseif ($tab == 'configure') {
+            $output .= $this->renderForm();
+        } elseif ($tab == 'sales_invoices') {
+            // TODO-08: Exportación CSV
+            if (Tools::getValue('export_csv') == 'sales_invoices') {
+                $this->exportCsvList('sales_invoices');
+            }
+            $output .= $this->renderSalesInvoicesList();
+        } elseif ($tab == 'credit_slips') {
+            if (Tools::getValue('export_csv') == 'credit_slips') {
+                $this->exportCsvList('credit_slips');
+            }
+            $output .= $this->renderCreditSlipsList();
+        } elseif ($tab == 'reg_facts') {
+            if (Tools::getValue('export_csv') == 'reg_facts') {
+                $this->exportCsvList('reg_facts');
+            }
+            $output .= $this->renderList();
+        } elseif ($tab == 'help') {
+            $output .= $this->renderHelp();
+        }
+
+
+        // JS: vaciar campos de filtro antes del submit de "Reinicializar"
+        // Asi los inputs aparecen vacios tras el redirect, conservando los valores del servidor.
+        $output .= '<script type="text/javascript">
+$(document).ready(function() {
+    $(document).on("click", "[name^=\\"submitReset\\"]", function() {
+        var $form = $(this).closest("form");
+        $form.find("input[name*=\\"Filter_\\"], select[name*=\\"Filter_\\"]").val("").trigger("change");
+    });
+});
+</script>';
         return $output;
+    }
+
+    // =================================================================
+    // TODO-18: AYUDA / FAQ
+    // =================================================================
+
+    /**
+     * Renderiza la pestaña de ayuda y FAQ.
+     * @return string HTML de la pestaña.
+     */
+    private function renderHelp()
+    {
+        $id_shop = (int)$this->context->shop->id;
+
+        // TODO-24: URL para lanzar el diagnóstico (GET con token)
+        $diagnose_url = $this->context->link->getAdminLink('AdminModules', true)
+            . '&configure=' . $this->name
+            . '&tab_module_verifactu=help'
+            . '&run_vf_diagnostic=1';
+
+        $zip_url = $this->context->link->getAdminLink('AdminModules', true)
+            . '&configure=' . $this->name
+            . '&tab_module_verifactu=help'
+            . '&run_vf_diagnostic=1'
+            . '&force_zip=1';
+
+        $this->context->smarty->assign([
+            'module_version' => $this->version,
+            'diagnose_url'   => $diagnose_url,
+            'zip_url'        => $zip_url,
+        ]);
+        $output = $this->context->smarty->fetch($this->local_path . 'views/templates/admin/help.tpl');
+
+        // --- Herramientas de Mantenimiento ---
+        $helperTools = new HelperForm();
+        $helperTools->show_toolbar = false;
+        $helperTools->table = $this->table;
+        $helperTools->module = $this;
+        $helperTools->submit_action = 'submitCheckDatabase';
+        $helperTools->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name
+            . '&tab_module=' . $this->tab
+            . '&module_name=' . $this->name
+            . '&tab_module_verifactu=help';
+        $helperTools->token = Tools::getAdminTokenLite('AdminModules');
+
+        $formTools = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Herramientas de Mantenimiento'),
+                    'icon'  => 'icon-wrench',
+                ],
+                'buttons' => [
+                    'check_api_status' => [
+                        'title' => $this->l('Comprobar Estado AEAT'),
+                        'name'  => 'submitCheckApiStatus',
+                        'type'  => 'submit',
+                        'class' => 'btn btn-default pull-right',
+                        'icon'  => 'process-icon-signal',
+                    ],
+                    'check_db' => [
+                        'title' => $this->l('Verificar y Reparar Base de Datos'),
+                        'name'  => 'submitCheckDatabase',
+                        'type'  => 'submit',
+                        'class' => 'btn btn-default pull-right',
+                        'icon'  => 'process-icon-cogs',
+                    ],
+                ],
+                'description' =>
+                    $this->l('Verificar y Reparar Base de datos: Comprueba la integridad de las tablas y añade las columnas que falten sin borrar datos.') .
+                    ' — ' .
+                    $this->l('Comprobar estado AEAT: Comprueba si los servidores de Veri*Factu de la AEAT están operativos.') .
+                    ' — ' .
+                    $this->l('Enviar Diagnóstico a InFoAL: Recopila información del módulo, la envía directamente a InFoAL y te da una referencia de soporte. Si hay un problema de conexión, descargará un ZIP que podrás enviarnos manualmente.'),
+            ],
+        ];
+
+        $output .= $helperTools->generateForm([$formTools]);
+
+        return $output;
+    }
+
+    // =================================================================
+    // TODO-24: DIAGNÓSTICO DE SOPORTE
+    // =================================================================
+
+    /**
+     * Procesa la acción de diagnóstico:
+     * 1. Recopila los datos.
+     * 2. Intenta enviarlos a InFoAL API.
+     * 3. Si falla → descarga el ZIP directamente (termina ejecución).
+     * 4. Si tiene éxito → devuelve mensaje con referencia de soporte.
+     *
+     * @return string HTML con el resultado (solo en caso de éxito o error de API).
+     */
+    private function processDiagnostic()
+    {
+        $id_shop    = (int)$this->context->shop->id;
+        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+
+        $diagnostic = new VerifactuDiagnostic($this, $id_shop);
+        $payload    = $diagnostic->collect();
+
+        $api_url     = 'https://verifactu.infoal.io/api_v2/support/diagnostic';
+        $curl_errno  = 0;
+        $curl_error  = '';
+        $http_code   = 0;
+        $response    = '';
+
+        // Intentar envío directo a InFoAL
+        if (!empty($api_token)) {
+            $json_payload = json_encode($payload);
+
+            $ch = curl_init($api_url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $json_payload,
+                CURLOPT_HTTPHEADER     => [
+                    'Authorization: Bearer ' . $api_token,
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'Content-Length: ' . strlen($json_payload),
+                ],
+                CURLOPT_TIMEOUT        => 20,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+
+            $response   = curl_exec($ch);
+            $http_code  = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_errno = curl_errno($ch);
+            $curl_error = curl_error($ch);
+            curl_close($ch);
+
+            // --- Log siempre (no solo en debug) para poder diagnosticar ---
+            Verifactu::writeLog(
+                'DiagnosticSend → URL: ' . $api_url .
+                ' | HTTP: ' . $http_code .
+                ' | cURL errno: ' . $curl_errno .
+                ' | cURL error: ' . ($curl_error ?: 'none') .
+                ' | Response: ' . substr($response, 0, 500),
+                $curl_errno > 0 ? 3 : ($http_code >= 400 ? 2 : 1),
+                $id_shop
+            );
+
+            if ($curl_errno === 0 && $http_code >= 200 && $http_code < 300) {
+                $result = json_decode($response, true);
+
+                // Buscamos la referencia en los campos que puede devolver la API InFoAL
+                $ref = null;
+                foreach (['ticket_ref', 'reference', 'ticket', 'support_reference', 'support_ticket', 'ref', 'ticket_id', 'id'] as $key) {
+                    if (isset($result[$key]) && $result[$key] !== '') {
+                        $ref = (string)$result[$key];
+                        break;
+                    }
+                }
+                // Fallback: mostrar respuesta cruda sin doble encoding
+                if ($ref === null) {
+                    $ref = !empty($response) ? substr($response, 0, 200) : '—';
+                }
+
+                return $this->displayConfirmation(
+                    '<strong>' . $this->l('Diagnóstico enviado correctamente a InFoAL.') . '</strong><br>' .
+                    $this->l('Referencia de soporte:') . ' <strong>' . Tools::safeOutput($ref) . '</strong><br>' .
+                    $this->l('Nuestro equipo se pondrá en contacto contigo en breve.')
+                );
+            }
+
+            // En modo debug: mostrar el error en pantalla en vez de descargar ZIP
+            if ($debug_mode) {
+                $reason = '';
+                if ($curl_errno > 0) {
+                    $reason = 'cURL error (' . $curl_errno . '): ' . $curl_error;
+                } else {
+                    $reason = 'HTTP ' . $http_code . ' — ' . htmlspecialchars(substr($response, 0, 1000), ENT_QUOTES, 'UTF-8');
+                }
+
+                return $this->displayError(
+                    '<strong>' . $this->l('Error al enviar el diagnóstico a InFoAL.') . '</strong><br>' .
+                    '<small><strong>' . $this->l('Detalle (debug activo):') . '</strong><br>' .
+                    '<code style="word-break:break-all;">' . $reason . '</code></small><br>' .
+                    '<br>' . $this->l('Descarga el ZIP manualmente y envíanoslo:') . ' ' .
+                    '<a href="' . htmlspecialchars($this->context->link->getAdminLink('AdminModules', true) .
+                        '&configure=' . $this->name .
+                        '&tab_module_verifactu=help&run_vf_diagnostic=1&force_zip=1', ENT_QUOTES) . '" class="btn btn-default btn-sm">' .
+                    '<i class="icon-download"></i> ' . $this->l('Descargar ZIP de diagnóstico') . '</a>'
+                );
+            }
+        } else {
+            // Token vacío: loguear y avisar
+            Verifactu::writeLog('DiagnosticSend → API Token vacío. Fallback a ZIP.', 2, $id_shop);
+
+            if ($debug_mode) {
+                return $this->displayWarning(
+                    $this->l('No hay API Token configurado. No se puede enviar el diagnóstico a InFoAL.') .
+                    ' ' . $this->l('Se descargará el ZIP de diagnóstico.')
+                );
+            }
+        }
+
+        // Fallback: descarga el ZIP — soporte para ?force_zip=1 desde el enlace de debug
+        $diagnostic->downloadAsZip($payload, 'verifactu-diagnostico-' . date('Ymd'));
+        return '';
+    }
+
+    /**
+     * Renderiza el panel de estadísticas VeriFactu.
+     * @return string HTML del dashboard.
+     */
+    public function renderDashboard()
+    {
+        $id_shop = (int)$this->context->shop->id;
+        $db      = Db::getInstance();
+
+        // --- Estadísticas de facturas de venta ---
+        $stats = [];
+
+        // Total enviadas (todas)
+        $sql = 'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                WHERE o.id_shop = ' . $id_shop;
+        $stats['total_enviadas'] = (int)$db->getValue($sql);
+
+        // Enviadas este mes
+        $sql = 'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                WHERE o.id_shop = ' . $id_shop . '
+                AND YEAR(oi.date_add) = YEAR(CURDATE()) AND MONTH(oi.date_add) = MONTH(CURDATE())';
+        $stats['total_mes'] = (int)$db->getValue($sql);
+
+        // Importe total facturado
+        $sql = 'SELECT COALESCE(SUM(oi.total_paid_tax_incl), 0)
+                FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                WHERE o.id_shop = ' . $id_shop;
+        $stats['total_importe'] = (float)$db->getValue($sql);
+
+        // Contadores por estado — últimos 12 meses (una sola query en lugar de 6 separadas)
+        // Esto evita escaneos completos de tabla en instalaciones con muchos años de datos.
+        $sql = 'SELECT
+                    SUM(CASE WHEN voi.verifactuEstadoRegistro = "Correcto"          THEN 1 ELSE 0 END) AS correctos,
+                    SUM(CASE WHEN voi.verifactuEstadoRegistro = "Incorrecto"        THEN 1 ELSE 0 END) AS incorrectos,
+                    SUM(CASE WHEN voi.estado = "pendiente"                          THEN 1 ELSE 0 END) AS pendientes,
+                    SUM(CASE WHEN voi.estado = "api_error"                          THEN 1 ELSE 0 END) AS api_errors,
+                    SUM(CASE WHEN voi.estado = "failed"                             THEN 1 ELSE 0 END) AS failed,
+                    SUM(CASE WHEN voi.verifactuEstadoRegistro = "AceptadoConErrores" THEN 1 ELSE 0 END) AS aceptados_con_errores
+                FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                WHERE o.id_shop = ' . $id_shop . '
+                AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 12 MONTH)';
+        $state_counts = $db->getRow($sql);
+        $stats['correctos']            = (int)($state_counts['correctos'] ?? 0);
+        $stats['incorrectos']          = (int)($state_counts['incorrectos'] ?? 0);
+        $stats['pendientes']           = (int)($state_counts['pendientes'] ?? 0);
+        $stats['api_errors']           = (int)($state_counts['api_errors'] ?? 0);
+        $stats['failed']               = (int)($state_counts['failed'] ?? 0);
+        $stats['aceptados_con_errores']= (int)($state_counts['aceptados_con_errores'] ?? 0);
+
+
+        // --- Últimos 10 errores recientes (últimos 30 días) ---
+        $sql = 'SELECT voi.*, oi.number, o.id_order, CONCAT(c.firstname, " ", c.lastname) AS customer
+                FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                LEFT JOIN `' . _DB_PREFIX_ . 'customer` c ON o.id_customer = c.id_customer
+                WHERE o.id_shop = ' . $id_shop . '
+                AND (voi.estado = "api_error" OR voi.estado = "failed" OR voi.verifactuEstadoRegistro = "Incorrecto")
+                AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                ORDER BY oi.date_add DESC LIMIT 10';
+        $raw_errors = $db->executeS($sql);
+
+        $recent_errors = [];
+        foreach ((array)$raw_errors as $err) {
+            $err['invoice_number'] = $this->getFormattedInvoiceNumberForList($err['number'], $err);
+            $err['order_url'] = $this->context->link->getAdminLink('AdminOrders', true, [], [
+                'id_order' => (int)$err['id_order'], 'vieworder' => ''
+            ]);
+            $recent_errors[] = $err;
+        }
+
+        $ajax_url   = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
+        $ajax_token = Tools::getAdminTokenLite('AdminVerifactuAjax');
+
+        $this->context->smarty->assign([
+            'stats'        => $stats,
+            'recent_errors' => $recent_errors,
+            'ajax_url'     => $ajax_url,
+            'ajax_token'   => $ajax_token,
+            'current'      => $this->context->link->getAdminLink('AdminModules', true) .
+                              '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name,
+        ]);
+
+        return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/dashboard.tpl');
+    }
+
+    // =================================================================
+    // TODO-08: EXPORTACION CSV
+    // =================================================================
+
+    /**
+     * Genera y descarga un CSV del listado indicado.
+     * @param string $list_type 'sales_invoices'|'credit_slips'|'reg_facts'
+     */
+    private function exportCsvList($list_type)
+    {
+        $db     = Db::getInstance();
+        $id_shop = (int)$this->context->shop->id;
+
+        if ($list_type === 'sales_invoices') {
+            $filename = 'verifactu_facturas_' . date('Ymd') . '.csv';
+            $sql = 'SELECT o.id_order, oi.number AS num_factura, CONCAT(c.firstname, " ", c.lastname) AS cliente,
+                    addr.vat_number AS nif_cliente, oi.total_paid_tax_incl AS importe, oi.date_add AS fecha,
+                    voi.verifactuEstadoRegistro AS estado_aeat, voi.estado AS estado_sinc,
+                    voi.verifactuCodigoErrorRegistro AS cod_error, voi.verifactuDescripcionErrorRegistro AS desc_error,
+                    voi.urlQR, voi.apiMode, voi.TipoFactura, voi.anulacion, voi.retry_count
+                    FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                    LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                    LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                    LEFT JOIN `' . _DB_PREFIX_ . 'customer` c ON o.id_customer = c.id_customer
+                    LEFT JOIN `' . _DB_PREFIX_ . 'address` addr ON o.id_address_invoice = addr.id_address
+                    WHERE o.id_shop = ' . $id_shop . '
+                    ORDER BY oi.date_add DESC';
+            $headers = ['ID Pedido','Nº Factura','Cliente','NIF Cliente','Importe','Fecha','Estado AEAT','Estado Sinc','Código Error','Descripción Error','URL QR','Modo API','Tipo Factura','Anulación','Reintentos'];
+
+        } elseif ($list_type === 'credit_slips') {
+            $filename = 'verifactu_abonos_' . date('Ymd') . '.csv';
+            $sql = 'SELECT o.id_order, os.id_order_slip AS num_abono, CONCAT(c.firstname, " ", c.lastname) AS cliente,
+                    addr.vat_number AS nif_cliente, os.total_products_tax_incl AS importe, os.date_add AS fecha,
+                    vos.verifactuEstadoRegistro AS estado_aeat, vos.estado AS estado_sinc,
+                    vos.verifactuCodigoErrorRegistro AS cod_error, vos.verifactuDescripcionErrorRegistro AS desc_error,
+                    vos.urlQR, vos.apiMode, vos.TipoFactura, vos.anulacion, vos.retry_count
+                    FROM `' . _DB_PREFIX_ . 'verifactu_order_slip` vos
+                    LEFT JOIN `' . _DB_PREFIX_ . 'order_slip` os ON vos.id_order_slip = os.id_order_slip
+                    LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON os.id_order = o.id_order
+                    LEFT JOIN `' . _DB_PREFIX_ . 'customer` c ON o.id_customer = c.id_customer
+                    LEFT JOIN `' . _DB_PREFIX_ . 'address` addr ON o.id_address_invoice = addr.id_address
+                    WHERE o.id_shop = ' . $id_shop . '
+                    ORDER BY os.date_add DESC';
+            $headers = ['ID Pedido','Nº Abono','Cliente','NIF Cliente','Importe','Fecha','Estado AEAT','Estado Sinc','Código Error','Descripción Error','URL QR','Modo API','Tipo Factura','Anulación','Reintentos'];
+
+        } else { // reg_facts
+            $filename = 'verifactu_registros_' . date('Ymd') . '.csv';
+            $sql = 'SELECT t.id_reg_fact, t.InvoiceNumber, t.IssueDate, t.BuyerName, t.BuyerTaxIdentificationNumber,
+                    t.TipoOperacion, t.TipoFactura, t.InvoiceTotal, t.TotalTaxOutputs,
+                    t.EstadoRegistro, t.CodigoErrorRegistro, t.DescripcionErrorRegistro,
+                    t.urlQR, t.hash, t.apiMode, t.tipo, t.fechaHoraRegistro
+                    FROM `' . _DB_PREFIX_ . 'verifactu_reg_fact` t
+                    LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON t.id_order_invoice = oi.id_order_invoice AND t.tipo = "alta"
+                    LEFT JOIN `' . _DB_PREFIX_ . 'order_slip` os ON t.id_order_invoice = os.id_order_slip AND t.tipo = "abono"
+                    LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON o.id_order = IF(t.tipo = "alta", oi.id_order, os.id_order)
+                    WHERE o.id_shop = ' . $id_shop . '
+                    ORDER BY t.id_reg_fact DESC';
+            $headers = ['ID Reg.','Nº Factura','Fecha Emisión','Cliente','NIF Cliente','Tipo Operación','Tipo Factura','Total','Impuestos','Estado AEAT','Código Error','Descripción Error','URL QR','Hash','Modo API','Tipo','Fecha Registro'];
+        }
+
+        $rows = $db->executeS($sql);
+
+        // Enviar como descarga
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        $out = fopen('php://output', 'w');
+        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8 para Excel
+        fputcsv($out, $headers, ';');
+        foreach ((array)$rows as $row) {
+            fputcsv($out, array_values($row), ';');
+        }
+        fclose($out);
+        exit;
     }
 
     /**
@@ -461,6 +883,7 @@ class Verifactu extends Module
                 'SIFIndicadorMultiplesOT' => 'varchar(45) DEFAULT NULL',
                 'apiMode' => 'varchar(20) DEFAULT NULL',
                 'id_shop' => 'int(11) NOT NULL',
+                'date_sent' => 'datetime DEFAULT NULL',
             ],
             'verifactu_order_invoice' => [
                 'id_order_invoice' => 'int(11) NOT NULL',
@@ -475,6 +898,8 @@ class Verifactu extends Module
                 'TipoFactura' => 'VARCHAR(100) NULL',
                 'avisos' => 'TEXT NULL',
                 'apiMode' => 'varchar(20) DEFAULT NULL',
+                'retry_count' => 'int(11) NOT NULL DEFAULT 0',
+                'last_retry_at' => 'datetime DEFAULT NULL',
             ],
             'verifactu_order_slip' => [
                 'id_order_slip' => 'int(11) NOT NULL',
@@ -489,6 +914,8 @@ class Verifactu extends Module
                 'TipoFactura' => 'VARCHAR(100) NULL',
                 'avisos' => 'TEXT NULL',
                 'apiMode' => 'varchar(20) DEFAULT NULL',
+                'retry_count' => 'int(11) NOT NULL DEFAULT 0',
+                'last_retry_at' => 'datetime DEFAULT NULL',
             ],
         ];
     }
@@ -654,45 +1081,6 @@ class Verifactu extends Module
 
         $output = $helper->generateForm(array($this->getConfigForm()));
 
-        // --- INICIO DEL NUEVO CÓDIGO ---
-        // Creamos un segundo formulario solo para el botón de herramientas
-        $helperTools = new HelperForm();
-        $helperTools->show_toolbar = false;
-        $helperTools->table = $this->table;
-        $helperTools->module = $this;
-        $helperTools->submit_action = 'submitCheckDatabase'; // Acción específica para este botón
-        $helperTools->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-            .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
-        $helperTools->token = Tools::getAdminTokenLite('AdminModules');
-
-        $formTools = array(
-            'form' => array(
-                'legend' => array(
-                    'title' => $this->l('Herramientas de Mantenimiento'),
-                    'icon' => 'icon-wrench',
-                ),
-                'buttons' => array(
-                        'check_api_status' => array(
-                        'title' => $this->l('Comprobar Estado AEAT'),
-                        'name' => 'submitCheckApiStatus',
-                        'type' => 'submit',
-                        'class' => 'btn btn-default pull-right',
-                        'icon' => 'process-icon-signal' // Icono de señal
-                    ),
-                    'check_db' => array(
-                        'title' => $this->l('Verificar y Reparar Base de Datos'),
-                        'name' => 'submitCheckDatabase',
-                        'type' => 'submit',
-                        'class' => 'btn btn-default pull-right',
-                        'icon' => 'process-icon-cogs'
-                    )
-                ),
-                'description' => $this->l('- Verificar y Reparar Base de datos: Usa este botón si sospechas que al módulo le falta alguna columna en la base de datos debido a una actualización fallida. Esta herramienta comprobará la integridad de las tablas y añadirá las columnas que falten sin borrar ningún dato. - Comprobar estado AEAT: Comprueba si los servidores de Veri*Factu de la AEAT están operativos o por el contrario están caídos temporalmente.')
-            ),
-        );
-
-        $output .= $helperTools->generateForm(array($formTools));
-        
         return $output;
     }
 
@@ -724,10 +1112,20 @@ class Verifactu extends Module
         return array(
             'form' => array(
                 'legend' => array(
-                'title' => $this->l('Configuración del módulo'),
-                'icon' => 'icon-cogs',
+                    'title' => $this->l('Configuración del módulo'),
+                    'icon' => 'icon-cogs',
                 ),
                 'input' => array(
+                    array(
+                        'type' => 'html',
+                        'name' => 'vf_section_api',
+                        'html_content' => '
+                        <style>
+                        .vf-config-section { background:#f0f4f8; border-left:4px solid #2980b9; padding:10px 14px; margin:-10px -10px 18px; font-size:14px; font-weight:bold; color:#2c3e50; }
+                        .vf-config-section i { margin-right:6px; color:#2980b9; }
+                        </style>
+                        <div class="vf-config-section"><i class="icon-plug"></i>' . $this->l('1. Conexión a la API de InFoAL') . '</div>',
+                    ),
                     array(
                         'col' => 8,
                         'type' => 'text',
@@ -746,8 +1144,8 @@ class Verifactu extends Module
                     ),
                     array(
                         'type' => 'html',
-                        'name' => 'verifactu_separator_1', // Nombre único
-                        'html_content' => '<hr><h4>' . $this->l('Configuración de venta internacional y territorios especiales') . '</h4>',
+                        'name' => 'verifactu_separator_fiscal',
+                        'html_content' => '<div class="vf-config-section" style="margin-top:24px;"><i class="icon-institution"></i>' . $this->l('2. Configuración Fiscal') . '</div>',
                     ),
                     array(
                         'type' => 'switch',
@@ -834,7 +1232,7 @@ class Verifactu extends Module
                     array(
                         'type' => 'html',
                         'name' => 'verifactu_separator_qr',
-                        'html_content' => '<hr><h4>' . $this->l('Configuración del QR en PDF') . '</h4>',
+                        'html_content' => '<div class="vf-config-section" style="margin-top:24px;"><i class="icon-qrcode"></i>' . $this->l('3. Código QR en PDF') . '</div>',
                     ),
                     array(
                         'type' => 'switch',
@@ -886,8 +1284,8 @@ class Verifactu extends Module
 
                     array(
                         'type' => 'html',
-                        'name' => 'verifactu_separator_qr',
-                        'html_content' => '<hr><h4>' . $this->l('Configuración del pedido') . '</h4>',
+                        'name' => 'verifactu_separator_order',
+                        'html_content' => '<div class="vf-config-section" style="margin-top:24px;"><i class="icon-shopping-cart"></i>' . $this->l('4. Comportamiento del Pedido') . '</div>',
                     ),
 
                     array(
@@ -932,30 +1330,34 @@ class Verifactu extends Module
 
                     array(
                         'type' => 'html',
-                        'name' => 'verifactu_separator_1', // Nombre único
-                        'html_content' => '<hr>',
+                        'name' => 'verifactu_separator_debug',
+                        'html_content' => '<div class="vf-config-section" style="margin-top:24px;"><i class="icon-bug"></i>' . $this->l('5. Debug y Logs') . '</div>',
                     ),
                     array(
                         'type' => 'switch',
                         'label' => $this->l('Activar modo debug'),
                         'name' => 'VERIFACTU_DEBUG_MODE',
                         'is_bool' => true,
-                        'desc' => $this->l('Activa esta opción para guardar los logs de los eventos en los Registros/Logs de prestashop. No la actives si no sabes lo que estás haciendo. Dejar activada esta opción puede hacer que tu tabla ps_log augmente mucho de tamaño en poco tiempo.'),
+                        'desc' => $this->l('Activa esta opción para guardar los logs de los eventos. Desactívalo en producción cuando no estés depurando.') .
+                                  '<br><strong style="color:#e74c3c;">' . $this->l('⚠ Modo debug activo: puede aumentar notablemente el tamaño de los logs.') . '</strong>',
                         'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Activado')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Desactivado')
-                            )
+                            array('id' => 'active_on',  'value' => true,  'label' => $this->l('Activado')),
+                            array('id' => 'active_off', 'value' => false, 'label' => $this->l('Desactivado')),
                         ),
                         'disabled' => false,
                     ),
-
+                    array(
+                        'type' => 'html',
+                        'name' => 'verifactu_purge_logs_btn',
+                        'html_content' => '<div class="form-group">' .
+                            '<label class="control-label col-lg-3">' . $this->l('Purgar logs antiguos') . '</label>' .
+                            '<div class="col-lg-9">' .
+                            '<a href="' . $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=configure&purge_vf_logs=1" class="btn btn-default" onclick="return confirm(\'' . $this->l('¿Seguro que quieres eliminar el log de debug de VeriFactu?') . '\')">' .
+                            '<i class="icon-trash"></i> ' . $this->l('Purgar log de debug') .
+                            '</a>' .
+                            '<p class="help-block">' . $this->l('Trunca el fichero de log: ') . '<code>' . _PS_MODULE_DIR_ . 'verifactu/logs/verifactu.log</code></p>' .
+                            '</div></div>',
+                    ),
 
                 ),
                 'submit' => array(
@@ -1020,7 +1422,7 @@ class Verifactu extends Module
         // Obtenemos los valores de los campos del formulario.
         $verifactu_api_token = Tools::getValue('VERIFACTU_API_TOKEN');
         $verifactu_nif_emisor = Tools::getValue('VERIFACTU_NIF_EMISOR');
-        $verifactu_debug_mode = Tools::getValue('VERIFACTU_DEBUG_MODE');
+        $verifactu_debug_mode = (bool)Tools::getValue('VERIFACTU_DEBUG_MODE');
         
         // Obtenemos los arrays de los selectores múltiples. Pueden ser 'false' si no se selecciona nada.
         $verifactu_igic_taxes = Tools::getValue('VERIFACTU_IGIC_TAXES', []);
@@ -1198,7 +1600,7 @@ class Verifactu extends Module
 
         $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
         if ($debug_mode) {
-            PrestaShopLogger::addLog('Módulo Verifactu: checkApiStatus - Respuesta de API: ' . $response, 1, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu: checkApiStatus - Respuesta de API: ' . $response, 1, $id_shop);
         }
         
         // Asumimos que un código 200 y una respuesta con 'status' => 'ok' es un éxito.
@@ -1237,7 +1639,7 @@ class Verifactu extends Module
             'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
             'TipoFactura' => array('title' => $this->l('Tipo Factura'), 'type' => 'text-center', 'search' => true, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
-            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
+            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false, 'width' => '130', 'align' => 'center')
         );
 
         $helper = new HelperList();
@@ -1262,7 +1664,13 @@ class Verifactu extends Module
         $content = $this->getSalesInvoicesListContent($page, $pagination, $orderBy, $orderWay);
         $helper->listTotal = $this->getTotalSalesInvoicesListContent();
 
-        return $helper->generateList($content, $fields_list);
+        // TODO-08/09: Barra de herramientas: Filtro de fechas + Exportar CSV + Reenvío masivo
+        $base_url = $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=sales_invoices';
+        $ajax_url = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
+        $ajax_token = Tools::getAdminTokenLite('AdminVerifactuAjax');
+        $csv_html = $this->renderListToolbar($base_url, 'sales_invoices', $ajax_url, $ajax_token);
+
+        return $helper->generateList($content, $fields_list) . $csv_html;
     }
 
     private function getSalesInvoicesListContent($page, $pagination, $orderBy, $orderWay)
@@ -1452,7 +1860,7 @@ class Verifactu extends Module
             'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
             'TipoFactura' => array('title' => $this->l('Tipo Factura'), 'type' => 'text', 'search' => true, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
-            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'search' => false, 'escape' => false)
+            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false, 'width' => '130', 'align' => 'center')
         );
 
         $helper = new HelperList();
@@ -1477,7 +1885,13 @@ class Verifactu extends Module
         $content = $this->getCreditSlipsListContent($page, $pagination, $orderBy, $orderWay);
         $helper->listTotal = $this->getTotalCreditSlipsListContent();
 
-        return $helper->generateList($content, $fields_list);
+        // TODO-08/09: Barra de herramientas: Filtro de fechas + Exportar CSV + Reenvío masivo
+        $base_url = $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=credit_slips';
+        $ajax_url = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
+        $ajax_token = Tools::getAdminTokenLite('AdminVerifactuAjax');
+        $csv_html = $this->renderListToolbar($base_url, 'credit_slips', $ajax_url, $ajax_token);
+
+        return $helper->generateList($content, $fields_list) . $csv_html;
     }
 
     private function getCreditSlipsListContent($page, $pagination, $orderBy, $orderWay)
@@ -1753,8 +2167,13 @@ class Verifactu extends Module
         $content = $this->getListContent($helper->table, $page, $pagination, $orderBy, $orderWay);
         $helper->listTotal = $this->getTotalListContent($helper->table);
 
-        return $helper->generateList($content, $fields_list);
-        // --- FIN DE LA MODIFICACIÓN ---
+        // TODO-08/09: Barra de herramientas: Filtro de fechas + Exportar CSV
+        $base_url = $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=reg_facts';
+        $ajax_url = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
+        $ajax_token = Tools::getAdminTokenLite('AdminVerifactuAjax');
+        $csv_html = $this->renderListToolbar($base_url, 'reg_facts', $ajax_url, $ajax_token);
+
+        return $helper->generateList($content, $fields_list) . $csv_html;
     }
 
     /**
@@ -1838,6 +2257,206 @@ class Verifactu extends Module
         }
 
         return (int)$db->getValue($sql);
+    }
+
+
+    // =================================================================
+    // TODO-19: SISTEMA DE LOGS MEJORADO
+    // =================================================================
+
+    /**
+     * Escribe un mensaje de log en el fichero de disco del módulo.
+     * Solo escribe si VERIFACTU_DEBUG_MODE está activo para la tienda.
+     * Nunca escribe en ps_log (base de datos).
+     *
+     * Ruta del fichero: modules/verifactu/logs/verifactu.log
+     * Rotación automática al superar 5 MB.
+     *
+     * @param string   $message   Mensaje a loguear.
+     * @param int      $severity  Severidad: 1=Info, 2=Warning, 3=Error, 4=Critical.
+     * @param int|null $id_shop   ID de tienda. Null = contexto actual.
+     */
+    public static function writeLog($message, $severity = 1, $id_shop = null)
+    {
+        if ($id_shop === null) {
+            $id_shop = Shop::getContextShopID();
+        }
+
+        // Solo loguear si el modo debug está activo para esta tienda
+        if (!(bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop)) {
+            return;
+        }
+
+        $log_dir  = _PS_MODULE_DIR_ . 'verifactu/logs/';
+        $log_file = $log_dir . 'verifactu.log';
+
+        if (!is_dir($log_dir)) {
+            @mkdir($log_dir, 0775, true);
+        }
+
+        // Rotación: si supera 5 MB, renombrar y crear nuevo
+        if (file_exists($log_file) && filesize($log_file) > 5 * 1024 * 1024) {
+            @rename($log_file, $log_dir . 'verifactu-' . date('Ymd-His') . '.log.bak');
+        }
+
+        $severityLabel = ['', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
+        $line = '[' . date('Y-m-d H:i:s') . '] [' . ($severityLabel[$severity] ?? $severity) . '] [shop=' . $id_shop . '] ' . $message . PHP_EOL;
+        @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * Purga los logs de debug del módulo:
+     * - En BD: elimina entradas de ps_log con mensaje 'VeriFactu' o 'Veri*Factu' de más de 30 días.
+     * - En disco: trunca el fichero verifactu.log si existe.
+     */
+    private function purgeDebugLogs()
+    {
+        $cutoff = date('Y-m-d H:i:s', strtotime('-30 days'));
+
+        // Purga en ps_log
+        Db::getInstance()->execute(
+            'DELETE FROM `' . _DB_PREFIX_ . 'log`
+             WHERE `date_add` < \'' . pSQL($cutoff) . '\'
+             AND (`message` LIKE \'%VeriFactu%\' OR `message` LIKE \'%Veri*Factu%\')'
+        );
+
+        // Purga en fichero de disco
+        $log_file = _PS_MODULE_DIR_ . 'verifactu/logs/verifactu.log';
+        if (file_exists($log_file)) {
+            @file_put_contents($log_file, '');
+        }
+    }
+
+
+    // =================================================================
+    // TODO-07/08/09: TOOLBAR (Filtro fechas, CSV, Reenvío masivo)
+    // =================================================================
+
+    /**
+     * Genera la barra de herramientas que se muestra encima de cada listado:
+     *  - TODO-09: Filtro por rango de fechas.
+     *  - TODO-08: Botón de exportación CSV.
+     *  - TODO-07: Panel de reenvío masivo con AJAX.
+     *
+     * @param string $base_url  URL base del listado (con tab activo).
+     * @param string $list_type 'sales_invoices'|'credit_slips'|'reg_facts'
+     * @param string $ajax_url  URL del controlador AJAX de VeriFactu.
+     * @param string $ajax_token Token del controlador AJAX.
+     * @return string HTML de la barra.
+     */
+    private function renderListToolbar($base_url, $list_type, $ajax_url, $ajax_token)
+    {
+        $show_bulk = ($list_type !== 'reg_facts'); // Solo facturas/abonos tienen reenvío
+
+        $html  = '<div class="panel" style="margin-bottom:10px;">';
+        $html .= '<div class="panel-body">';
+
+        // TODO-08: Exportar CSV
+        $csv_url = htmlspecialchars($base_url . '&export_csv=' . $list_type);
+        $html .= '<a href="' . $csv_url . '" class="btn btn-success"><i class="icon-download"></i> ' . $this->l('Exportar CSV') . '</a>';
+
+        // TODO-07: Reenvío masivo (solo para facturas y abonos, no para registros)
+        if ($show_bulk) {
+            $type_val = ($list_type === 'sales_invoices') ? 'alta' : 'abono';
+            $html .= '<div id="vf-bulk-resend-panel" style="border-top:1px solid #eee; padding-top:10px; display:none;">';
+            $html .= '<span id="vf-bulk-selected-count" style="margin-right:10px; font-weight:bold;">0 ' . $this->l('seleccionadas') . '</span>';
+            $html .= '<button id="vf-bulk-resend-btn" class="btn btn-primary" data-ajax-url="' . htmlspecialchars($ajax_url) . '" data-ajax-token="' . htmlspecialchars($ajax_token) . '" data-type="' . $type_val . '" disabled>';
+            $html .= '<i class="icon-refresh"></i> ' . $this->l('Reenviar seleccionadas a VeriFactu') . '</button>';
+            $html .= '<span id="vf-bulk-progress" style="margin-left:15px; display:none; color:#888;">' . $this->l('Procesando...') . '</span>';
+            $html .= '</div>';
+        }
+
+        $html .= '</div></div>';
+
+        // TODO-07: JavaScript para los checkboxes y el reenvío masivo
+        if ($show_bulk) {
+            $html .= '<script type="text/javascript">';
+            $html .= '$(document).ready(function() {';
+
+            // Añadir checkbox a cada fila del listado
+            $html .= '
+            setTimeout(function() {
+                var $table = $(".list-form table.table");
+                if (!$table.length) return;
+
+                // Checkbox "Seleccionar todo" en la cabecera
+                var $headRow = $table.find("thead tr");
+                $headRow.prepend("<th><input type=\"checkbox\" id=\"vf-check-all\" title=\"' . $this->l('Seleccionar todo') . '\"></th>");
+
+                // Checkboxes por fila + guardar id_order
+                $table.find("tbody tr").each(function() {
+                    var $tr = $(this);
+                    var idOrder = null;
+                    // Intentamos obtener id_order del botón de reenvío si existe
+                    var $resendBtn = $tr.find(".button-resend-verifactu");
+                    if ($resendBtn.length) {
+                        idOrder = $resendBtn.data("id_order");
+                    }
+                    $tr.prepend("<td><input type=\"checkbox\" class=\"vf-row-check\" data-id-order=\"" + idOrder + "\"></td>");
+                });
+
+                // Mostrar panel si hay selección
+                $(document).on("change", ".vf-row-check, #vf-check-all", function() {
+                    var $checked = $(".vf-row-check:checked");
+                    var count = $checked.length;
+                    if ($("#vf-check-all").is(":checked")) {
+                        $(".vf-row-check").prop("checked", true);
+                        count = $(".vf-row-check").length;
+                    }
+                    if (count > 0) {
+                        $("#vf-bulk-resend-panel").show();
+                        $("#vf-bulk-selected-count").text(count + " ' . $this->l('seleccionadas') . '");
+                        $("#vf-bulk-resend-btn").prop("disabled", false);
+                    } else {
+                        $("#vf-bulk-resend-panel").hide();
+                        $("#vf-bulk-resend-btn").prop("disabled", true);
+                    }
+                });
+
+                // Reenvío masivo
+                $("#vf-bulk-resend-btn").on("click", function() {
+                    var $btn = $(this);
+                    var ajaxUrl = $btn.data("ajax-url");
+                    var token   = $btn.data("ajax-token");
+                    var type    = $btn.data("type");
+
+                    var orders = [];
+                    $(".vf-row-check:checked").each(function() {
+                        var id = $(this).data("id-order");
+                        if (id) orders.push(id);
+                    });
+
+                    if (!orders.length) { alert("' . $this->l('No hay pedidos seleccionados con ID válido.') . '"); return; }
+
+                    $btn.prop("disabled", true);
+                    $("#vf-bulk-progress").show();
+
+                    var done = 0;
+                    function sendNext() {
+                        if (done >= orders.length) {
+                            $("#vf-bulk-progress").text("' . $this->l('¡Completado!') . ' " + done + "/" + orders.length);
+                            return;
+                        }
+                        var id_order = orders[done];
+                        $.ajax({
+                            url: ajaxUrl,
+                            type: "POST",
+                            dataType: "json",
+                            data: { action: "EnviarVerifactu", ajax: 1, token: token, id_order: id_order, type: type },
+                            complete: function() { done++; sendNext(); }
+                        });
+                    }
+                    sendNext();
+                });
+
+            }, 500);
+            ';
+
+            $html .= '});';
+            $html .= '</script>';
+        }
+
+        return $html;
     }
 
 
@@ -2132,7 +2751,7 @@ class Verifactu extends Module
             $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
 
             if (empty($nif_emisor)) {
-                PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuQRData): NIF Emisor no configurado para shop ' . $id_shop, 2, null, null, null, true, $id_shop);
+                Verifactu::writeLog('Módulo Verifactu (getVerifactuQRData): NIF Emisor no configurado para shop ' . $id_shop, 2, $id_shop);
                 return ['qr_image_url' => null, 'qr_data_url' => null];
             }
             
@@ -2159,7 +2778,7 @@ class Verifactu extends Module
                 $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu (getVerifactuQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
         }
 
         // 5. Devolvemos los datos
@@ -2240,7 +2859,7 @@ class Verifactu extends Module
                 $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu (getVerifactuCreditSlipQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu (getVerifactuCreditSlipQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
         }
 
         // 5. Devolvemos los datos
@@ -2276,7 +2895,7 @@ class Verifactu extends Module
                 return __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename; // Devolver URL pública
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null);
         }
 
         return null;
@@ -2763,7 +3382,7 @@ class Verifactu extends Module
 
         // 2. Fallback de seguridad: Si no tenemos pedido, no podemos seguir
         if (!Validate::isLoadedObject($order)) {
-            PrestaShopLogger::addLog('Módulo Verifactu: HookActionSetInvoice disparado sin objeto Order válido.', 3);
+            Verifactu::writeLog('Módulo Verifactu: HookActionSetInvoice disparado sin objeto Order válido.', 3, null);
             return;
         }
 
@@ -2777,10 +3396,7 @@ class Verifactu extends Module
              $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
              $av->sendAltaVerifactu($id_order, 'alta');
         } else {
-             PrestaShopLogger::addLog(
-                'Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop,
-                2, null, null, null, true, $id_shop
-            );
+             Verifactu::writeLog('Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
         }
 
         
@@ -2800,10 +3416,7 @@ class Verifactu extends Module
             $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
             $av->sendAltaVerifactu($id_order, 'abono');
         } else {
-             PrestaShopLogger::addLog(
-                'Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop,
-                2, null, null, null, true, $id_shop
-            );
+             Verifactu::writeLog('Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
         }
 
     }
@@ -2853,6 +3466,17 @@ class Verifactu extends Module
         $invoice_data = Db::getInstance()->getRow($sql_invoice);
 
         if ($invoice_data && !empty($invoice_data['id_order_invoice'])) {
+            // Valores por defecto para columnas añadidas en v1.5.4 (pueden no existir en upgrades antiguos)
+            $invoice_defaults = [
+                'InvoiceTotal' => null, 'InvoiceNumber' => null, 'IssueDate' => null,
+                'TipoOperacion' => null, 'TipoFactura' => null, 'hash' => null,
+                'BuyerName' => null, 'BuyerTaxIdentificationNumber' => null,
+                'apiMode' => null, 'retry_count' => 0, 'anulacion' => 0,
+                'verifactuEstadoRegistro' => '', 'verifactuCodigoErrorRegistro' => '',
+                'verifactuDescripcionErrorRegistro' => '', 'urlQR' => '', 'estado' => '',
+                'CorrectiveInvoiceNumber' => null, 'CorrectiveIssueDate' => null,
+            ];
+            $invoice_data = array_merge($invoice_defaults, $invoice_data);
             // Formateamos el número de factura
             $invoice_data['formatted_number'] = $api_verifactu->getFormattedInvoiceNumber($invoice_data['id_order_invoice']);
             // Generamos la imagen QR
@@ -2875,6 +3499,16 @@ class Verifactu extends Module
 
         if ($slips_results) {
             foreach ($slips_results as $slip_data) {
+                // Valores por defecto para columnas añadidas en v1.5.4
+                $slip_defaults = [
+                    'InvoiceTotal' => null, 'InvoiceNumber' => null, 'IssueDate' => null,
+                    'TipoOperacion' => null, 'TipoFactura' => null, 'hash' => null,
+                    'BuyerName' => null, 'BuyerTaxIdentificationNumber' => null,
+                    'apiMode' => null, 'retry_count' => 0, 'anulacion' => 0,
+                    'verifactuEstadoRegistro' => '', 'verifactuCodigoErrorRegistro' => '',
+                    'verifactuDescripcionErrorRegistro' => '', 'urlQR' => '', 'estado' => '',
+                ];
+                $slip_data = array_merge($slip_defaults, $slip_data);
                 // Formateamos el número de abono
                 $slip_data['formatted_number'] = $api_verifactu->getFormattedCreditSlipNumber($slip_data['id_order_slip']);
                 // Generamos la imagen QR
@@ -2886,13 +3520,27 @@ class Verifactu extends Module
 
         $show_anulacion_button = (bool)Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', false, null, $this->context->shop->id);
 
+        // TODO-17: Comprobación de NIF vacío en la dirección de facturación
+        $nif_warning = false;
+        $order_obj = new Order($id_order);
+        if (Validate::isLoadedObject($order_obj)) {
+            $billing_address = new Address($order_obj->id_address_invoice);
+            if (Validate::isLoadedObject($billing_address)) {
+                $vat  = trim($billing_address->vat_number);
+                $dni  = trim(isset($billing_address->dni) ? $billing_address->dni : '');
+                if (empty($vat) && empty($dni)) {
+                    $nif_warning = true;
+                }
+            }
+        }
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
             'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
             'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
             'id_order'          => $id_order,
             'show_anulacion_button' => $show_anulacion_button,
-            // (Las variables antiguas ya no se asignan individualmente)
+            'nif_warning'       => $nif_warning,        // TODO-17
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/order_side.tpl');
@@ -2993,11 +3641,11 @@ class Verifactu extends Module
 
             } else {
                 // Si falla, la variable de Smarty seguirá siendo null
-                PrestaShopLogger::addLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, null, null, null, true, $id_shop);
+                Verifactu::writeLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
             }
 
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
             // $qr_code_path_for_smarty sigue siendo null
         }
         
@@ -3109,10 +3757,10 @@ class Verifactu extends Module
                 $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
 
             } else {
-                 PrestaShopLogger::addLog('Módulo Verifactu: El archivo QR (abono) se generó pero no se encontró en ' . $qr_code_path, 2, null, null, null, true, $id_shop);
+                 Verifactu::writeLog('Módulo Verifactu: El archivo QR (abono) se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, $id_shop);
             // $qr_code_path_for_smarty sigue siendo null
         }
         
@@ -3464,10 +4112,10 @@ class Verifactu extends Module
                 self::$temp_qr_files[] = $qr_code_path;
                 $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
             } else {
-                PrestaShopLogger::addLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, null, null, null, true, $id_shop);
+                Verifactu::writeLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null, null, null, true, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
         }
         return $qr_code_path_for_smarty;
     }

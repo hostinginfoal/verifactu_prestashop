@@ -164,3 +164,293 @@ span.estado_verifactu{
 	font-size: 0.85rem !important;
 	padding: 6px 10px !important;
 }
+/* ================================================================
+ * TODO-25: Estilos del Widget lateral del pedido
+ * Compatibles con PS 1.6 (Bootstrap 2/3) y PS 1.7/8/9 (Bootstrap 4)
+ * La estructura de tarjeta usa las clases nativas .card de PrestaShop.
+ * ================================================================ */
+
+/* --- Bloque de estado grande --- */
+.vf-status-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+.vf-status-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+.vf-status-label {
+    font-weight: 700;
+    font-size: 14px;
+}
+.vf-status-sub {
+    font-size: 11px;
+    margin-top: 2px;
+    opacity: .8;
+}
+
+.vf-status-correcto  { background: #eaf7ee; color: #1d7a3a; border-left: 4px solid #27ae60; }
+.vf-status-pendiente { background: #eef0fb; color: #4a4fa5; border-left: 4px solid #7c82d4; }
+.vf-status-error     { background: #fdf0f0; color: #a02020; border-left: 4px solid #e74c3c; }
+.vf-status-warning   { background: #fffbea; color: #856404; border-left: 4px solid #f39c12; }
+.vf-status-anulado   { background: #f4f4f4; color: #555;    border-left: 4px solid #95a5a6; }
+
+/* --- Título de sección interna --- */
+.vf-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #888;
+    margin: 14px 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* --- QR --- */
+.vf-qr-block {
+    text-align: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 8px;
+}
+.vf-qr-img {
+    max-width: 130px;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto 4px;
+}
+.vf-qr-caption {
+    font-size: 11px;
+    color: #888;
+}
+
+/* --- Botones de acción --- */
+.vf-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+.vf-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: opacity .15s, background .15s;
+}
+.vf-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+.vf-btn i { margin-right: 5px; }
+.vf-btn-primary  { background: #3498db; color: #fff; }
+.vf-btn-secondary{ background: #95a5a6; color: #fff; }
+.vf-btn-danger   { background: #e74c3c; color: #fff; }
+.vf-btn-info     { background: #1abc9c; color: #fff; }
+.vf-btn-primary:hover:not(:disabled)   { background: #2980b9; }
+.vf-btn-secondary:hover:not(:disabled) { background: #7f8c8d; }
+.vf-btn-danger:hover:not(:disabled)    { background: #c0392b; }
+.vf-btn-info:hover:not(:disabled)      { background: #16a085; }
+
+/* --- Mensaje de respuesta --- */
+.vf-response-msg {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    background: #eaf7ee;
+    color: #1d7a3a;
+    border-left: 3px solid #27ae60;
+}
+
+/* --- Aviso NIF vacío --- */
+.vf-nif-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #fff8e1;
+    border-left: 4px solid #f39c12;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #7a5c00;
+}
+.vf-nif-warning i { font-size: 16px; margin-top: 1px; flex-shrink: 0; color: #f39c12; }
+
+/* --- Aviso legal inalterabilidad --- */
+.vf-legal-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #eaf7ee;
+    border-left: 4px solid #27ae60;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #1d5c35;
+}
+.vf-legal-notice i { font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+/* ================================================================
+ * Widget: resumen compacto + panel de detalles colapsable
+ * ================================================================ */
+
+/* --- Grilla de resumen (fecha / total / destinatario / NIF) --- */
+.vf-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin: 10px 0 8px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 12px;
+}
+.vf-summary-item {
+    padding: 6px 10px;
+    border-bottom: 1px solid #e9ecef;
+    background: #fafafa;
+}
+.vf-summary-item:nth-child(odd)  { border-right: 1px solid #e9ecef; }
+.vf-summary-item:last-child,
+.vf-summary-item:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+.vf-summary-key {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #999;
+    margin-bottom: 1px;
+}
+.vf-summary-val {
+    display: block;
+    font-weight: 600;
+    color: #333;
+}
+
+/* --- Botón "Ver detalles" --- */
+.vf-toggle-details {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    background: #f0f4f8;
+    border: 1px solid #d0d9e3;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a6274;
+    cursor: pointer;
+    text-align: left;
+    margin: 8px 0 0;
+    transition: background .15s;
+}
+.vf-toggle-details:hover { background: #e2ecf5; }
+.vf-toggle-details i { margin-right: 5px; }
+
+/* --- Panel de detalles --- */
+.vf-details-panel {
+    margin-top: 8px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* --- Sección dentro del panel --- */
+.vf-detail-section {
+    border-bottom: 1px solid #e9ecef;
+}
+.vf-detail-section:last-child { border-bottom: none; }
+.vf-detail-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #718096;
+    background: #f7f8fa;
+    padding: 6px 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+.vf-detail-section-title i { margin-right: 4px; }
+
+/* --- Tabla de datos técnicos --- */
+.vf-detail-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+}
+.vf-detail-table td {
+    padding: 5px 10px;
+    vertical-align: top;
+    border-bottom: 1px solid #f0f0f0;
+}
+.vf-detail-table tr:last-child td { border-bottom: none; }
+.vf-detail-table td:first-child {
+    width: 38%;
+    color: #888;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.vf-detail-table td:last-child { color: #333; }
+.vf-error-cell { color: #c0392b !important; }
+
+/* --- Hash --- */
+.vf-hash-block {
+    font-family: monospace;
+    font-size: 10px;
+    color: #555;
+    background: #f8f9fa;
+    padding: 8px 10px;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+/* --- Badge modo API (sandbox / produccion) --- */
+.vf-badge-mode {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #2c3e50;
+    color: #fff;
+    text-transform: lowercase;
+}
+
+/* --- Badge código de error --- */
+.vf-code-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #e74c3c;
+    color: #fff;
+    vertical-align: middle;
+}
+
+/* Columna de acciones del listado: ancho mínimo y no-wrap */
+td.column-list_actions,
+th.column-list_actions {
+    min-width: 130px !important;
+    white-space: nowrap !important;
+}
+td.column-list_actions .btn {
+    display: inline-block !important;
+    margin: 1px 2px !important;
+    padding: 4px 7px !important;
+}
