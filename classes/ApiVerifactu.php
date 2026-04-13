@@ -27,12 +27,23 @@
 
 namespace Verifactu\VerifactuClasses;
 
+// Dentro de un namespace, las clases globales de PS deben importarse
+// con 'use' o prefijarse con '\'. Usamos 'use' por legibilidad.
 use Db;
 use DbQuery;
 use Configuration;
-use PrestaShopLogger;
+use Shop;
+use Tools;
 use Order;
+use OrderInvoice;
+use OrderSlip;
 use Validate;
+use Currency;
+use Customer;
+use Address;
+use Country;
+use State;
+use Tax;
 
 class ApiVerifactu
 {

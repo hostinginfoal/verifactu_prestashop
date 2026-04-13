@@ -1,5 +1,7 @@
 <?php
-
+if (!class_exists('Verifactu\\VerifactuClasses\\ApiVerifactu') && !class_exists('ApiVerifactu')) {
+    require_once dirname(__FILE__) . '/../../classes/ApiVerifactu.php';
+}
 use Verifactu\VerifactuClasses\ApiVerifactu;
 
 class VerifactuAjaxModuleFrontController extends ModuleFrontController 

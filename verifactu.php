@@ -39,18 +39,21 @@ require_once __DIR__ . '/services/VerifactuQRService.php';
 require_once __DIR__ . '/services/VerifactuListHelper.php';
 require_once __DIR__ . '/services/VerifactuDiagnostic.php';
 
-use PrestaShop\PrestaShop\Core\Grid\Column\Type\Employee\EmployeeNameWithAvatarColumn;
-use PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn;
-use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollection;
+// Las siguientes declaraciones 'use' de PS 1.7+/Symfony se mantienen comentadas:
+// no se usan en este módulo y son incompatibles con PHP 5.2 (PS 1.6).
+//use PrestaShop\PrestaShop\Core\Grid\Column\Type\Employee\EmployeeNameWithAvatarColumn;
+//use PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn;
+//use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollection;
 //use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
-use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\AbstractGridDefinitionFactory;
-use PrestaShop\PrestaShop\Core\Grid\Filter\Filter;
-use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollection;
-use PrestaShopBundle\Form\Admin\Type\SearchAndResetType;
-use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
+//use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\AbstractGridDefinitionFactory;
+//use PrestaShop\PrestaShop\Core\Grid\Filter\Filter;
+//use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollection;
+//use PrestaShopBundle\Form\Admin\Type\SearchAndResetType;
+//use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
+//use Symfony\Component\Form\Extension\Core\Type\TextType;
+//use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\HtmlColumn;
+// ApiVerifactu: disponible via PSR-4 (Composer) en PS 1.7+ y via require_once en PS 1.6
 use Verifactu\VerifactuClasses\ApiVerifactu;
-use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\HtmlColumn;
 
 class Verifactu extends Module
 {

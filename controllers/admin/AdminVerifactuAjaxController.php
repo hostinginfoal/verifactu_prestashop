@@ -1,4 +1,9 @@
 <?php
+// Compatibilidad PS 1.6 / PS 1.7+: cargamos la clase via require_once como fallback
+// En PS 1.7+ el autoloader PSR-4 de Composer ya la resuelve via composer.json
+if (!class_exists('Verifactu\\VerifactuClasses\\ApiVerifactu') && !class_exists('ApiVerifactu')) {
+    require_once dirname(__FILE__) . '/../../classes/ApiVerifactu.php';
+}
 use Verifactu\VerifactuClasses\ApiVerifactu;
 //use PrestaShop\PrestaShop\Adapter\Entity\Order;
 //use PrestaShop\PrestaShop\Adapter\Entity\Validate;
