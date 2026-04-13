@@ -27,107 +27,125 @@ if (!defined('_PS_VERSION_')) {
  *
  * NOTE: Uses INFORMATION_SCHEMA checks instead of "ADD COLUMN IF NOT EXISTS"
  * for compatibility with MySQL 5.6/5.7 (which does not support that syntax).
+ *
+ * NOTE: No closures / anonymous functions are used here so this script
+ * is compatible with PHP 5.2 (PrestaShop 1.6).
  */
 function upgrade_module_1_5_4($module)
 {
     $db     = Db::getInstance();
     $prefix = _DB_PREFIX_;
 
-    // Helper: comprueba si una columna existe en una tabla
-    $columnExists = function ($table, $column) use ($db) {
-        $sql = 'SELECT COUNT(*) FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME   = \'' . pSQL($table) . '\'
-                  AND COLUMN_NAME  = \'' . pSQL($column) . '\'';
-        return (int)$db->getValue($sql) > 0;
-    };
-
-    $success = true;
-
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
     // verifactu_order_invoice: retry_count
-    // ---------------------------------------------------------------
-    if (!$columnExists($prefix . 'verifactu_order_invoice', 'retry_count')) {
-        $sql = 'ALTER TABLE `' . $prefix . 'verifactu_order_invoice`
-                ADD COLUMN `retry_count` int(11) NOT NULL DEFAULT 0';
-        if (!$db->execute($sql)) {
-            Verifactu::writeLog('upgrade-1.5.4: Error añadiendo retry_count a verifactu_order_invoice: ' . $db->getMsgError(), 3);
-            $success = false;
+    // ------------------------------------------------------------------
+    $exists = (int)$db->getValue(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME   = \'' . pSQL($prefix . 'verifactu_order_invoice') . '\'
+           AND COLUMN_NAME  = \'retry_count\''
+    );
+    if (!$exists) {
+        if (!$db->execute(
+            'ALTER TABLE `' . $prefix . 'verifactu_order_invoice`
+             ADD COLUMN `retry_count` int(11) NOT NULL DEFAULT 0'
+        )) {
+            return false;
         }
     }
 
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
     // verifactu_order_invoice: last_retry_at
-    // ---------------------------------------------------------------
-    if (!$columnExists($prefix . 'verifactu_order_invoice', 'last_retry_at')) {
-        $sql = 'ALTER TABLE `' . $prefix . 'verifactu_order_invoice`
-                ADD COLUMN `last_retry_at` datetime DEFAULT NULL';
-        if (!$db->execute($sql)) {
-            Verifactu::writeLog('upgrade-1.5.4: Error añadiendo last_retry_at a verifactu_order_invoice: ' . $db->getMsgError(), 3);
-            $success = false;
+    // ------------------------------------------------------------------
+    $exists = (int)$db->getValue(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME   = \'' . pSQL($prefix . 'verifactu_order_invoice') . '\'
+           AND COLUMN_NAME  = \'last_retry_at\''
+    );
+    if (!$exists) {
+        if (!$db->execute(
+            'ALTER TABLE `' . $prefix . 'verifactu_order_invoice`
+             ADD COLUMN `last_retry_at` datetime DEFAULT NULL'
+        )) {
+            return false;
         }
     }
 
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
     // verifactu_order_slip: retry_count
-    // ---------------------------------------------------------------
-    if (!$columnExists($prefix . 'verifactu_order_slip', 'retry_count')) {
-        $sql = 'ALTER TABLE `' . $prefix . 'verifactu_order_slip`
-                ADD COLUMN `retry_count` int(11) NOT NULL DEFAULT 0';
-        if (!$db->execute($sql)) {
-            Verifactu::writeLog('upgrade-1.5.4: Error añadiendo retry_count a verifactu_order_slip: ' . $db->getMsgError(), 3);
-            $success = false;
+    // ------------------------------------------------------------------
+    $exists = (int)$db->getValue(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME   = \'' . pSQL($prefix . 'verifactu_order_slip') . '\'
+           AND COLUMN_NAME  = \'retry_count\''
+    );
+    if (!$exists) {
+        if (!$db->execute(
+            'ALTER TABLE `' . $prefix . 'verifactu_order_slip`
+             ADD COLUMN `retry_count` int(11) NOT NULL DEFAULT 0'
+        )) {
+            return false;
         }
     }
 
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
     // verifactu_order_slip: last_retry_at
-    // ---------------------------------------------------------------
-    if (!$columnExists($prefix . 'verifactu_order_slip', 'last_retry_at')) {
-        $sql = 'ALTER TABLE `' . $prefix . 'verifactu_order_slip`
-                ADD COLUMN `last_retry_at` datetime DEFAULT NULL';
-        if (!$db->execute($sql)) {
-            Verifactu::writeLog('upgrade-1.5.4: Error añadiendo last_retry_at a verifactu_order_slip: ' . $db->getMsgError(), 3);
-            $success = false;
+    // ------------------------------------------------------------------
+    $exists = (int)$db->getValue(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME   = \'' . pSQL($prefix . 'verifactu_order_slip') . '\'
+           AND COLUMN_NAME  = \'last_retry_at\''
+    );
+    if (!$exists) {
+        if (!$db->execute(
+            'ALTER TABLE `' . $prefix . 'verifactu_order_slip`
+             ADD COLUMN `last_retry_at` datetime DEFAULT NULL'
+        )) {
+            return false;
         }
     }
 
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
     // verifactu_reg_fact: date_sent (TODO-16)
-    // ---------------------------------------------------------------
-    if (!$columnExists($prefix . 'verifactu_reg_fact', 'date_sent')) {
-        $sql = 'ALTER TABLE `' . $prefix . 'verifactu_reg_fact`
-                ADD COLUMN `date_sent` datetime DEFAULT NULL';
-        if (!$db->execute($sql)) {
-            Verifactu::writeLog('upgrade-1.5.4: Error añadiendo date_sent a verifactu_reg_fact: ' . $db->getMsgError(), 3);
-            $success = false;
+    // ------------------------------------------------------------------
+    $exists = (int)$db->getValue(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME   = \'' . pSQL($prefix . 'verifactu_reg_fact') . '\'
+           AND COLUMN_NAME  = \'date_sent\''
+    );
+    if (!$exists) {
+        if (!$db->execute(
+            'ALTER TABLE `' . $prefix . 'verifactu_reg_fact`
+             ADD COLUMN `date_sent` datetime DEFAULT NULL'
+        )) {
+            return false;
         }
     }
 
-    if (!$success) {
-        // Columnas de estado evolucionaron — no abortamos; la herramienta
-        // "Verificar y Reparar BD" puede resolver columnas faltantes en caliente.
-        return false;
-    }
-
-    // ---------------------------------------------------------------
-    // TODO-02 fix: marcar como 'stalled' los pendientes de más de 7 días
-    // Resolución puntual para tiendas con registros eternamente en 'pendiente'.
-    // ---------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Marcar como 'stalled' los pendientes de mas de 7 dias (fix puntual).
+    // Se ignora el resultado — no es bloqueante.
+    // ------------------------------------------------------------------
     $db->execute(
         'UPDATE `' . $prefix . 'verifactu_order_invoice` voi
-         INNER JOIN `' . $prefix . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+         INNER JOIN `' . $prefix . 'order_invoice` oi
+             ON voi.id_order_invoice = oi.id_order_invoice
          SET voi.estado = \'stalled\',
-             voi.verifactuDescripcionErrorRegistro = \'Registro expirado al actualizar a v1.5.4: llevaba más de 7 días en estado pendiente sin confirmación de la AEAT.\'
+             voi.verifactuDescripcionErrorRegistro = \'Registro expirado al actualizar a v1.5.4.\'
          WHERE voi.estado = \'pendiente\'
            AND oi.date_add < DATE_SUB(NOW(), INTERVAL 7 DAY)'
     );
 
     $db->execute(
         'UPDATE `' . $prefix . 'verifactu_order_slip` vos
-         INNER JOIN `' . $prefix . 'order_slip` os ON vos.id_order_slip = os.id_order_slip
+         INNER JOIN `' . $prefix . 'order_slip` os
+             ON vos.id_order_slip = os.id_order_slip
          SET vos.estado = \'stalled\',
-             vos.verifactuDescripcionErrorRegistro = \'Registro expirado al actualizar a v1.5.4: llevaba más de 7 días en estado pendiente sin confirmación de la AEAT.\'
+             vos.verifactuDescripcionErrorRegistro = \'Registro expirado al actualizar a v1.5.4.\'
          WHERE vos.estado = \'pendiente\'
            AND os.date_add < DATE_SUB(NOW(), INTERVAL 7 DAY)'
     );
