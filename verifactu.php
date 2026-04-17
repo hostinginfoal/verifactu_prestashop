@@ -66,7 +66,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.5.4';
+        $this->version = '1.5.5';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -246,6 +246,13 @@ class Verifactu extends Module
         $this->registerHook('actionPDFOrderSlipRender');
         $this->registerHook('actionShutdown');
         $this->registerHook('displayBackOfficeHeader');
+
+        // Pseudo-cron nativo de PS 1.7+: se dispara automáticamente en cada carga
+        // del backoffice, throttleado por PS (aprox. 1 vez/min).
+        // En PS 1.6 el fallback está en hookDisplayBackOfficeHeader con throttle manual.
+        if (version_compare(_PS_VERSION_, '1.7.0.0', '>=')) {
+            $this->registerHook('actionCronJob');
+        }
 
         //Custom hooks
         $this->registerHook('displayVerifactuQR'); 
@@ -3366,14 +3373,73 @@ $(document).ready(function() {
         })(jQuery);
         </script>';
 
-        // Devolvemos el string JS/CSS para que PrestaShop lo inyecte
+        // Devolvemos el string JS/CSS para que PrestaShop lo inyecte.
+        // --- FALLBACK PSEUDO-CRON PARA PS 1.6 ---
+        // En PS 1.7+ el hook 'actionCronJob' gestiona esto automáticamente.
+        // En PS < 1.7 usamos displayBackOfficeHeader con throttle manual de 5 min.
+        if (version_compare(_PS_VERSION_, '1.7.0.0', '<')) {
+            $this->_runPseudoCronIfDue();
+        }
+
         return $js;
     }
 
+    /**
+     * Pseudo-cron nativo de PrestaShop 1.7+.
+     * Se dispara en cada carga del backoffice, throttleado internamente por PS
+     * (aproximadamente una vez por minuto mientras haya actividad de admin).
+     * No requiere ninguna configuración por parte del usuario.
+     */
+    public function hookActionCronJob()
+    {
+        $id_shop = (int)$this->context->shop->id;
+        if (!$id_shop) {
+            return;
+        }
+
+        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+
+        if (empty($api_token)) {
+            return;
+        }
+
+        $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $av->runBackgroundTasks('cron_hook');
+    }
+
+    /**
+     * Ejecuta las tareas de fondo si han pasado al menos 5 minutos desde la última ejecución.
+     * Usado exclusivamente como fallback para PS < 1.7 (en PS 1.7+ lo gestiona hookActionCronJob).
+     * El throttle se almacena en ps_configuration por tienda para evitar ejecuciones simultáneas.
+     */
+    private function _runPseudoCronIfDue()
+    {
+        $id_shop      = (int)$this->context->shop->id;
+        $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
+        $interval     = 300; // 5 minutos
+
+        $last_run = (int)Configuration::get($throttle_key);
+        if ((time() - $last_run) < $interval) {
+            return; // Todavía en periodo de espera
+        }
+
+        // Actualizar el timestamp ANTES de ejecutar para evitar race conditions
+        Configuration::updateValue($throttle_key, time());
+
+        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+
+        if (empty($api_token)) {
+            return;
+        }
+
+        $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $av->runBackgroundTasks('fallback_ps16');
+    }
 
     public function hookActionSetInvoice($params)
     {
-
         $order = null;
 
         if (isset($params['Order'])) {
@@ -3384,46 +3450,83 @@ $(document).ready(function() {
             $order = $params['PosOrder'];
         }
 
-        // 2. Fallback de seguridad: Si no tenemos pedido, no podemos seguir
+        // Fallback de seguridad: Si no tenemos pedido, no podemos seguir
         if (!Validate::isLoadedObject($order)) {
             Verifactu::writeLog('Módulo Verifactu: HookActionSetInvoice disparado sin objeto Order válido.', 3, null);
             return;
         }
 
-        $id_shop = (int)$order->id_shop;
+        $id_shop   = (int)$order->id_shop;
         $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
-        
-        if (!empty($api_token) && !empty($nif_emisor)) {
-             $id_order = $order->id;
-             $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-             $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
-             $av->sendAltaVerifactu($id_order, 'alta');
-        } else {
-             Verifactu::writeLog('Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
+
+        if (empty($api_token) || empty($nif_emisor)) {
+            Verifactu::writeLog('Módulo Verifactu: No se envía la factura para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
+            return;
         }
 
-        
+        // [TODO-29] Pre-comprobación ligera: si la factura ya tiene un estado activo,
+        // no instanciar ApiVerifactu ni hacer ninguna llamada. Este check es la primera
+        // línea de defensa contra el bucle cuando el hook se dispara múltiples veces
+        // (generación de PDF, recarga del pedido, módulos de terceros, etc.).
+        $estado_actual = Db::getInstance()->getValue(
+            'SELECT voi.estado
+             FROM `' . _DB_PREFIX_ . 'order_invoice` oi
+             LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi ON oi.id_order_invoice = voi.id_order_invoice
+             WHERE oi.id_order = ' . (int)$order->id . '
+             ORDER BY oi.id_order_invoice DESC'
+        );
+
+        // Estados que bloquean el envío automático desde el hook.
+        // Los estados reseteables (api_error, stalled, failed, sincronizado) solo
+        // se reenvían cuando el admin lo fuerza manualmente desde el backoffice.
+        $estados_bloqueantes = ['pendiente', 'Correcto', 'api_error', 'stalled', 'failed', 'sincronizado'];
+        if (in_array($estado_actual, $estados_bloqueantes)) {
+            Verifactu::writeLog('Módulo Verifactu [TODO-29]: Hook bloqueado para pedido #' . $order->id . ' — estado actual: "' . $estado_actual . '".', 1, $id_shop);
+            return;
+        }
+
+        $id_order   = $order->id;
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+        $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $av->sendAltaVerifactu($id_order, 'alta');
     }
 
-    public function hookActionOrderSlipAdd ($params)
+    public function hookActionOrderSlipAdd($params)
     {
-
-        $order = $params['order'];
-        $id_shop = (int)$order->id_shop;
+        $order     = $params['order'];
+        $id_shop   = (int)$order->id_shop;
         $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $nif_emisor = Configuration::get('VERIFACTU_NIF_EMISOR', null, null, $id_shop);
 
-        if (!empty($api_token) && !empty($nif_emisor)) {
-            $id_order = $order->id;
-            $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-            $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
-            $av->sendAltaVerifactu($id_order, 'abono');
-        } else {
-             Verifactu::writeLog('Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
+        if (empty($api_token) || empty($nif_emisor)) {
+            Verifactu::writeLog('Módulo Verifactu: No se envía el abono para el pedido ' . $order->id . ' porque falta configuración (API Token o NIF) para la tienda ID: ' . $id_shop, 2, $id_shop);
+            return;
         }
 
+        // [TODO-29] Pre-comprobación ligera para abonos: mismo principio que en hookActionSetInvoice.
+        // Coge el abono más reciente del pedido y comprueba su estado.
+        $estado_actual_abono = Db::getInstance()->getValue(
+            'SELECT vos.estado
+             FROM `' . _DB_PREFIX_ . 'order_slip` os
+             LEFT JOIN `' . _DB_PREFIX_ . 'verifactu_order_slip` vos ON os.id_order_slip = vos.id_order_slip
+             WHERE os.id_order = ' . (int)$order->id . '
+             ORDER BY os.id_order_slip DESC'
+        );
+
+        $estados_bloqueantes = ['pendiente', 'Correcto', 'api_error', 'stalled', 'failed', 'sincronizado'];
+        if (in_array($estado_actual_abono, $estados_bloqueantes)) {
+            Verifactu::writeLog('Módulo Verifactu [TODO-29]: Hook abono bloqueado para pedido #' . $order->id . ' — estado actual: "' . $estado_actual_abono . '".', 1, $id_shop);
+            return;
+        }
+
+        $id_order   = $order->id;
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+        $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $av->sendAltaVerifactu($id_order, 'abono');
     }
+
+
 
     
     

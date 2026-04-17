@@ -26,14 +26,14 @@
     }
     .verifactu-timeline-marker {
         position: absolute;
-        left: -27px; /* Ajustar según el padding del contenedor */
+        left: -27px;
         top: 0;
         width: 12px;
         height: 12px;
         border-radius: 50%;
         background: #fff;
         border: 2px solid #6c757d;
-        box-shadow: 0 0 0 3px #fff; /* Efecto de borde blanco exterior */
+        box-shadow: 0 0 0 3px #fff;
     }
     .verifactu-timeline-content {
         padding-bottom: 5px;
@@ -59,12 +59,14 @@
         border-radius: 4px;
     }
     /* Estilos Badge para PS 1.6 */
-    .badge-success { background-color: #5cb85c !important; color: white !important; }
-    .badge-danger { background-color: #d9534f !important; color: white !important; }
-    .badge-warning { background-color: #f0ad4e !important; color: white !important; }
-    .badge-info { background-color: #8b87d1 !important; color: white !important; }
-    .badge-light { background-color: #f8f9fa !important; color: #212529 !important; border: 1px solid #ddd !important; }
-    .badge-dark { background-color: #343a40 !important; color: white !important; }
+    .badge-success   { background-color: #5cb85c !important; color: white !important; }
+    .badge-danger    { background-color: #d9534f !important; color: white !important; }
+    .badge-warning   { background-color: #f0ad4e !important; color: white !important; }
+    .badge-info      { background-color: #8b87d1 !important; color: white !important; }
+    .badge-light     { background-color: #f8f9fa !important; color: #212529 !important; border: 1px solid #ddd !important; }
+    .badge-dark      { background-color: #343a40 !important; color: white !important; }
+    /* api_error: naranja/ámbar — error transitorio, se reintentará automáticamente */
+    .badge-api-error { background-color: #e67e22 !important; color: white !important; }
 </style>
 
 
@@ -91,14 +93,14 @@
                 {* --- COLUMNA IZQUIERDA: ESTADO Y TIMELINE --- *}
                 <div class="col-md-8">
                     <div class="form-group">
-                        Estado actual: <span class="badge {if $verifactu_invoice.estado == 'pendiente'}badge-info{elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
+                        Estado actual: <span class="badge {if $verifactu_invoice.estado == 'pendiente'}badge-info{elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.estado == "stalled"}badge-api-error{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
                             {if $verifactu_invoice.anulacion == "1"}
                                     {l s='Registro Anulado' mod='verifactu'}
                             {else}
                                 {if $verifactu_invoice.estado == "pendiente"}
                                     {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
-                                {elseif $verifactu_invoice.estado == "api_error"}
-                                    {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
+                                {elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.estado == "stalled"}
+                                    {l s='Error de conexión con la API — Se reintentará automáticamente' mod='verifactu'}
                                 {else}
                                     {if $verifactu_invoice.verifactuEstadoRegistro == ""}
                                         {l s='No enviado' mod='verifactu'}
@@ -211,7 +213,7 @@
 {/if}
 
 
-{* --- BLOQUE PARA LOS ABONOS (NUEVO) --- *}
+{* --- BLOQUE PARA LOS ABONOS --- *}
 {if $verifactu_slips}
     {foreach from=$verifactu_slips item=slip}
     <div class="panel" id="formVerifactuSlip_{$slip.id_order_slip}" style="margin-top: 15px;">
@@ -224,21 +226,21 @@
                 {* --- COLUMNA IZQUIERDA: ESTADO Y TIMELINE --- *}
                 <div class="col-md-8">
                     <div class="form-group">
-                        Estado actual: <span class="badge {if $slip.estado == 'pendiente'}badge-info{elseif $slip.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $slip.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
-                            {if $verifactu_invoice.anulacion == "1"}
+                        Estado actual: <span class="badge {if $slip.estado == 'pendiente'}badge-info{elseif $slip.verifactuEstadoRegistro == "Correcto"}badge-success{elseif $slip.verifactuEstadoRegistro == "AceptadoConErrores"}badge-warning{elseif $slip.estado == "api_error" || $slip.estado == "stalled"}badge-api-error{else}badge-danger{/if}" style="font-size: 1.1em; padding: 5px 10px;">
+                            {if $slip.anulacion == "1"}
                                 {l s='Registro Anulado' mod='verifactu'}
                             {else}
-                                {if $verifactu_invoice.estado == "pendiente"}
+                                {if $slip.estado == "pendiente"}
                                     {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
-                                {elseif $verifactu_invoice.estado == "api_error"}
-                                    {$verifactu_invoice.verifactuDescripcionErrorRegistro|escape:'htmlall':'UTF-8'}
+                                {elseif $slip.estado == "api_error" || $slip.estado == "stalled"}
+                                    {l s='Error de conexión con la API — Se reintentará automáticamente' mod='verifactu'}
                                 {else}
-                                    {if $verifactu_invoice.verifactuEstadoRegistro == ""}
+                                    {if $slip.verifactuEstadoRegistro == ""}
                                         {l s='No enviado' mod='verifactu'}
-                                    {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
+                                    {elseif $slip.verifactuEstadoRegistro == "Correcto"}
                                         {l s='Correcto' mod='verifactu'}
                                     {else}
-                                        {$verifactu_invoice.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
+                                        {$slip.verifactuEstadoRegistro|escape:'htmlall':'UTF-8'}
                                     {/if}
                                 {/if}
                             {/if}
@@ -301,9 +303,9 @@
                 </div>
             </div>
             
-             {* --- BOTONES DE ACCIÓN PARA ABONOS --- *}
+            {* --- BOTONES DE ACCIÓN PARA ABONOS --- *}
             <div class="panel-footer" style="padding: 10px; background: #f5f5f5; text-align: right;">
-                 <button class="btn btn-default btn-sm button-resend-verifactu" data-id_order="{$id_order}" data-type="abono" data-id_slip="{$slip.id_order_slip}" {if $slip.estado == "pendiente" || $slip.verifactuEstadoRegistro == "Correcto" }disabled{/if}>
+                <button class="btn btn-default btn-sm button-resend-verifactu" data-id_order="{$id_order}" data-type="abono" data-id_slip="{$slip.id_order_slip}" {if $slip.estado == "pendiente" || $slip.verifactuEstadoRegistro == "Correcto"}disabled{/if}>
                     <i class="icon-refresh"></i> {l s='Reenviar abono' mod='verifactu'}
                 </button>
             </div>

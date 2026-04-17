@@ -23,8 +23,8 @@
 *  International Registered Trademark & Property of InFoAL S.L.
 */
 
-#estado_envio_verifactu{
-	margin-top:10px !important;
+#estado_envio_verifactu {
+    margin-top: 10px !important;
 }
 
 /*
@@ -32,21 +32,25 @@
  */
 
 tr.verifactu_pendiente td {
-    background-color: #e4e3f7 !important; /* lila claro para pendiente */
+    background-color: #e4e3f7 !important;
+    /* lila claro para pendiente */
 }
 
 tr.verifactu_correct td {
-    background-color: #eaf7ee !important; /* Verde claro para éxito */
+    background-color: #eaf7ee !important;
+    /* Verde claro para éxito */
 }
 
 tr.verifactu_error td {
-    background-color: #f7dcde !important; /* Rojo claro para error */
+    background-color: #f7dcde !important;
+    /* Rojo claro para error */
 }
 
 /* Opcional: Mantener un color de hover consistente */
 tr.verifactu_correct:hover td,
 tr.verifactu_error:hover td {
-    background-color: #d9edf7 !important; /* Azul claro al pasar el ratón */
+    background-color: #d9edf7 !important;
+    /* Azul claro al pasar el ratón */
 }
 
 tr.row-expanded {
@@ -82,22 +86,27 @@ tr:has(td .verifactu_warning):hover td {
 }
 
 .verifactu_correct {
-    background-color: #4cbb6c; /* Verde */
+    background-color: #4cbb6c;
+    /* Verde */
     color: white;
     padding: 5px;
     border-radius: 3px;
 }
+
 .verifactu_error {
-    background-color: #e74c3c; /* Rojo */
+    background-color: #e74c3c;
+    /* Rojo */
     color: white;
     padding: 5px;
-  	border-radius: 3px;
+    border-radius: 3px;
 }
+
 .verifactu_warning {
-    background-color: #f39c12; /* Naranja */
+    background-color: #f39c12;
+    /* Naranja */
     color: white;
     padding: 5px;
-  	border-radius: 3px;
+    border-radius: 3px;
 }
 
 
@@ -108,39 +117,48 @@ tr:has(td .verifactu_warning):hover td {
     margin-bottom: 15px;
     border-left: 2px solid #e9ecef;
 }
+
 .verifactu-timeline-item {
     position: relative;
     margin-bottom: 15px;
     padding-left: 15px;
 }
+
 .verifactu-timeline-item:last-child {
     margin-bottom: 0;
 }
+
 .verifactu-timeline-marker {
     position: absolute;
-    left: -27px; /* Ajustar según el padding del contenedor */
+    left: -27px;
+    /* Ajustar según el padding del contenedor */
     top: 0;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     background: #fff;
     border: 2px solid #6c757d;
-    box-shadow: 0 0 0 3px #fff; /* Efecto de borde blanco exterior */
+    box-shadow: 0 0 0 3px #fff;
+    /* Efecto de borde blanco exterior */
 }
+
 .verifactu-timeline-content {
     padding-bottom: 5px;
 }
+
 .verifactu-timeline-title {
     font-weight: bold;
     font-size: 13px;
     color: #333;
 }
+
 .verifactu-timeline-date {
     display: block;
     color: #888;
     font-size: 11px;
     margin-top: 2px;
 }
+
 .verifactu-timeline-detail {
     display: block;
     color: #dc3545;
@@ -151,19 +169,20 @@ tr:has(td .verifactu_warning):hover td {
     border-radius: 4px;
 }
 
-span.tipo_factura{
-	color: #000000 !important;
-	font-size: 12px;
+span.tipo_factura {
+    color: #000000 !important;
+    font-size: 12px;
 }
 
-span.estado_verifactu{
-	font-size: 12px;
+span.estado_verifactu {
+    font-size: 12px;
 }
 
-.column-verifactu .badge{
-	font-size: 0.85rem !important;
-	padding: 6px 10px !important;
+.column-verifactu .badge {
+    font-size: 0.85rem !important;
+    padding: 6px 10px !important;
 }
+
 /* ================================================================
  * TODO-25: Estilos del Widget lateral del pedido
  * Compatibles con PS 1.6 (Bootstrap 2/3) y PS 1.7/8/9 (Bootstrap 4)
@@ -179,25 +198,59 @@ span.estado_verifactu{
     border-radius: 4px;
     margin-bottom: 12px;
 }
+
 .vf-status-icon {
     font-size: 24px;
     flex-shrink: 0;
 }
+
 .vf-status-label {
     font-weight: 700;
     font-size: 14px;
 }
+
 .vf-status-sub {
     font-size: 11px;
     margin-top: 2px;
     opacity: .8;
 }
 
-.vf-status-correcto  { background: #eaf7ee; color: #1d7a3a; border-left: 4px solid #27ae60; }
-.vf-status-pendiente { background: #eef0fb; color: #4a4fa5; border-left: 4px solid #7c82d4; }
-.vf-status-error     { background: #fdf0f0; color: #a02020; border-left: 4px solid #e74c3c; }
-.vf-status-warning   { background: #fffbea; color: #856404; border-left: 4px solid #f39c12; }
-.vf-status-anulado   { background: #f4f4f4; color: #555;    border-left: 4px solid #95a5a6; }
+.vf-status-correcto {
+    background: #eaf7ee;
+    color: #1d7a3a;
+    border-left: 4px solid #27ae60;
+}
+
+.vf-status-pendiente {
+    background: #eef0fb;
+    color: #4a4fa5;
+    border-left: 4px solid #7c82d4;
+}
+
+.vf-status-error {
+    background: #fdf0f0;
+    color: #a02020;
+    border-left: 4px solid #e74c3c;
+}
+
+.vf-status-warning {
+    background: #fffbea;
+    color: #856404;
+    border-left: 4px solid #f39c12;
+}
+
+.vf-status-anulado {
+    background: #f4f4f4;
+    color: #555;
+    border-left: 4px solid #95a5a6;
+}
+
+/* api_error: naranja/ámbar — error transitorio, se reintentará automáticamente */
+.vf-status-api-error {
+    background: #fff4e0;
+    color: #7a4f00;
+    border-left: 4px solid #f39c12;
+}
 
 /* --- Título de sección interna --- */
 .vf-section-title {
@@ -220,6 +273,7 @@ span.estado_verifactu{
     border: 1px solid #e9ecef;
     margin-bottom: 8px;
 }
+
 .vf-qr-img {
     max-width: 130px;
     height: auto;
@@ -227,6 +281,7 @@ span.estado_verifactu{
     display: block;
     margin: 0 auto 4px;
 }
+
 .vf-qr-caption {
     font-size: 11px;
     color: #888;
@@ -239,6 +294,7 @@ span.estado_verifactu{
     gap: 6px;
     margin-top: 4px;
 }
+
 .vf-btn {
     display: block;
     width: 100%;
@@ -251,19 +307,51 @@ span.estado_verifactu{
     text-align: left;
     transition: opacity .15s, background .15s;
 }
+
 .vf-btn:disabled {
     opacity: .45;
     cursor: not-allowed;
 }
-.vf-btn i { margin-right: 5px; }
-.vf-btn-primary  { background: #3498db; color: #fff; }
-.vf-btn-secondary{ background: #95a5a6; color: #fff; }
-.vf-btn-danger   { background: #e74c3c; color: #fff; }
-.vf-btn-info     { background: #1abc9c; color: #fff; }
-.vf-btn-primary:hover:not(:disabled)   { background: #2980b9; }
-.vf-btn-secondary:hover:not(:disabled) { background: #7f8c8d; }
-.vf-btn-danger:hover:not(:disabled)    { background: #c0392b; }
-.vf-btn-info:hover:not(:disabled)      { background: #16a085; }
+
+.vf-btn i {
+    margin-right: 5px;
+}
+
+.vf-btn-primary {
+    background: #3498db;
+    color: #fff;
+}
+
+.vf-btn-secondary {
+    background: #95a5a6;
+    color: #fff;
+}
+
+.vf-btn-danger {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.vf-btn-info {
+    background: #1abc9c;
+    color: #fff;
+}
+
+.vf-btn-primary:hover:not(:disabled) {
+    background: #2980b9;
+}
+
+.vf-btn-secondary:hover:not(:disabled) {
+    background: #7f8c8d;
+}
+
+.vf-btn-danger:hover:not(:disabled) {
+    background: #c0392b;
+}
+
+.vf-btn-info:hover:not(:disabled) {
+    background: #16a085;
+}
 
 /* --- Mensaje de respuesta --- */
 .vf-response-msg {
@@ -289,7 +377,13 @@ span.estado_verifactu{
     font-size: 12px;
     color: #7a5c00;
 }
-.vf-nif-warning i { font-size: 16px; margin-top: 1px; flex-shrink: 0; color: #f39c12; }
+
+.vf-nif-warning i {
+    font-size: 16px;
+    margin-top: 1px;
+    flex-shrink: 0;
+    color: #f39c12;
+}
 
 /* --- Aviso legal inalterabilidad --- */
 .vf-legal-notice {
@@ -304,7 +398,12 @@ span.estado_verifactu{
     font-size: 12px;
     color: #1d5c35;
 }
-.vf-legal-notice i { font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+.vf-legal-notice i {
+    font-size: 14px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
 
 /* ================================================================
  * Widget: resumen compacto + panel de detalles colapsable
@@ -321,14 +420,22 @@ span.estado_verifactu{
     overflow: hidden;
     font-size: 12px;
 }
+
 .vf-summary-item {
     padding: 6px 10px;
     border-bottom: 1px solid #e9ecef;
     background: #fafafa;
 }
-.vf-summary-item:nth-child(odd)  { border-right: 1px solid #e9ecef; }
+
+.vf-summary-item:nth-child(odd) {
+    border-right: 1px solid #e9ecef;
+}
+
 .vf-summary-item:last-child,
-.vf-summary-item:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+.vf-summary-item:nth-last-child(2):nth-child(odd) {
+    border-bottom: none;
+}
+
 .vf-summary-key {
     display: block;
     font-size: 10px;
@@ -337,6 +444,7 @@ span.estado_verifactu{
     color: #999;
     margin-bottom: 1px;
 }
+
 .vf-summary-val {
     display: block;
     font-weight: 600;
@@ -359,8 +467,14 @@ span.estado_verifactu{
     margin: 8px 0 0;
     transition: background .15s;
 }
-.vf-toggle-details:hover { background: #e2ecf5; }
-.vf-toggle-details i { margin-right: 5px; }
+
+.vf-toggle-details:hover {
+    background: #e2ecf5;
+}
+
+.vf-toggle-details i {
+    margin-right: 5px;
+}
 
 /* --- Panel de detalles --- */
 .vf-details-panel {
@@ -374,7 +488,11 @@ span.estado_verifactu{
 .vf-detail-section {
     border-bottom: 1px solid #e9ecef;
 }
-.vf-detail-section:last-child { border-bottom: none; }
+
+.vf-detail-section:last-child {
+    border-bottom: none;
+}
+
 .vf-detail-section-title {
     font-size: 11px;
     font-weight: 700;
@@ -385,7 +503,10 @@ span.estado_verifactu{
     padding: 6px 10px;
     border-bottom: 1px solid #e9ecef;
 }
-.vf-detail-section-title i { margin-right: 4px; }
+
+.vf-detail-section-title i {
+    margin-right: 4px;
+}
 
 /* --- Tabla de datos técnicos --- */
 .vf-detail-table {
@@ -393,20 +514,31 @@ span.estado_verifactu{
     font-size: 12px;
     border-collapse: collapse;
 }
+
 .vf-detail-table td {
     padding: 5px 10px;
     vertical-align: top;
     border-bottom: 1px solid #f0f0f0;
 }
-.vf-detail-table tr:last-child td { border-bottom: none; }
+
+.vf-detail-table tr:last-child td {
+    border-bottom: none;
+}
+
 .vf-detail-table td:first-child {
     width: 38%;
     color: #888;
     font-weight: 500;
     white-space: nowrap;
 }
-.vf-detail-table td:last-child { color: #333; }
-.vf-error-cell { color: #c0392b !important; }
+
+.vf-detail-table td:last-child {
+    color: #333;
+}
+
+.vf-error-cell {
+    color: #c0392b !important;
+}
 
 /* --- Hash --- */
 .vf-hash-block {
@@ -449,6 +581,7 @@ th.column-list_actions {
     min-width: 130px !important;
     white-space: nowrap !important;
 }
+
 td.column-list_actions .btn {
     display: inline-block !important;
     margin: 1px 2px !important;

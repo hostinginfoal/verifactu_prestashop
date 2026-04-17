@@ -76,6 +76,34 @@ class ApiVerifactu
         \Verifactu::writeLog($message, $severity, $this->id_shop);
     }
 
+    /**
+     * Escribe en verifactu.log SIEMPRE, independientemente de VERIFACTU_DEBUG_MODE.
+     * Reservado para eventos estructurales (inicio/fin de cron, errores de retries)
+     * que deben ser visibles aunque el modo debug esté desactivado.
+     *
+     * @param string $message  Mensaje a loguear.
+     * @param int    $severity 1=Info, 2=Warning, 3=Error.
+     */
+    private function _logCron($message, $severity = 1)
+    {
+        $log_dir  = _PS_MODULE_DIR_ . 'verifactu/logs/';
+        $log_file = $log_dir . 'verifactu.log';
+
+        if (!is_dir($log_dir)) {
+            @mkdir($log_dir, 0775, true);
+        }
+
+        // Rotación: si supera 5 MB, renombrar y crear nuevo
+        if (file_exists($log_file) && filesize($log_file) > 5 * 1024 * 1024) {
+            @rename($log_file, $log_dir . 'verifactu-' . date('Ymd-His') . '.log.bak');
+        }
+
+        $severityLabel = array(1 => 'INFO', 2 => 'WARNING', 3 => 'ERROR', 4 => 'CRITICAL');
+        $label = isset($severityLabel[$severity]) ? $severityLabel[$severity] : (string)$severity;
+        $line  = '[' . date('Y-m-d H:i:s') . '] [' . $label . '] [CRON] [shop=' . $this->id_shop . '] ' . $message . PHP_EOL;
+        @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX);
+    }
+
     public function checkDNI($id_order)
     {
         $sql = new DbQuery();
@@ -1202,84 +1230,63 @@ class ApiVerifactu
             }
 
         }
-        else 
+        else
         {
             // 1. Determinar el mensaje de error
-            if ($curl_errno > 0) 
+            if ($curl_errno > 0)
             {
-                //$api_error_message = 'Error de cURL (' . $curl_errno . '): ' . pSQL($curl_error);
                 $api_error_message = 'Error de conexión con la API Verifactu. Se reintentará el envío automáticamente más tarde';
-            } 
-            elseif (isset($obj) && !empty($obj->error)) 
+            }
+            elseif (isset($obj) && !empty($obj->error))
             {
                 $api_error_message = pSQL($obj->error);
-            } 
-            else 
+            }
+            else
             {
                 $api_error_message = 'Error desconocido al contactar la API. Respuesta: ' . pSQL($response);
             }
 
-            // 2. Definir los datos de error
-            if (isset($obj) && !empty($obj->error))
-            {
-                $error_data = [
-                    'estado' => 'api_error',
-                    'id_reg_fact' => 0,
-                    'verifactuEstadoEnvio' => 'Error',
-                    'verifactuEstadoRegistro' => 'Error API',
-                    'verifactuCodigoErrorRegistro' => $curl_errno > 0 ? $curl_errno : 'API_FAIL',
-                    'verifactuDescripcionErrorRegistro' => $api_error_message,
-                    //'apiMode' => 'prod', // Asumir prod
-                ];
+            // 2. Determinar tabla e ID
+            if ($tipo == 'abono') {
+                $table    = 'verifactu_order_slip';
+                $id_field = 'id_order_slip';
+            } else {
+                $table    = 'verifactu_order_invoice';
+                $id_field = 'id_order_invoice';
             }
-            else
-            {
-                $error_data = [
-                    'estado' => 'api_error',
-                    'id_reg_fact' => 0,
-                    'verifactuEstadoEnvio' => 'Error',
-                    'verifactuEstadoRegistro' => 'Error API',
-                    'verifactuCodigoErrorRegistro' => $curl_errno > 0 ? $curl_errno : 'API_FAIL',
-                    'verifactuDescripcionErrorRegistro' => $api_error_message,
-                    //'apiMode' => 'prod', // Asumir prod
-                ];
-            }
-            
 
             // 3. Generar la URL de fallback para el QR
             $fallback_qr_url = $this->generateFallbackQrUrl($id_order_invoice_or_slip, $tipo, $order_data, $InvoiceNumber);
-            $error_data['urlQR'] = pSQL($fallback_qr_url);
 
+            $exists = Db::getInstance()->getValue(
+                'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . $table . ' WHERE ' . $id_field . ' = ' . (int)$id_order_invoice_or_slip
+            );
 
-            // 4. Actualizar o Insertar el registro de error
-            if ($tipo == 'abono') {
-                $table = 'verifactu_order_slip';
-                $id_field = 'id_order_slip';
-            } else {
-                $table = 'verifactu_order_invoice';
-                $id_field = 'id_order_invoice';
-            }
-            
-            $exists = Db::getInstance()->getValue('SELECT COUNT(*) FROM ' . _DB_PREFIX_ . $table . ' WHERE ' . $id_field . ' = ' . (int)$id_order_invoice_or_slip);
+            // 4. Guardar el estado de error en BD
+            $error_data = [
+                'estado'                            => 'api_error',
+                'id_reg_fact'                       => 0,
+                'verifactuEstadoEnvio'              => 'Error',
+                'verifactuEstadoRegistro'           => 'Error API',
+                'verifactuCodigoErrorRegistro'      => $curl_errno > 0 ? pSQL($curl_errno) : 'API_FAIL',
+                'verifactuDescripcionErrorRegistro' => $api_error_message,
+                'urlQR'                             => pSQL($fallback_qr_url),
+            ];
 
             try {
                 if ($exists > 0) {
-                    // Ya existe (de un fallo anterior), actualizar el error
                     Db::getInstance()->update($table, $error_data, $id_field . ' = ' . (int)$id_order_invoice_or_slip);
                 } else {
-                    // No existe, insertar nuevo registro de error
                     $error_data[$id_field] = (int)$id_order_invoice_or_slip;
                     Db::getInstance()->insert($table, $error_data);
                 }
             } catch (\Exception $e) {
-                 if ($this->debugMode) {
-                    $this->_log("Módulo Verifactu: Error al guardar estado 'api_error' en $table: " . $e->getMessage(), 3);
-                }
+                $this->_log("Módulo Verifactu: Error al guardar estado 'api_error' en $table: " . $e->getMessage(), 3);
             }
 
             // 5. Preparar respuesta KO
             $reply['response'] = 'KO';
-            $reply['error'] = $api_error_message;
+            $reply['error']    = $api_error_message;
         }
 
 
@@ -2017,32 +2024,59 @@ class ApiVerifactu
     }
 
     /**
-     * Tarea principal del automatismo (Cronjob / AJAX).
-     * Ejecuta las dos subtareas (consultar pendientes y reintentar errores)
-     * y devuelve un resumen en JSON.
+     * Ejecuta las tareas de fondo (reintentos, consulta de estados, expiración de stalled).
+     * No hace die() — devuelve un array con los contadores para que puedan llamarla
+     * tanto el endpoint AJAX como los hooks de pseudo-cron.
+     *
+     * @param string $source Origen de la llamada: 'ajax', 'cron_hook' o 'fallback_ps16'.
+     * @return array ['expired' => int, 'updated' => int, 'retried' => int]
      */
-    public function checkPendingInvoices()
+    public function runBackgroundTasks($source = 'ajax')
     {
-        /*$this->_log('Módulo Verifactu: Iniciando tareas automáticas...', 1);*/
+        $this->_logCron('Iniciando tareas automáticas [fuente: ' . $source . ']', 1);
 
         // Tarea 0: Expirar 'pendiente' bloqueados (más de 7 días sin resolverse)
         $expired_count = $this->_expireStalledPendingRecords();
 
-        // Tarea 1: Consultar estados pendientes
+        // Tarea 1: Consultar estados pendientes en la API
         $updated_count = $this->_checkPendingStatuses();
-        
-        // Tarea 2: Reintentar envíos fallidos
+
+        // Tarea 2: Reintentar envíos en api_error con backoff
         $retry_count = $this->_retryApiErrors();
 
-        // Devolvemos la respuesta JSON combinada
-        $final_message = $expired_count . ' pendientes expirados. ' . $updated_count . ' registros de estado actualizados. ' . $retry_count . ' envíos fallidos reintentados.';
+        $this->_logCron(
+            'Tareas completadas [fuente: ' . $source . '] —'
+            . ' expirados=' . $expired_count
+            . ' actualizados=' . $updated_count
+            . ' reintentados=' . $retry_count,
+            1
+        );
+
+        return [
+            'expired' => $expired_count,
+            'updated' => $updated_count,
+            'retried' => $retry_count,
+        ];
+    }
+
+    /**
+     * Tarea principal del automatismo (endpoint AJAX).
+     * Llama a runBackgroundTasks() y responde con JSON + die().
+     */
+    public function checkPendingInvoices()
+    {
+        $result = $this->runBackgroundTasks();
+
+        $final_message = $result['expired'] . ' pendientes expirados. '
+            . $result['updated'] . ' registros de estado actualizados. '
+            . $result['retried'] . ' envíos fallidos reintentados.';
 
         header('Content-Type: application/json');
         die(json_encode([
             'success' => true,
             'message' => $final_message,
-            'updated' => $updated_count,
-            'retried' => $retry_count
+            'updated' => $result['updated'],
+            'retried' => $result['retried'],
         ]));
     }
 

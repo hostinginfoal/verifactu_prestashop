@@ -42,6 +42,8 @@
         {assign var="hbg" value="#eaf7ee"}{assign var="htxt" value="#333"}
     {elseif $verifactu_invoice.verifactuEstadoRegistro == "AceptadoConErrores"}
         {assign var="hbg" value="#fff3cd"}{assign var="htxt" value="#333"}
+    {elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.estado == "stalled"}
+        {assign var="hbg" value="#fff4e0"}{assign var="htxt" value="#7a4f00"}
     {else}
         {assign var="hbg" value="#f7dcde"}{assign var="htxt" value="#333"}
     {/if}
@@ -103,7 +105,20 @@
                         <div class="vf-status-sub">{l s='Máximo de reintentos alcanzado' mod='verifactu'} ({$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'})</div>
                     </div>
                 </div>
-            {elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
+            {elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.estado == "stalled"}
+                <div class="vf-status-block vf-status-api-error">
+                    <i class="icon-refresh vf-status-icon"></i>
+                    <div>
+                        <div class="vf-status-label">
+                            {l s='Error de conexión con la API' mod='verifactu'}
+                            {if $verifactu_invoice.verifactuCodigoErrorRegistro}
+                            &nbsp;<span class="vf-code-badge">{$verifactu_invoice.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                            {/if}
+                        </div>
+                        <div class="vf-status-sub">{l s='Se reintentará el envío automáticamente' mod='verifactu'}{if $verifactu_invoice.retry_count} &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}{/if}</div>
+                    </div>
+                </div>
+            {elseif $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
                 <div class="vf-status-block vf-status-error">
                     <i class="icon-times-circle vf-status-icon"></i>
                     <div>
@@ -276,6 +291,8 @@
         {assign var="sbg" value="#eaf7ee"}{assign var="stxt" value="#333"}
     {elseif $slip.verifactuEstadoRegistro == "AceptadoConErrores"}
         {assign var="sbg" value="#fff3cd"}{assign var="stxt" value="#333"}
+    {elseif $slip.estado == "api_error" || $slip.estado == "stalled"}
+        {assign var="sbg" value="#fff4e0"}{assign var="stxt" value="#7a4f00"}
     {else}
         {assign var="sbg" value="#f7dcde"}{assign var="stxt" value="#333"}
     {/if}
@@ -323,12 +340,25 @@
                     <i class="icon-exclamation-triangle vf-status-icon"></i>
                     <div><div class="vf-status-label">{l s='Aceptado con avisos' mod='verifactu'}</div></div>
                 </div>
+            {elseif $slip.estado == "api_error" || $slip.estado == "stalled"}
+                <div class="vf-status-block vf-status-api-error">
+                    <i class="icon-refresh vf-status-icon"></i>
+                    <div>
+                        <div class="vf-status-label">
+                            {l s='Error de conexión con la API' mod='verifactu'}
+                            {if $slip.verifactuCodigoErrorRegistro}
+                            &nbsp;<span class="vf-code-badge">{$slip.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'}</span>
+                            {/if}
+                        </div>
+                        <div class="vf-status-sub">{l s='Se reintentará el envío automáticamente' mod='verifactu'}{if $slip.retry_count} &middot; {$slip.retry_count} {l s='intentos' mod='verifactu'}{/if}</div>
+                    </div>
+                </div>
             {else}
                 <div class="vf-status-block vf-status-error">
                     <i class="icon-times-circle vf-status-icon"></i>
                     <div>
                         <div class="vf-status-label">
-                            {l s='Error' mod='verifactu'}
+                            {l s='Rechazado por la AEAT' mod='verifactu'}
                             {if $slip.verifactuCodigoErrorRegistro}
                             &nbsp;<span class="vf-code-badge">{$slip.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'}</span>
                             {/if}
