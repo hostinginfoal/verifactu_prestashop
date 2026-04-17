@@ -98,9 +98,9 @@
                                     {l s='Registro Anulado' mod='verifactu'}
                             {else}
                                 {if $verifactu_invoice.estado == "pendiente"}
-                                    {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                                    {l s='Enviado — En espera de confirmación de la AEAT' mod='verifactu'}
                                 {elseif $verifactu_invoice.estado == "api_error" || $verifactu_invoice.estado == "stalled"}
-                                    {l s='Error de conexión con la API — Se reintentará automáticamente' mod='verifactu'}
+                                    {l s='Error de conexión temporal con la API — Reintento automático pendiente' mod='verifactu'}
                                 {else}
                                     {if $verifactu_invoice.verifactuEstadoRegistro == ""}
                                         {l s='No enviado' mod='verifactu'}
@@ -125,6 +125,30 @@
                             {/if}
                         {/if}
                     </div>
+
+                    {* --- COUNTDOWN AUTOMÁTICO (solo en pendiente y api_error) --- *}
+                    {if $verifactu_invoice.estado == 'pendiente'}
+                    <div class="alert alert-info" style="padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
+                        <i class="icon-info-circle"></i>
+                        {l s='El registro ha sido enviado correctamente a Veri*Factu y está pendiente de validación por la AEAT. La verificación del resultado se realizará de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}
+                        <div class="vf-countdown-wrap" style="margin-top:5px; opacity:0.85;">
+                            <i class="icon-refresh"></i>
+                            {l s='Próxima comprobación automática en' mod='verifactu'}
+                            <strong id="vf-countdown-inv">{$vf_seconds_until_next_check}s</strong>
+                        </div>
+                    </div>
+                    {elseif $verifactu_invoice.estado == 'api_error' || $verifactu_invoice.estado == 'stalled'}
+                    <div class="alert alert-warning" style="padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
+                        <i class="icon-exclamation-triangle"></i>
+                        {l s='No se ha podido contactar con la API en este momento. El envío se reintentará automáticamente cuando el servicio esté disponible. No es necesaria ninguna acción por su parte.' mod='verifactu'}
+                        {if $verifactu_invoice.retry_count}<span class="text-muted"> &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}</span>{/if}
+                        <div class="vf-countdown-wrap" style="margin-top:5px; opacity:0.85;">
+                            <i class="icon-clock-o"></i>
+                            {l s='Próximo reintento automático en' mod='verifactu'}
+                            <strong id="vf-countdown-inv">{$vf_seconds_until_next_check}s</strong>
+                        </div>
+                    </div>
+                    {/if}
 
                     {* --- TIMELINE --- *}
                     {if isset($verifactu_invoice.timeline) && $verifactu_invoice.timeline|@count > 0}
@@ -172,6 +196,50 @@
             <div id="estado_envio_verifactu" style="display:none;" class="alert alert-success">
                 <div class="alert-text"></div>
             </div>
+
+            {if $verifactu_invoice.estado == 'pendiente' || $verifactu_invoice.estado == 'api_error' || $verifactu_invoice.estado == 'stalled'}
+            <script>
+            (function() {
+                var remaining = {$vf_seconds_until_next_check|intval};
+                var wraps = document.querySelectorAll('.vf-countdown-wrap');
+                var els   = document.querySelectorAll('#vf-countdown-inv');
+                if (!els.length) return;
+
+                function setSpinner() {
+                    wraps.forEach(function(w) {
+                        w.innerHTML = '<i class="icon-refresh icon-spin"></i> {l s='Comprobando con Veri*Factu...' mod='verifactu'}';
+                    });
+                }
+
+                function doCheckAndReload() {
+                    setSpinner();
+                    if (typeof verifactu_ajax_url === 'undefined' || typeof jQuery === 'undefined') {
+                        setTimeout(function() { location.reload(); }, 2000);
+                        return;
+                    }
+                    jQuery.ajax({
+                        url: verifactu_ajax_url,
+                        type: 'POST',
+                        dataType: 'json',
+                        data: { ajax: true, action: 'checkPendingStatus', token: verifactu_token },
+                        complete: function() { location.reload(); }
+                    });
+                }
+
+                if (remaining <= 0) { doCheckAndReload(); return; }
+
+                var timer = setInterval(function() {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearInterval(timer);
+                        doCheckAndReload();
+                    } else {
+                        els.forEach(function(el) { el.textContent = remaining + 's'; });
+                    }
+                }, 1000);
+            })();
+            </script>
+            {/if}
         </div>
         
         <div class="panel-footer">

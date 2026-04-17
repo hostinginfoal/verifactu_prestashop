@@ -247,13 +247,6 @@ class Verifactu extends Module
         $this->registerHook('actionShutdown');
         $this->registerHook('displayBackOfficeHeader');
 
-        // Pseudo-cron nativo de PS 1.7+: se dispara automáticamente en cada carga
-        // del backoffice, throttleado por PS (aprox. 1 vez/min).
-        // En PS 1.6 el fallback está en hookDisplayBackOfficeHeader con throttle manual.
-        if (version_compare(_PS_VERSION_, '1.7.0.0', '>=')) {
-            $this->registerHook('actionCronJob');
-        }
-
         //Custom hooks
         $this->registerHook('displayVerifactuQR'); 
         $this->registerHook('displayVerifactuCreditSlipQR');
@@ -3146,16 +3139,19 @@ $(document).ready(function() {
     */
     public function hookDisplayBackOfficeHeader($params)
     {
-        // El hook 'hookDisplayBackOfficeHeader' SÍ espera un 'return' con el HTML/JS.
-        
-        $ctl = Tools::getValue('controller');
+        // --- PSEUDO-CRON: se ejecuta en CADA carga del admin, antes de cualquier return ---
+        // Colocado aquí (antes de los returns anticipados) para garantizar que se dispara
+        // independientemente de la página del admin en la que esté el usuario.
+        $this->_runPseudoCronIfDue();
+
+        $ctl   = Tools::getValue('controller');
         $ctl_l = $ctl ? Tools::strtolower($ctl) : '';
 
         // 1. Comprobar si la función de bloqueo está activa
         $lock_if_correct = (int)Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', null, null, $this->context->shop->id);
 
         // 2. Si está desactivada O no estamos en la página de pedido, devolvemos string vacío
-        if (!$lock_if_correct ) {
+        if (!$lock_if_correct) {
             return ''; // Devolver string vacío
         }
 
@@ -3374,56 +3370,13 @@ $(document).ready(function() {
         </script>';
 
         // Devolvemos el string JS/CSS para que PrestaShop lo inyecte.
-        // --- FALLBACK PSEUDO-CRON PARA PS 1.6 ---
-        // En PS 1.7+ el hook 'actionCronJob' gestiona esto automáticamente.
-        // En PS < 1.7 usamos displayBackOfficeHeader con throttle manual de 5 min.
-        if (version_compare(_PS_VERSION_, '1.7.0.0', '<')) {
-            $this->_runPseudoCronIfDue();
-        }
-
+        // --- PSEUDO-CRON PARA TODAS LAS VERSIONES DE PS ---
         return $js;
     }
 
     /**
-     * Pseudo-cron nativo de PrestaShop 1.7+.
-     * Se dispara en cada carga del backoffice, throttleado internamente por PS
-     * (aproximadamente una vez por minuto mientras haya actividad de admin).
-     * No requiere ninguna configuración por parte del usuario.
-     */
-    public function hookActionCronJob()
-    {
-        $id_shop = (int)$this->context->shop->id;
-        if (!$id_shop) {
-            return;
-        }
-
-        // Throttle compartido con el fallback PS 1.6: mínimo 5 min entre ejecuciones.
-        // Se usa la misma clave para que ambos mecanismos no se solapen.
-        $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
-        $interval     = 60; // 1 minuto
-        $last_run     = (int)Configuration::get($throttle_key);
-
-        if ((time() - $last_run) < $interval) {
-            return; // Aún en el periodo de espera
-        }
-
-        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
-        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
-
-        if (empty($api_token)) {
-            return;
-        }
-
-        // Actualizar timestamp ANTES de llamar para evitar race conditions
-        Configuration::updateValue($throttle_key, time());
-
-        $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
-        $av->runBackgroundTasks('cron_hook');
-    }
-
-    /**
-     * Ejecuta las tareas de fondo si han pasado al menos 5 minutos desde la última ejecución.
-     * Usado exclusivamente como fallback para PS < 1.7 (en PS 1.7+ lo gestiona hookActionCronJob).
+     * Ejecuta las tareas de fondo si han pasado al menos 1 minuto desde la última ejecución.
+     * Se llama desde hookDisplayBackOfficeHeader, que se dispara en cada carga del admin.
      * El throttle se almacena en ps_configuration por tienda para evitar ejecuciones simultáneas.
      */
     private function _runPseudoCronIfDue()
@@ -3448,7 +3401,7 @@ $(document).ready(function() {
         }
 
         $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
-        $av->runBackgroundTasks('fallback_ps16');
+        $av->runBackgroundTasks('cronAjax');
     }
 
     public function hookActionSetInvoice($params)
@@ -3654,13 +3607,19 @@ $(document).ready(function() {
             }
         }
 
+        // Segundos restantes hasta la próxima comprobación automática (throttle = 60s)
+        $vf_cron_interval = 60;
+        $vf_last_cron     = (int)Configuration::get('VERIFACTU_LAST_CRON_RUN_' . $this->context->shop->id);
+        $vf_seconds_left  = max(0, $vf_cron_interval - (time() - $vf_last_cron));
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
-            'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
-            'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
-            'id_order'          => $id_order,
-            'show_anulacion_button' => $show_anulacion_button,
-            'nif_warning'       => $nif_warning,        // TODO-17
+            'verifactu_invoice'          => $verifactu_invoice,
+            'verifactu_slips'            => $verifactu_slips,
+            'id_order'                   => $id_order,
+            'show_anulacion_button'      => $show_anulacion_button,
+            'nif_warning'                => $nif_warning,
+            'vf_seconds_until_next_check' => $vf_seconds_left,
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/order_side.tpl');
@@ -4168,12 +4127,17 @@ $(document).ready(function() {
 
         $show_anulacion_button = (bool)Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', false, null, $this->context->shop->id);
 
+        $vf_cron_interval = 60;
+        $vf_last_cron     = (int)Configuration::get('VERIFACTU_LAST_CRON_RUN_' . $this->context->shop->id);
+        $vf_seconds_left  = max(0, $vf_cron_interval - (time() - $vf_last_cron));
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
-            'verifactu_invoice' => $verifactu_invoice, // Objeto de la factura principal (o null)
-            'verifactu_slips'   => $verifactu_slips,   // Array de abonos (o array vacío)
-            'id_order'          => $id_order,
-            'show_anulacion_button' => $show_anulacion_button,
+            'verifactu_invoice'           => $verifactu_invoice,
+            'verifactu_slips'             => $verifactu_slips,
+            'id_order'                    => $id_order,
+            'show_anulacion_button'       => $show_anulacion_button,
+            'vf_seconds_until_next_check' => $vf_seconds_left,
         ));
 
         // 7. Renderizar y devolver el contenido de la plantilla "legacy"

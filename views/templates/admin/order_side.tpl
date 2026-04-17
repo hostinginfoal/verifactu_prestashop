@@ -72,8 +72,13 @@
                 <div class="vf-status-block vf-status-pendiente">
                     <i class="icon-clock-o vf-status-icon"></i>
                     <div>
-                        <div class="vf-status-label">{l s='Pendiente' mod='verifactu'}</div>
-                        <div class="vf-status-sub">{l s='En espera de confirmación de Veri*Factu' mod='verifactu'}</div>
+                        <div class="vf-status-label">{l s='Enviado — En espera de confirmación' mod='verifactu'}</div>
+                        <div class="vf-status-sub">{l s='El registro ha sido enviado correctamente a Veri*Factu y está pendiente de validación por la AEAT. La comprobación del estado se realiza de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}</div>
+                        <div class="vf-status-sub vf-countdown-wrap" style="margin-top:6px; opacity:0.8;">
+                            <i class="icon-refresh"></i>
+                            {l s='Próxima comprobación automática en' mod='verifactu'}
+                            <strong id="vf-countdown-inv">{$vf_seconds_until_next_check}s</strong>
+                        </div>
                     </div>
                 </div>
             {elseif $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}
@@ -110,12 +115,17 @@
                     <i class="icon-refresh vf-status-icon"></i>
                     <div>
                         <div class="vf-status-label">
-                            {l s='Error de conexión con la API' mod='verifactu'}
+                            {l s='Error de conexión temporal con la API' mod='verifactu'}
                             {if $verifactu_invoice.verifactuCodigoErrorRegistro}
                             &nbsp;<span class="vf-code-badge">{$verifactu_invoice.verifactuCodigoErrorRegistro|escape:'htmlall':'UTF-8'}</span>
                             {/if}
                         </div>
-                        <div class="vf-status-sub">{l s='Se reintentará el envío automáticamente' mod='verifactu'}{if $verifactu_invoice.retry_count} &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}{/if}</div>
+                        <div class="vf-status-sub">{l s='No se ha podido contactar con la API en este momento. El envío se reintentará automáticamente cuando el servicio esté disponible. No es necesaria ninguna acción por su parte.' mod='verifactu'}{if $verifactu_invoice.retry_count} &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}{/if}</div>
+                        <div class="vf-status-sub vf-countdown-wrap" style="margin-top:6px; opacity:0.8;">
+                            <i class="icon-clock-o"></i>
+                            {l s='Próximo reintento automático en' mod='verifactu'}
+                            <strong id="vf-countdown-inv">{$vf_seconds_until_next_check}s</strong>
+                        </div>
                     </div>
                 </div>
             {elseif $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
@@ -260,6 +270,64 @@
             <div id="estado_envio_verifactu" style="display:none;" class="alert mt-2 d-print-none">
                 <div class="alert-text"></div>
             </div>
+
+            <script>
+            (function() {
+                var remaining = {$vf_seconds_until_next_check|intval};
+                var wraps = document.querySelectorAll('.vf-countdown-wrap');
+                var els   = document.querySelectorAll('#vf-countdown-inv');
+                if (!els.length) return;
+
+                function setSpinner(text) {
+                    wraps.forEach(function(w) {
+                        w.innerHTML = '<i class="icon-refresh icon-spin" style="color:inherit;"></i> '
+                            + (text || '{l s='Comprobando con Veri*Factu...' mod='verifactu'}');
+                    });
+                }
+
+                function doCheckAndReload() {
+                    setSpinner();
+                    // Llamada AJAX explícita: espera respuesta y ENTONCES recarga la página.
+                    // Así la BD está actualizada antes de que el widget la lea de nuevo.
+                    if (typeof verifactu_ajax_url === 'undefined' || typeof jQuery === 'undefined') {
+                        // Sin jQuery ni URL, recargamos directamente tras 2s
+                        setTimeout(function() { location.reload(); }, 2000);
+                        return;
+                    }
+                    jQuery.ajax({
+                        url:      verifactu_ajax_url,
+                        type:    'POST',
+                        dataType: 'json',
+                        data: {
+                            ajax:   true,
+                            action: 'checkPendingStatus',
+                            token:  verifactu_token
+                        },
+                        complete: function() {
+                            // Tanto si hay éxito como error, recargamos la página.
+                            // La BD ya ha sido actualizada por el servidor.
+                            location.reload();
+                        }
+                    });
+                }
+
+                if (remaining <= 0) {
+                    // Ya era hora: lanzar inmediatamente
+                    doCheckAndReload();
+                    return;
+                }
+
+                var timer = setInterval(function() {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearInterval(timer);
+                        doCheckAndReload();
+                    } else {
+                        els.forEach(function(el) { el.textContent = remaining + 's'; });
+                    }
+                }, 1000);
+            })();
+            </script>
 
         </div>{* /card-body *}
     </div>{* /card *}
