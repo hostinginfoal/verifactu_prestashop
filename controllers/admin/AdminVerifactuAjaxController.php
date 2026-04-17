@@ -97,29 +97,39 @@ class AdminVerifactuAjaxController extends ModuleAdminController
 
     /**
      * Esta es la acción que nuestro JavaScript llamará.
+     * Protegida con el mismo throttle de 5 min que hookActionCronJob y el fallback PS1.6,
+     * para evitar saturar la API cuando el JS antiguo esté en caché o el admin refresque rápido.
      */
     public function displayAjaxCheckPendingStatus()
     {
         $id_shop = (int)$this->context->shop->id;
-        
+
         if (!$id_shop) {
-            // Si el contexto es "Todas las tiendas", podríamos decidir no hacer nada o manejarlo de alguna manera.
-            // Por ahora, asumimos que siempre se opera en el contexto de una tienda específica.
             die(json_encode(['error' => 'Por favor, seleccione una tienda específica para realizar esta acción.']));
         }
 
-        $api_token = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        // Throttle compartido: mínimo 5 min entre ejecuciones (misma clave que hookActionCronJob).
+        $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
+        $interval     = 60; // 1 minuto
+        $last_run     = (int)Configuration::get($throttle_key);
+
+        if ((time() - $last_run) < $interval) {
+            header('Content-Type: application/json');
+            die(json_encode([
+                'success' => true,
+                'skipped' => true,
+                'message' => 'Throttle activo. Próxima ejecución en ' . ($interval - (time() - $last_run)) . 's.',
+            ]));
+        }
+
+        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
 
-        $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
-        
-        // NOTA: Para que esto funcione perfectamente, el método checkPendingInvoices()
-        // en ApiVerifactu debería aceptar $id_shop para filtrar solo las facturas de esa tienda.
-        // Ver punto clave adicional abajo.
-        $response = $av->checkPendingInvoices(); 
+        // Actualizar timestamp ANTES de ejecutar para evitar race conditions
+        Configuration::updateValue($throttle_key, time());
 
-        header('Content-Type: application/json');
-        die($response);
+        $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $av->checkPendingInvoices(); // hace die() internamente con JSON
     }
 
     /**

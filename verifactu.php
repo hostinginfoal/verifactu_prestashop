@@ -3400,7 +3400,7 @@ $(document).ready(function() {
         // Throttle compartido con el fallback PS 1.6: mínimo 5 min entre ejecuciones.
         // Se usa la misma clave para que ambos mecanismos no se solapen.
         $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
-        $interval     = 300; // 5 minutos
+        $interval     = 60; // 1 minuto
         $last_run     = (int)Configuration::get($throttle_key);
 
         if ((time() - $last_run) < $interval) {
@@ -3430,7 +3430,7 @@ $(document).ready(function() {
     {
         $id_shop      = (int)$this->context->shop->id;
         $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
-        $interval     = 300; // 5 minutos
+        $interval     = 60; // 1 minuto
 
         $last_run = (int)Configuration::get($throttle_key);
         if ((time() - $last_run) < $interval) {
