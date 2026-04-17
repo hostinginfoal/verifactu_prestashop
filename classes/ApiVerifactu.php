@@ -186,15 +186,15 @@ class ApiVerifactu
                 $id_order_invoice_or_slip = (int)$slip['id_order_slip'];
                 $InvoiceNumber = $this->getFormattedCreditSlipNumber($id_order_invoice_or_slip);
 
+                $estado_slip = isset($slip['estado']) ? $slip['estado'] : '';
+
                 // Bloquear reenvío si ya está en pendiente (esperando confirmación AEAT)
-                if (isset($slip['estado']) && $slip['estado'] == 'pendiente') {
+                if ($estado_slip == 'pendiente') {
                     $reply['response'] = 'pendiente';
                     return json_encode($reply);
-                }
 
-                // Si está 'stalled' o 'api_error', reseteamos el estado para que la API no lo rechace
-                // como registro expirado. Este reset es manual/forzado por el administrador.
-                if (isset($slip['estado']) && in_array($slip['estado'], ['stalled', 'api_error', 'failed'])) {
+                // El admin ha solicitado reenvío forzado: resetear el estado a 'nuevo' y continuar.
+                } elseif (in_array($estado_slip, ['stalled', 'api_error', 'failed', 'sincronizado'])) {
                     Db::getInstance()->update(
                         'verifactu_order_slip',
                         [
@@ -205,7 +205,15 @@ class ApiVerifactu
                         ],
                         'id_order_slip = ' . (int)$id_order_invoice_or_slip
                     );
-                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — abono #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $slip['estado'] . '" a "nuevo".', 1);
+                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — abono #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $estado_slip . '" a "nuevo".', 1);
+
+                // [TODO-27] Bloquear si ya existe un registro con estado activo distinto de 'nuevo'.
+                // Evita llamadas cURL duplicadas cuando el hook actionSetInvoice se dispara múltiples
+                // veces para la misma factura (PDF, recarga pedido, etc.).
+                } elseif (!empty($estado_slip) && $estado_slip !== 'nuevo') {
+                    $this->_log('sendAltaVerifactu: Abono #' . $id_order_invoice_or_slip . ' ya tiene estado "' . $estado_slip . '". Reenvío bloqueado (TODO-27).', 1);
+                    $reply['response'] = $estado_slip;
+                    return json_encode($reply);
                 }
             }
 
@@ -238,15 +246,15 @@ class ApiVerifactu
                 $id_order_invoice_or_slip = (int)$invoice['id_order_invoice'];
                 $InvoiceNumber = $this->getFormattedInvoiceNumber($id_order_invoice_or_slip);
 
+                $estado_invoice = isset($invoice['estado']) ? $invoice['estado'] : '';
+
                 // Bloquear reenvío si ya está en pendiente (esperando confirmación AEAT)
-                if (isset($invoice['estado']) && $invoice['estado'] == 'pendiente') {
+                if ($estado_invoice == 'pendiente') {
                     $reply['response'] = 'pendiente';
                     return json_encode($reply);
-                }
 
-                // Si está 'stalled' o 'api_error', reseteamos el estado para que la API no lo rechace
-                // como registro expirado. Este reset es manual/forzado por el administrador.
-                if (isset($invoice['estado']) && in_array($invoice['estado'], ['stalled', 'api_error', 'failed'])) {
+                // El admin ha solicitado reenvío forzado: resetear el estado a 'nuevo' y continuar.
+                } elseif (in_array($estado_invoice, ['stalled', 'api_error', 'failed', 'sincronizado'])) {
                     Db::getInstance()->update(
                         'verifactu_order_invoice',
                         [
@@ -257,7 +265,15 @@ class ApiVerifactu
                         ],
                         'id_order_invoice = ' . (int)$id_order_invoice_or_slip
                     );
-                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — factura #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $invoice['estado'] . '" a "nuevo".', 1);
+                    $this->_log('sendAltaVerifactu: Reenvío forzado por admin — factura #' . $id_order_invoice_or_slip . ' estado reseteado de "' . $estado_invoice . '" a "nuevo".', 1);
+
+                // [TODO-27] Bloquear si ya existe un registro con estado activo distinto de 'nuevo'.
+                // Evita llamadas cURL duplicadas cuando el hook actionSetInvoice se dispara múltiples
+                // veces para la misma factura (PDF, recarga pedido, etc.).
+                } elseif (!empty($estado_invoice) && $estado_invoice !== 'nuevo') {
+                    $this->_log('sendAltaVerifactu: Factura #' . $id_order_invoice_or_slip . ' ya tiene estado "' . $estado_invoice . '". Reenvío bloqueado (TODO-27).', 1);
+                    $reply['response'] = $estado_invoice;
+                    return json_encode($reply);
                 }
             }
         }
