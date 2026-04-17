@@ -3397,12 +3397,25 @@ $(document).ready(function() {
             return;
         }
 
+        // Throttle compartido con el fallback PS 1.6: mínimo 5 min entre ejecuciones.
+        // Se usa la misma clave para que ambos mecanismos no se solapen.
+        $throttle_key = 'VERIFACTU_LAST_CRON_RUN_' . $id_shop;
+        $interval     = 300; // 5 minutos
+        $last_run     = (int)Configuration::get($throttle_key);
+
+        if ((time() - $last_run) < $interval) {
+            return; // Aún en el periodo de espera
+        }
+
         $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
         $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
 
         if (empty($api_token)) {
             return;
         }
+
+        // Actualizar timestamp ANTES de llamar para evitar race conditions
+        Configuration::updateValue($throttle_key, time());
 
         $av = new \Verifactu\VerifactuClasses\ApiVerifactu($api_token, $debug_mode, $id_shop);
         $av->runBackgroundTasks('cron_hook');

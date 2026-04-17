@@ -60,14 +60,15 @@ if (typeof verifactu_ajax_url !== 'undefined')
       });
   }
 
-  // Ejecutamos la función una vez al cargar la página.
-  checkPendingStatus();
-
-  // ejecutamos pasados 5 segundos.
-  //setTimeout(checkPendingStatus, 5000);
-
-  // Y luego la ejecutamos cada 60 segundos.
-  setInterval(checkPendingStatus, 60000);
+  // checkPendingStatus() ya no se ejecuta automáticamente desde el JS.
+  // Las tareas de fondo (reintentar api_error, consultar estados pendientes,
+  // expirar stalled) son gestionadas por el hook nativo de PS:
+  //   - PS 1.7+: hookActionCronJob (se dispara en cada carga del backoffice)
+  //   - PS 1.6:  hookDisplayBackOfficeHeader con throttle de 5 min
+  // Eliminar estos disparos automáticos evita la saturación de la API.
+  //
+  // La función se mantiene disponible por si se necesita en el futuro
+  // para un botón de refresco manual.
 
   $('#check_dni').on('click', function(){
     // Deshabilitamos el botón INMEDIATAMENTE al hacer clic
