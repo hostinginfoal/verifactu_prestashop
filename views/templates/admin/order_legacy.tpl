@@ -128,7 +128,7 @@
 
                     {* --- COUNTDOWN AUTOMÁTICO (solo en pendiente y api_error) --- *}
                     {if $verifactu_invoice.estado == 'pendiente'}
-                    <div class="alert alert-info" style="padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
+                    <div style="background:#d1ecf1; border:1px solid #bee5eb; border-radius:4px; color:#0c5460; padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
                         <i class="icon-info-circle"></i>
                         {l s='El registro ha sido enviado correctamente a Veri*Factu y está pendiente de validación por la AEAT. La verificación del resultado se realizará de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}
                         <div class="vf-countdown-wrap" style="margin-top:5px; opacity:0.85;">
@@ -138,10 +138,10 @@
                         </div>
                     </div>
                     {elseif $verifactu_invoice.estado == 'api_error' || $verifactu_invoice.estado == 'stalled'}
-                    <div class="alert alert-warning" style="padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
+                    <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; color:#856404; padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
                         <i class="icon-exclamation-triangle"></i>
                         {l s='No se ha podido contactar con la API en este momento. El envío se reintentará automáticamente cuando el servicio esté disponible. No es necesaria ninguna acción por su parte.' mod='verifactu'}
-                        {if $verifactu_invoice.retry_count}<span class="text-muted"> &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}</span>{/if}
+                        {if $verifactu_invoice.retry_count}<span style="opacity:0.7;"> &middot; {$verifactu_invoice.retry_count} {l s='intentos' mod='verifactu'}</span>{/if}
                         <div class="vf-countdown-wrap" style="margin-top:5px; opacity:0.85;">
                             <i class="icon-clock-o"></i>
                             {l s='Próximo reintento automático en' mod='verifactu'}
