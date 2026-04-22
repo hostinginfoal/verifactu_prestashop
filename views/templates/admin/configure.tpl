@@ -23,16 +23,7 @@
 *  International Registered Trademark & Property of InFoAL S.L.
 *}
 
-<div class="panel">
-    <h3><i class="icon icon-credit-card"></i> {l s='VeriFactu by InFoAL' mod='verifactu'}</h3>
-    <p>
-        <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
-    </p>
-    <br />
-    <p>
-        {l s='Si no dispones de una clave de API, solicítala en ' mod='verifactu'}<a href="https://verifactu.infoal.com" target="_blank">https://verifactu.infoal.com</a>
-    </p>
-</div>
+
 
 {if $update_available}
     <div class="alert alert-info" role="alert">
@@ -47,21 +38,7 @@
     </div>
 {/if}
 
-<div class="panel">
-	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
-	<p>
-		&raquo;
-        {l s='Puedes ver la guía de usuario del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop" target="_blank">https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop</a>
-	</p>
-	<p>
-		&raquo;
-        {l s='Puedes descargar la última versión del módulo desde aquí: ' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip">https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip</a>
-	</p>
-	<p>
-		&raquo;
-        {l s='Si necesitas soporte puedes ponerte en contacto con nosotros, abriendo un ticket de soporte en el siguiente enlace: ' mod='verifactu'} : <a href="https://hosting.infoal.com/submitticket.php?step=2&deptid=1" target="_blank">https://hosting.infoal.com/submitticket.php?step=2&deptid=1</a>
-	</p>
-</div>
+
 
 <ul class="nav nav-tabs">
     <li class="{if $active_tab == 'dashboard'}active{/if}">
@@ -87,6 +64,11 @@
     <li class="{if $active_tab == 'reg_facts'}active{/if}">
         <a href="{$current}&tab_module_verifactu=reg_facts">
             <i class="icon-list"></i> {l s='Registros de Facturación' mod='verifactu'}
+        </a>
+    </li>
+    <li class="{if $active_tab == 'facturae'}active{/if}">
+        <a href="{$current}&tab_module_verifactu=facturae">
+            <i class="icon-file-text-o"></i> {l s='Facturas Electrónicas' mod='verifactu'}
         </a>
     </li>
     <li class="{if $active_tab == 'help'}active{/if}">

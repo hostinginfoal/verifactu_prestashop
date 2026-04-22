@@ -117,6 +117,27 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_order_slip` (
     PRIMARY KEY  (`id_order_slip`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'verifactu_facturae` (
+    `id`               int(11) NOT NULL AUTO_INCREMENT,
+    `id_order_invoice` int(11) DEFAULT NULL,
+    `id_order_slip`    int(11) DEFAULT NULL,
+    `id_shop`          int(11) NOT NULL DEFAULT 1,
+    `id_facturae_api`  int(11) DEFAULT NULL,
+    `invoice_number`   varchar(64) NOT NULL,
+    `buyer_nif`        varchar(32) DEFAULT NULL,
+    `buyer_name`       varchar(128) DEFAULT NULL,
+    `total_amount`     decimal(10,2) DEFAULT NULL,
+    `issue_date`       date DEFAULT NULL,
+    `face_sent`        tinyint(1) NOT NULL DEFAULT 0,
+    `face_estado`      varchar(32) DEFAULT \'pendiente\',
+    `face_registro`    varchar(64) DEFAULT NULL,
+    `face_mensaje`     varchar(255) DEFAULT NULL,
+    `date_add`         datetime NOT NULL,
+    PRIMARY KEY  (`id`),
+    KEY `id_order_invoice` (`id_order_invoice`),
+    KEY `id_order_slip` (`id_order_slip`)
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8mb4;';
+
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) == false) {
         return false;

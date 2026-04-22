@@ -1,6 +1,33 @@
 {* VeriFactu - Dashboard template *}
 {* TODO-06: Panel de estadísticas Veri*Factu *}
 
+<div class="panel">
+    <h3><i class="icon icon-credit-card"></i> {l s='VeriFactu by InFoAL' mod='verifactu'}</h3>
+    <p>
+        <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
+    </p>
+    <br />
+    <p>
+        {l s='Si no dispones de una clave de API, solicítala en ' mod='verifactu'}<a href="https://verifactu.infoal.com" target="_blank">https://verifactu.infoal.com</a>
+    </p>
+</div>
+
+<div class="panel">
+	<h3><i class="icon icon-tags"></i> {l s='Documentación' mod='verifactu'}</h3>
+	<p>
+		&raquo;
+        {l s='Puedes ver la guía de usuario del módulo en el siguiente enlace' mod='verifactu'} : <a href="https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop" target="_blank">https://verifactu.infoal.com/prestashop/guia-de-usuario-modulo-verifactu-para-prestashop</a>
+	</p>
+	<p>
+		&raquo;
+        {l s='Puedes descargar la última versión del módulo desde aquí: ' mod='verifactu'} : <a href="https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip">https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip</a>
+	</p>
+	<p>
+		&raquo;
+        {l s='Si necesitas soporte puedes ponerte en contacto con nosotros, abriendo un ticket de soporte en el siguiente enlace: ' mod='verifactu'} : <a href="https://hosting.infoal.com/submitticket.php?step=2&deptid=1" target="_blank">https://hosting.infoal.com/submitticket.php?step=2&deptid=1</a>
+	</p>
+</div>
+
 <style>
 .vf-dashboard { margin-top: 15px; }
 .vf-stat-card { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 20px 15px; text-align: center; margin-bottom: 20px; }

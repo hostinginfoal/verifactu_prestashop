@@ -173,7 +173,26 @@
                 </div>
                 {/if}
 
+                {if isset($tools_action_url)}
+                <div class="vf-link-card" style="border-color: #8e44ad;">
+                    <h5 style="color:#8e44ad;"><i class="icon-wrench"></i> {l s='Herramientas de Mantenimiento' mod='verifactu'}</h5>
+                    <p>
+                        {l s='Verifica la integridad de la base de datos y añade columnas faltantes sin borrar datos. Comprueba si los servidores de Veri*Factu de la AEAT están operativos.' mod='verifactu'}
+                    </p>
+                    <form method="post" action="{$tools_action_url|escape:'html':'UTF-8'}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <input type="hidden" name="token" value="{$tools_token|escape:'html':'UTF-8'}">
+                        <button type="submit" name="submitCheckDatabase" class="btn btn-default btn-sm">
+                            <i class="icon-cogs"></i> {l s='Verificar y Reparar BD' mod='verifactu'}
+                        </button>
+                        <button type="submit" name="submitCheckApiStatus" class="btn btn-default btn-sm">
+                            <i class="icon-signal"></i> {l s='Comprobar Estado AEAT' mod='verifactu'}
+                        </button>
+                    </form>
+                </div>
+                {/if}
+
             </div>{* /col-right *}
+
 
         </div>{* /row *}
     </div>

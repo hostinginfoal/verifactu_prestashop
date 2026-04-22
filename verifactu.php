@@ -38,6 +38,7 @@ if (file_exists($autoloadPath)) {
 require_once __DIR__ . '/services/VerifactuQRService.php';
 require_once __DIR__ . '/services/VerifactuListHelper.php';
 require_once __DIR__ . '/services/VerifactuDiagnostic.php';
+require_once __DIR__ . '/services/VerifactuFacturaeService.php';
 
 // Las siguientes declaraciones 'use' de PS 1.7+/Symfony se mantienen comentadas:
 // no se usan en este módulo y son incompatibles con PHP 5.2 (PS 1.6).
@@ -66,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.5.5';
+        $this->version = '1.6.0';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -389,6 +390,15 @@ class Verifactu extends Module
                        '&tab_module=' . $this->tab .
                        '&module_name=' . $this->name;
 
+        // TODO-19: Aviso visual si el modo debug está activo (encima de las pestañas)
+        $id_shop = Shop::getContextShopID();
+        if (Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop)) {
+            $output .= '<div class="alert alert-warning" style="margin: 5px 0; font-size: 13px;">' .
+                       '<i class="icon-warning-sign"></i> <strong>' . $this->l('Modo debug activo') . '</strong> — ' .
+                       $this->l('El módulo está registrando logs detallados. Desactívalo en producción cuando no necesites depurar.') .
+                       '</div>';
+        }
+
         $this->context->smarty->assign(array(
             'module_name' => $this->name,
             'active_tab' => $tab,
@@ -404,15 +414,6 @@ class Verifactu extends Module
         if (Tools::getValue('purge_vf_logs')) {
             $this->purgeDebugLogs();
             $output .= $this->displayConfirmation($this->l('Logs de debug purgados correctamente.'));
-        }
-
-        // TODO-19: Aviso visual si el modo debug está activo
-        $id_shop = Shop::getContextShopID();
-        if (Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop)) {
-            $output .= '<div class="alert alert-warning" style="margin: 5px 0; font-size: 13px;">' .
-                       '<i class="icon-warning-sign"></i> <strong>' . $this->l('Modo debug activo') . '</strong> — ' .
-                       $this->l('El módulo está registrando logs detallados. Desactívalo en producción cuando no necesites depurar.') .
-                       '</div>';
         }
 
         if ($tab == 'dashboard') {
@@ -435,6 +436,8 @@ class Verifactu extends Module
                 $this->exportCsvList('reg_facts');
             }
             $output .= $this->renderList();
+        } elseif ($tab == 'facturae') {
+            $output .= $this->renderFacturaeList();
         } elseif ($tab == 'help') {
             $output .= $this->renderHelp();
         }
@@ -459,8 +462,111 @@ $(document).ready(function() {
 
     /**
      * Renderiza la pestaña de ayuda y FAQ.
-     * @return string HTML de la pestaña.
+    /**
+     * Renders the Facturae electronic invoices list tab.
      */
+    private function renderFacturaeList()
+    {
+        // --- Banner informativo SPFE ---
+        $spfe_banner = '<div class="alert alert-info" style="margin-bottom:15px;">' .
+            '<i class="icon-info-circle"></i> ' .
+            '<strong>' . $this->l('Próximamente: Solución Pública de Facturación Electrónica (SPFE)') . '</strong><br>' .
+            $this->l('Ya estamos preparando nuestra solución para cumplir con la próxima entrada en vigor de la Solución Pública de Facturación Electrónica (SPFE). Mantente atento a las actualizaciones del módulo.') .
+            '</div>';
+
+        $fields_list = array(
+            'invoice_number' => array('title' => $this->l('Nº Factura'), 'search' => true),
+            'buyer_nif'      => array('title' => $this->l('NIF Cliente'), 'search' => true),
+            'buyer_name'     => array('title' => $this->l('Cliente'), 'search' => true),
+            'total_amount'   => array('title' => $this->l('Total'), 'type' => 'price', 'search' => false),
+            'issue_date'     => array('title' => $this->l('Fecha Factura'), 'type' => 'date', 'search' => false),
+            'date_add'       => array('title' => $this->l('Fecha Generación'), 'type' => 'datetime', 'search' => false, 'orderby' => true),
+            'fe_actions'     => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printFacturaeActions', 'callback_object' => $this, 'escape' => false, 'width' => '60', 'align' => 'center'),
+        );
+
+        $helper = new HelperList();
+        $helper->shopLinkType  = '';
+        $helper->title         = $this->l('Facturas Electrónicas generadas (Facturae 3.2.2)');
+        $helper->table         = 'verifactu_facturae';
+        $helper->identifier    = 'id';
+        $helper->simple_header = false;
+        $helper->show_toolbar  = false;
+        $helper->module        = $this;
+        $helper->no_link       = true;
+        $helper->currentIndex  = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module_verifactu=facturae';
+        $helper->token         = Tools::getAdminTokenLite('AdminModules');
+        $helper->actions       = array();
+
+        $page       = (int)Tools::getValue('page', 1);
+        $pagination = (int)Tools::getValue('verifactu_facturaeperPage', 50);
+        $orderBy    = Tools::getValue('verifactu_facturaeOrderby', 'date_add');
+        $orderWay   = Tools::getValue('verifactu_facturaeOrderway', 'DESC');
+
+        $db  = Db::getInstance();
+        $sql = new DbQuery();
+        $sql->select('*')
+            ->from('verifactu_facturae')
+            ->where('id_shop = ' . (int)$this->context->shop->id)
+            ->orderBy('`' . pSQL($orderBy) . '` ' . pSQL($orderWay))
+            ->limit($pagination, ($page - 1) * $pagination);
+
+        $content = $db->executeS($sql);
+        $helper->listTotal = (int)$db->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'verifactu_facturae` WHERE id_shop = ' . (int)$this->context->shop->id);
+
+        // Inject virtual column so HelperList always invokes the printFacturaeActions callback
+        if (is_array($content)) {
+            foreach ($content as &$row) {
+                $row['fe_actions'] = (string)$row['id']; // dummy — real data comes from $row inside callback
+            }
+            unset($row);
+        }
+
+        $ajaxUrl   = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
+        $ajaxToken = Tools::getAdminTokenLite('AdminVerifactuAjax');
+
+        $html = $spfe_banner . $helper->generateList($content, $fields_list);
+
+        // JS for Facturae action buttons: download only
+        $html .= '<script type="text/javascript">
+        (function($) {
+            var ajaxUrl   = ' . json_encode($ajaxUrl) . ';
+            var ajaxToken = ' . json_encode($ajaxToken) . ';
+
+            // --- Descargar .xml (sin firmar) ---
+            $(document).on("click", ".btn-fe-download", function(e) {
+                e.preventDefault();
+                var feId  = $(this).data("fe-id");
+                var dlUrl = ajaxUrl + "&ajax=1&action=DescargarFacturaeXml&id=" + feId + "&token=" + ajaxToken;
+                var a = document.createElement("a");
+                a.href = dlUrl; a.target = "_blank";
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            });
+        })(jQuery);
+        </script>';
+
+        return $html;
+    }
+
+    /**
+     * Callback: renders action buttons for the Facturae list.
+     */
+    public function printFacturaeActions($value, $row)
+    {
+        // Guard: only show buttons if we have an API-side ID
+        if (empty($row['id_facturae_api'])) {
+            return '<span class="label label-default">-</span>';
+        }
+
+        $dbId = (int)$row['id'];
+
+        // Botón de descarga XML sin firmar
+        return '<a class="btn btn-default btn-fe-download" href="#"'
+            . ' data-fe-id="' . $dbId . '"'
+            . ' title="' . $this->l('Descargar .xml (sin firmar)') . '"'
+            . '>'
+            . '<i class="icon-download"></i></a>';
+    }
+
     private function renderHelp()
     {
         $id_shop = (int)$this->context->shop->id;
@@ -477,61 +583,23 @@ $(document).ready(function() {
             . '&run_vf_diagnostic=1'
             . '&force_zip=1';
 
-        $this->context->smarty->assign([
-            'module_version' => $this->version,
-            'diagnose_url'   => $diagnose_url,
-            'zip_url'        => $zip_url,
-        ]);
-        $output = $this->context->smarty->fetch($this->local_path . 'views/templates/admin/help.tpl');
-
-        // --- Herramientas de Mantenimiento ---
-        $helperTools = new HelperForm();
-        $helperTools->show_toolbar = false;
-        $helperTools->table = $this->table;
-        $helperTools->module = $this;
-        $helperTools->submit_action = 'submitCheckDatabase';
-        $helperTools->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+        $tools_action_url = $this->context->link->getAdminLink('AdminModules', false)
             . '&configure=' . $this->name
             . '&tab_module=' . $this->tab
             . '&module_name=' . $this->name
             . '&tab_module_verifactu=help';
-        $helperTools->token = Tools::getAdminTokenLite('AdminModules');
 
-        $formTools = [
-            'form' => [
-                'legend' => [
-                    'title' => $this->l('Herramientas de Mantenimiento'),
-                    'icon'  => 'icon-wrench',
-                ],
-                'buttons' => [
-                    'check_api_status' => [
-                        'title' => $this->l('Comprobar Estado AEAT'),
-                        'name'  => 'submitCheckApiStatus',
-                        'type'  => 'submit',
-                        'class' => 'btn btn-default pull-right',
-                        'icon'  => 'process-icon-signal',
-                    ],
-                    'check_db' => [
-                        'title' => $this->l('Verificar y Reparar Base de Datos'),
-                        'name'  => 'submitCheckDatabase',
-                        'type'  => 'submit',
-                        'class' => 'btn btn-default pull-right',
-                        'icon'  => 'process-icon-cogs',
-                    ],
-                ],
-                'description' =>
-                    $this->l('Verificar y Reparar Base de datos: Comprueba la integridad de las tablas y añade las columnas que falten sin borrar datos.') .
-                    ' — ' .
-                    $this->l('Comprobar estado AEAT: Comprueba si los servidores de Veri*Factu de la AEAT están operativos.') .
-                    ' — ' .
-                    $this->l('Enviar Diagnóstico a InFoAL: Recopila información del módulo, la envía directamente a InFoAL y te da una referencia de soporte. Si hay un problema de conexión, descargará un ZIP que podrás enviarnos manualmente.'),
-            ],
-        ];
+        $this->context->smarty->assign([
+            'module_version'   => $this->version,
+            'diagnose_url'     => $diagnose_url,
+            'zip_url'          => $zip_url,
+            'tools_action_url' => $tools_action_url,
+            'tools_token'      => Tools::getAdminTokenLite('AdminModules'),
+        ]);
 
-        $output .= $helperTools->generateForm([$formTools]);
-
-        return $output;
+        return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/help.tpl');
     }
+
 
     // =================================================================
     // TODO-24: DIAGNÓSTICO DE SOPORTE
@@ -920,6 +988,22 @@ $(document).ready(function() {
                 'apiMode' => 'varchar(20) DEFAULT NULL',
                 'retry_count' => 'int(11) NOT NULL DEFAULT 0',
                 'last_retry_at' => 'datetime DEFAULT NULL',
+            ],
+            'verifactu_facturae' => [
+                'id_order_invoice' => 'int(11) DEFAULT NULL',
+                'id_order_slip'    => 'int(11) DEFAULT NULL',
+                'id_shop'          => 'int(11) NOT NULL DEFAULT 1',
+                'id_facturae_api'  => 'int(11) DEFAULT NULL',
+                'invoice_number'   => 'varchar(64) NOT NULL',
+                'buyer_nif'        => 'varchar(32) DEFAULT NULL',
+                'buyer_name'       => 'varchar(128) DEFAULT NULL',
+                'total_amount'     => 'decimal(10,2) DEFAULT NULL',
+                'issue_date'       => 'date DEFAULT NULL',
+                'face_sent'        => 'tinyint(1) NOT NULL DEFAULT 0',
+                'face_estado'      => "varchar(32) DEFAULT 'pendiente'",
+                'face_registro'    => 'varchar(64) DEFAULT NULL',
+                'face_mensaje'     => 'varchar(255) DEFAULT NULL',
+                'date_add'         => 'datetime NOT NULL',
             ],
         ];
     }
@@ -1643,7 +1727,7 @@ $(document).ready(function() {
             'apiMode' => array('title' => $this->l('Modo API'),'align' => 'text-center','search' => true,),
             'TipoFactura' => array('title' => $this->l('Tipo Factura'), 'type' => 'text-center', 'search' => true, 'align' => 'center'),
             'anulacion' => array('title' => $this->l('Anulada'), 'type' => 'bool', 'callback' => 'printAnulacionTick', 'callback_object' => $this, 'search' => true, 'align' => 'center'),
-            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false, 'width' => '130', 'align' => 'center')
+            'list_actions' => array('title' => $this->l('Acciones'), 'type' => 'text', 'orderby' => false, 'search' => false, 'callback' => 'printSimpleActions', 'callback_object' => $this, 'escape' => false, 'width' => '160', 'align' => 'center')
         );
 
         $helper = new HelperList();
@@ -2528,6 +2612,15 @@ $(document).ready(function() {
             $type = isset($row['id_order_invoice']) ? 'alta' : 'abono';
 
             $actions .= '<a class="btn btn-default button-resend-verifactu"  data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" title="' . $this->l('Reenviar a VeriFactu') . '"><i class="icon-refresh"></i></a>';
+        }
+
+        // Botón Generar Factura Electrónica
+        if (isset($row['id_order_invoice']) && !empty($row['id_order_invoice'])) {
+            // Factura de venta
+            $actions .= ' <a class="btn btn-default btn-generar-fe" data-id_order_invoice="' . (int)$row['id_order_invoice'] . '" title="' . $this->l('Generar Factura Electrónica (.xml sin firmar)') . '" href="#"><i class="icon-file-text"></i></a>';
+        } elseif (isset($row['id_order_slip']) && !empty($row['id_order_slip'])) {
+            // Factura por abono
+            $actions .= ' <a class="btn btn-default btn-generar-fe-slip" data-id_order_slip="' . (int)$row['id_order_slip'] . '" title="' . $this->l('Generar Factura Electrónica (.xml sin firmar)') . '" href="#"><i class="icon-file-text"></i></a>';
         }
 
         return $actions;
@@ -3501,7 +3594,7 @@ $(document).ready(function() {
     {
         // On every pages
         $this->context->controller->addCSS($this->_path.'views/css/back.css');
-        $this->context->controller->addJS($this->_path.'views/js/back.js');
+        $this->context->controller->addJS($this->_path.'views/js/back.js?v=' . $this->version);
         $this->context->controller->addJS('https://cdn.jsdelivr.net/npm/sweetalert2@11');
 
         //foreach (Language::getLanguages() as $language) {
