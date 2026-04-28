@@ -79,7 +79,7 @@ class Verifactu extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('VeriFactu');
+        $this->displayName = $this->l('Infoal VeriFactu');
         $this->description = $this->l('Automatiza el envío de registros de facturación al sistema Veri*Factu de la AEAT, añade el código QR a tus facturas y te permite hacer seguimiento de cada envío.');
 
         $this->confirmUninstall = $this->l('Seguro que quieres desinstalar el módulo?');
@@ -105,11 +105,12 @@ class Verifactu extends Module
             'VERIFACTU_SHOW_ANULACION_BUTTON',
             'VERIFACTU_LOCK_ORDER_IF_CORRECT',
             'VERIFACTU_RECARGO_COMPAT',
+            'VERIFACTU_HIDE_UPDATE_BANNER',
         );
         foreach ($config_keys as $key) {
             if (!Configuration::hasKey($key)) {
                 $default_value = null;
-                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT' || $key === 'VERIFACTU_RECARGO_COMPAT') {
+                if ($key === 'VERIFACTU_USA_OSS' || $key === 'VERIFACTU_DEBUG_MODE' || $key === 'VERIFACTU_TERRITORIO_ESPECIAL' || $key === 'VERIFACTU_SHOW_ANULACION_BUTTON' || $key === 'VERIFACTU_LOCK_ORDER_IF_CORRECT' || $key === 'VERIFACTU_RECARGO_COMPAT' || $key === 'VERIFACTU_HIDE_UPDATE_BANNER') {
                     $default_value = 0;
                 }
                 elseif ($key === 'VERIFACTU_QR_WIDTH') 
@@ -124,95 +125,65 @@ class Verifactu extends Module
             }
         }
 
-        // 1. Creamos la pestaña PADRE. Esta será la nueva entrada en el menú principal.
-        // Le asignamos un controlador ficticio que no existe para que actúe solo como contenedor.
+        // 1. Creamos la pestaña PADRE (entrada del menú principal)
         $parentTab = new Tab();
-        $parentTab->active = 1;
-        $parentTab->class_name = 'AdminVerifactuParent'; // Controlador ficticio para el menú padre
-        $parentTab->name = array();
+        $parentTab->active     = 1;
+        $parentTab->class_name = 'AdminVerifactuParent';
+        $parentTab->name       = array();
         foreach (Language::getLanguages(true) as $lang) {
-            $parentTab->name[$lang['id_lang']] = 'VeriFactu';
+            $parentTab->name[$lang['id_lang']] = 'Infoal VeriFactu';
         }
-        // IMPORTANTE: id_parent = 0 lo sitúa en la raíz del menú.
-        // Si quisieras que estuviera dentro de 'VENDER', usarías (int)Tab::getIdFromClassName('SELL')
         $parentTab->id_parent = 0;
-        $parentTab->module = $this->name;
+        $parentTab->icon      = 'receipt';
+        $parentTab->module    = $this->name;
         if (!$parentTab->add()) {
             return false;
         }
 
-        // 2. Creamos las pestañas HIJA. Este será el enlace real que el usuario verá
-        $childTab = new Tab();
-        $childTab->active = 1;
-        $childTab->class_name = 'AdminVerifactuSalesInvoices'; // Este sí es nuestro controlador de redirección
-        $childTab->name = array();
-        foreach (Language::getLanguages(true) as $lang) {
-            // Le damos un nombre como 'Dashboard' o 'Configuración'
-            $childTab->name[$lang['id_lang']] = 'Facturas';
-        }
-        $childTab->id_parent = (int)$parentTab->id;
-        $childTab->icon = 'receipt';
-        $childTab->module = $this->name;
-        if (!$childTab->add()) {
-            return false;
+        // Helper para añadir cada ítem de menú visible
+        $menuItems = array(
+            array('class' => 'AdminVerifactuDashboard',    'label' => 'Dashboard',                 'icon' => 'dashboard'),
+            array('class' => 'AdminVerifactuConfig',       'label' => 'Configuración',              'icon' => 'settings'),
+            array('class' => 'AdminVerifactuSalesInvoices','label' => 'Facturas',                   'icon' => 'receipt'),
+            array('class' => 'AdminVerifactuCreditSlips',  'label' => 'Facturas por abono',         'icon' => 'assignment_return'),
+            array('class' => 'AdminVerifactuRegFacts',     'label' => 'Registros de facturación',   'icon' => 'list_alt'),
+            array('class' => 'AdminVerifactuHelp',         'label' => 'Ayuda y soporte',            'icon' => 'help'),
+        );
+
+        foreach ($menuItems as $item) {
+            $childTab = new Tab();
+            $childTab->active     = 1;
+            $childTab->class_name = $item['class'];
+            $childTab->name       = array();
+            foreach (Language::getLanguages(true) as $lang) {
+                $childTab->name[$lang['id_lang']] = $item['label'];
+            }
+            $childTab->id_parent = (int)$parentTab->id;
+            $childTab->icon      = $item['icon'];
+            $childTab->module    = $this->name;
+            if (!$childTab->add()) {
+                return false;
+            }
         }
 
-        $childTab = new Tab();
-        $childTab->active = 1;
-        $childTab->class_name = 'AdminVerifactuCreditSlips'; // Este sí es nuestro controlador de redirección
-        $childTab->name = array();
-        foreach (Language::getLanguages(true) as $lang) {
-            // Le damos un nombre como 'Dashboard' o 'Configuración'
-            $childTab->name[$lang['id_lang']] = 'Facturas por abono';
-        }
-        $childTab->id_parent = (int)$parentTab->id;
-        $childTab->icon = 'receipt';
-        $childTab->module = $this->name;
-        if (!$childTab->add()) {
-            return false;
-        }
-
-        $childTab = new Tab();
-        $childTab->active = 1;
-        $childTab->class_name = 'AdminVerifactuRegFacts'; // Este sí es nuestro controlador de redirección
-        $childTab->name = array();
-        foreach (Language::getLanguages(true) as $lang) {
-            // Le damos un nombre como 'Dashboard' o 'Configuración'
-            $childTab->name[$lang['id_lang']] = 'Registros de facturación';
-        }
-        $childTab->id_parent = (int)$parentTab->id;
-        $childTab->icon = 'receipt';
-        $childTab->module = $this->name;
-        if (!$childTab->add()) {
-            return false;
-        }
-
-        //Menu Oculto para la vista detalle de los registros de facturación
-        $tab = new Tab();
-        $tab->active = 1;
-        $tab->class_name = 'AdminVerifactuDetail'; // El nombre de nuestra nueva clase
-        $tab->name = array();
-        foreach (Language::getLanguages(true) as $lang) {
-            $tab->name[$lang['id_lang']] = 'Detalle VeriFactu';
-        }
-        $tab->id_parent = -1; // No se muestra en el menú
-        $tab->module = $this->name;
-        if (!$tab->add()) {
-            return false;
-        }
-
-        //Menu Oculto para el controlador AJAX
-        $tab = new Tab();
-        $tab->active = 1; // Debe estar activo para funcionar
-        $tab->class_name = 'AdminVerifactuAjax'; // El nombre de tu clase de controlador
-        $tab->name = array();
-        foreach (Language::getLanguages(true) as $lang) {
-            $tab->name[$lang['id_lang']] = 'VeriFactu AJAX'; // Nombre interno, no visible
-        }
-        $tab->id_parent = -1; // -1 lo oculta del menú
-        $tab->module = $this->name;
-        if (!$tab->add()) {
-            return false;
+        // Tabs ocultos (id_parent = -1): usados internamente, no aparecen en el menú
+        $hiddenTabs = array(
+            array('class' => 'AdminVerifactuDetail', 'label' => 'Detalle VeriFactu'),
+            array('class' => 'AdminVerifactuAjax',   'label' => 'VeriFactu AJAX'),
+        );
+        foreach ($hiddenTabs as $item) {
+            $tab = new Tab();
+            $tab->active     = 1;
+            $tab->class_name = $item['class'];
+            $tab->name       = array();
+            foreach (Language::getLanguages(true) as $lang) {
+                $tab->name[$lang['id_lang']] = $item['label'];
+            }
+            $tab->id_parent = -1;
+            $tab->module    = $this->name;
+            if (!$tab->add()) {
+                return false;
+            }
         }
 
         //Fin menu
@@ -268,43 +239,29 @@ class Verifactu extends Module
             Configuration::deleteByName($key);
         }*/
 
-        // Siempre es buena práctica eliminar los hijos primero
-        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuSalesInvoices');
-        if ($child_tab_id) {
-            $tab = new Tab($child_tab_id);
-            $tab->delete();
+        // Eliminamos todos los tabs visibles del menú
+        $allTabClasses = array(
+            'AdminVerifactuDashboard',
+            'AdminVerifactuConfig',
+            'AdminVerifactuSalesInvoices',
+            'AdminVerifactuCreditSlips',
+            'AdminVerifactuRegFacts',
+            'AdminVerifactuHelp',
+            'AdminVerifactuDetail',
+            'AdminVerifactuAjax',
+        );
+        foreach ($allTabClasses as $className) {
+            $id_tab = (int)Tab::getIdFromClassName($className);
+            if ($id_tab) {
+                $tab = new Tab($id_tab);
+                $tab->delete();
+            }
         }
 
-        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuCreditSlips');
-        if ($child_tab_id) {
-            $tab = new Tab($child_tab_id);
-            $tab->delete();
-        }
-
-        $child_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuRegFacts');
-        if ($child_tab_id) {
-            $tab = new Tab($child_tab_id);
-            $tab->delete();
-        }
-
-        // Ahora eliminamos el padre
+        // Eliminamos el tab padre
         $parent_tab_id = (int)Tab::getIdFromClassName('AdminVerifactuParent');
         if ($parent_tab_id) {
             $tab = new Tab($parent_tab_id);
-            $tab->delete();
-        }
-
-        // Eliminamos la pestaña oculta 
-        $id_tab = (int)Tab::getIdFromClassName('AdminVerifactuDetail');
-        if ($id_tab) {
-            $tab = new Tab($id_tab);
-            $tab->delete();
-        }
-
-        // Eliminamos la pestaña oculta de AJAX
-        $id_tab = (int)Tab::getIdFromClassName('AdminVerifactuAjax');
-        if ($id_tab) {
-            $tab = new Tab($id_tab);
             $tab->delete();
         }
 
@@ -1072,34 +1029,49 @@ $(document).ready(function() {
     private function checkForUpdate()
     {
         $github_url = 'https://raw.githubusercontent.com/hostinginfoal/verifactu_prestashop/main/version.json';
-        
-        // Usamos file_get_contents con un timeout para no ralentizar el back office si GitHub no responde.
-        $context = stream_context_create(['http' => ['timeout' => 3]]);
-        $json_content = Tools::file_get_contents($github_url, false, $context);
 
-        if ($json_content === false) {
-            return ['update_available' => false, 'latest_version' => ''];
+        $json_content = false;
+
+        // Use cURL directly — Tools::file_get_contents() ignores stream_context when cURL is active
+        if (function_exists('curl_init')) {
+            $ch = curl_init($github_url);
+            curl_setopt_array($ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 3,
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_USERAGENT      => 'Verifactu/' . $this->version,
+                CURLOPT_FOLLOWLOCATION => true,
+            ));
+            $json_content = curl_exec($ch);
+            if (curl_errno($ch)) {
+                $json_content = false;
+            }
+            curl_close($ch);
+        } else {
+            // Fallback for servers without cURL
+            $context = stream_context_create(array('http' => array('timeout' => 3)));
+            $json_content = @file_get_contents($github_url, false, $context);
         }
-        
+
+        if (!$json_content) {
+            return array('update_available' => false, 'latest_version' => '');
+        }
+
         $data = json_decode($json_content, true);
-        
+
         if (json_last_error() !== JSON_ERROR_NONE || !isset($data['version'])) {
-            return ['update_available' => false, 'latest_version' => ''];
+            return array('update_available' => false, 'latest_version' => '');
         }
 
-        $latest_version = $data['version'];
+        $latest_version  = trim($data['version']);
         $current_version = $this->version;
 
-        // version_compare() es la forma correcta de comparar números de versión.
-        // Devuelve 1 si la primera versión es mayor, -1 si es menor, 0 si son iguales.
         if (version_compare($latest_version, $current_version, '>')) {
-            return [
-                'update_available' => true,
-                'latest_version' => $latest_version
-            ];
+            return array('update_available' => true, 'latest_version' => $latest_version);
         }
 
-        return ['update_available' => false, 'latest_version' => $latest_version];
+        return array('update_available' => false, 'latest_version' => $latest_version);
     }
 
     public function renderShopList()
@@ -1397,6 +1369,18 @@ $(document).ready(function() {
                     ),
 
                     array(
+                        'type'    => 'switch',
+                        'label'   => $this->l('Desactivar banner de actualización en widget de pedidos'),
+                        'name'    => 'VERIFACTU_HIDE_UPDATE_BANNER',
+                        'is_bool' => true,
+                        'desc'    => $this->l('Si está activado, el aviso de nueva versión no se mostrará en el widget lateral del pedido. (Por defecto: No)'),
+                        'values'  => array(
+                            array('id' => 'hide_banner_on',  'value' => 1, 'label' => $this->l('Sí')),
+                            array('id' => 'hide_banner_off', 'value' => 0, 'label' => $this->l('No')),
+                        ),
+                    ),
+
+                    array(
                         'type' => 'switch',
                         'label' => $this->l('Bloquear UI de pedido con VeriFactu "Correcto"'),
                         'name' => 'VERIFACTU_LOCK_ORDER_IF_CORRECT',
@@ -1480,9 +1464,10 @@ $(document).ready(function() {
             'VERIFACTU_QR_HIDE_DEFAULT' => Configuration::get('VERIFACTU_QR_HIDE_DEFAULT', 0, $id_shop_group, $id_shop),
             'VERIFACTU_QR_WIDTH' => ($qr_width_val !== false) ? $qr_width_val : 60,
             'VERIFACTU_QR_TEXT' => ($qr_text_val !== false) ? $qr_text_val : $this->l('Factura verificable en la sede electrónica de la AEAT'),
-            'VERIFACTU_SHOW_ANULACION_BUTTON' => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
-            'VERIFACTU_LOCK_ORDER_IF_CORRECT' => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
-            'VERIFACTU_RECARGO_COMPAT' => Configuration::get('VERIFACTU_RECARGO_COMPAT', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_SHOW_ANULACION_BUTTON'  => Configuration::get('VERIFACTU_SHOW_ANULACION_BUTTON', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_LOCK_ORDER_IF_CORRECT'   => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_RECARGO_COMPAT'          => Configuration::get('VERIFACTU_RECARGO_COMPAT', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_HIDE_UPDATE_BANNER'      => Configuration::get('VERIFACTU_HIDE_UPDATE_BANNER', 0, $id_shop_group, $id_shop),
         );
     }
 
@@ -1523,7 +1508,8 @@ $(document).ready(function() {
         $verifactu_qr_text = Tools::getValue('VERIFACTU_QR_TEXT');
 
         $verifactu_show_anulacion = Tools::getValue('VERIFACTU_SHOW_ANULACION_BUTTON');
-        $verifactu_lock_order = Tools::getValue('VERIFACTU_LOCK_ORDER_IF_CORRECT');
+        $verifactu_lock_order     = Tools::getValue('VERIFACTU_LOCK_ORDER_IF_CORRECT');
+        $verifactu_hide_banner    = Tools::getValue('VERIFACTU_HIDE_UPDATE_BANNER');
 
         // Convertimos los arrays a JSON para guardarlos. Si son 'false', los guardamos como un array vacío.
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
@@ -1552,6 +1538,7 @@ $(document).ready(function() {
             Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
+            Configuration::updateValue('VERIFACTU_HIDE_UPDATE_BANNER', $verifactu_hide_banner, false, $id_shop_group, $id_shop);
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -1570,6 +1557,7 @@ $(document).ready(function() {
                 Configuration::updateValue('VERIFACTU_SHOW_ANULACION_BUTTON', $verifactu_show_anulacion, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
+                Configuration::updateValue('VERIFACTU_HIDE_UPDATE_BANNER', $verifactu_hide_banner, false, $id_shop_group, $id_shop);
             }
         }
     }
@@ -3705,8 +3693,9 @@ $(document).ready(function() {
         $vf_last_cron     = (int)Configuration::get('VERIFACTU_LAST_CRON_RUN_' . $this->context->shop->id);
         $vf_seconds_left  = max(0, $vf_cron_interval - (time() - $vf_last_cron));
 
-        // Check for module updates (cached via checkForUpdates, same as configure page)
-        $widget_update_info = $this->checkForUpdate();
+        // Check for module updates — skip if admin disabled the widget banner
+        $hide_banner = (bool)Configuration::get('VERIFACTU_HIDE_UPDATE_BANNER', false, null, $this->context->shop->id);
+        $widget_update_info = (!$hide_banner) ? $this->checkForUpdate() : array('update_available' => false, 'latest_version' => '');
 
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(

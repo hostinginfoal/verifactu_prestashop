@@ -70,13 +70,14 @@
 </style>
 
 
+
 {* ── Aviso nueva versión disponible ── *}
 {if $vf_update_available}
-<div style="background:#fff8e1;border-left:3px solid #f0a500;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#5a4000;display:flex;align-items:center;gap:8px;">
+<div style="background:#e8f4fd;border-left:3px solid #1976d2;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#0c3a6e;display:flex;align-items:center;gap:8px;">
     <i class="icon-download" style="flex-shrink:0;"></i>
     <div>
-        <strong>{l s='Nueva versión disponible' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
-        <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#5a4000;font-weight:bold;">
+        <strong>{l s='Nueva versión disponible del módulo Infoal Veri*Factu' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
+        <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#1565c0;font-weight:bold;">
             {l s='Descargar actualización' mod='verifactu'} &rarr;
         </a>
     </div>
