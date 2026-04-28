@@ -135,6 +135,14 @@
                 </div>
 
                 <div class="vf-link-card">
+                    <h5><i class="icon-cloud"></i> {l s='Consultar registros enviados API' mod='verifactu'}</h5>
+                    <p>{l s='Accede al portal de clientes de Infoal VeriFactu para consultar todos los registros enviados a través de la API.' mod='verifactu'}</p>
+                    <a href="https://verifactu.infoal.com/acceso-clientes" target="_blank" class="btn btn-default btn-sm">
+                        <i class="icon-external-link"></i> {l s='Acceso clientes' mod='verifactu'}
+                    </a>
+                </div>
+
+                <div class="vf-link-card">
                     <h5><i class="icon-legal"></i> {l s='Consultar registros en la AEAT' mod='verifactu'}</h5>
                     <p>{l s='Accede con tu certificado digital para consultar los registros de facturación enviados a la Sede Electrónica de la AEAT.' mod='verifactu'}</p>
                     <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/gestiones.html" target="_blank" class="btn btn-default btn-sm">

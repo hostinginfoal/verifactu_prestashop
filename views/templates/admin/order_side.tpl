@@ -13,7 +13,7 @@
     <i class="icon-warning-sign"></i>
     <div>
         <strong>{l s='Sin NIF/DNI en la dirección de facturación' mod='verifactu'}</strong><br>
-        <span>{l s='Veri*Factu enviará esta factura como Simplificada (sin identificación del destinatario). Añada el NIF del cliente antes de facturar si necesita factura completa.' mod='verifactu'}</span>
+        <span>{l s='VeriFactu enviará esta factura como Simplificada (sin identificación del destinatario). Añada el NIF del cliente antes de facturar si necesita factura completa.' mod='verifactu'}</span>
     </div>
 </div>
 {/if}
@@ -23,7 +23,7 @@
 <div style="background:#e8f4fd;border-left:3px solid #1976d2;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#0c3a6e;display:flex;align-items:center;gap:8px;">
     <i class="icon-download" style="flex-shrink:0;"></i>
     <div>
-        <strong>{l s='Nueva versión disponible del módulo Infoal Veri*Factu' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
+        <strong>{l s='Nueva versión disponible del módulo Infoal VeriFactu' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
         <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#1565c0;font-weight:bold;">
             {l s='Descargar actualización' mod='verifactu'} &rarr;
         </a>
@@ -41,7 +41,7 @@
     <div class="alert alert-success d-print-none">
         <div class="alert-text">
             <strong>{l s='AVISO LEGAL OBLIGATORIO - INALTERABILIDAD DE FACTURA' mod='verifactu'}</strong><br>
-            {l s='La normativa española prohíbe modificar una factura cuyo registro de facturación ha sido aceptado correctamente en Veri*Factu. Para corregirla debe emitirse una Factura por Abono (Reembolso).' mod='verifactu'}
+            {l s='La normativa española prohíbe modificar una factura cuyo registro de facturación ha sido aceptado correctamente en VeriFactu. Para corregirla debe emitirse una Factura por Abono (Reembolso).' mod='verifactu'}
         </div>
     </div>
     {/if}
@@ -64,7 +64,7 @@
     <div class="card" id="formVerifactu">
         <div class="card-header" style="background-color:{$hbg}; color:{$htxt};">
             <h3 class="card-header-title">
-                <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}
+                <i class="icon-receipt"></i> {l s='Infoal VeriFactu' mod='verifactu'}
                 <span style="font-size:13px; font-weight:normal; margin-left:6px; opacity:.8;">
                     {$verifactu_invoice.formatted_number|escape:'htmlall':'UTF-8'}
                 </span>
@@ -78,7 +78,7 @@
                     <i class="icon-ban vf-status-icon"></i>
                     <div>
                         <div class="vf-status-label">{l s='Anulado' mod='verifactu'}</div>
-                        <div class="vf-status-sub">{l s='Registro anulado en Veri*Factu' mod='verifactu'}</div>
+                        <div class="vf-status-sub">{l s='Registro anulado en VeriFactu' mod='verifactu'}</div>
                     </div>
                 </div>
             {elseif $verifactu_invoice.estado == "pendiente"}
@@ -86,7 +86,7 @@
                     <i class="icon-clock-o vf-status-icon"></i>
                     <div>
                         <div class="vf-status-label">{l s='Enviado — En espera de confirmación' mod='verifactu'}</div>
-                        <div class="vf-status-sub">{l s='El registro ha sido enviado correctamente a Veri*Factu y está pendiente de validación por la AEAT. La comprobación del estado se realiza de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}</div>
+                        <div class="vf-status-sub">{l s='El registro ha sido enviado correctamente a VeriFactu y está pendiente de validación por la AEAT. La comprobación del estado se realiza de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}</div>
                         <div class="vf-status-sub vf-countdown-wrap" style="margin-top:6px; opacity:0.8;">
                             <i class="icon-refresh"></i>
                             {l s='Próxima comprobación automática en' mod='verifactu'}
@@ -161,7 +161,7 @@
                     <i class="icon-minus-circle vf-status-icon"></i>
                     <div>
                         <div class="vf-status-label">{l s='No enviado todavía' mod='verifactu'}</div>
-                        <div class="vf-status-sub">{l s='Pendiente de envío a Veri*Factu' mod='verifactu'}</div>
+                        <div class="vf-status-sub">{l s='Pendiente de envío a VeriFactu' mod='verifactu'}</div>
                     </div>
                 </div>
             {/if}
@@ -241,7 +241,7 @@
             <div class="vf-section-title"><i class="icon-qrcode"></i> {l s='Código QR de verificación' mod='verifactu'}</div>
             <div class="vf-qr-block">
                 <a href="{$verifactu_invoice.urlQR|escape:'htmlall':'UTF-8'}" target="_blank" title="{l s='Verificar en sede AEAT' mod='verifactu'}">
-                    <img src="{$verifactu_invoice.imgQR|escape:'htmlall':'UTF-8'}" alt="QR Veri*Factu" class="vf-qr-img">
+                    <img src="{$verifactu_invoice.imgQR|escape:'htmlall':'UTF-8'}" alt="QR VeriFactu" class="vf-qr-img">
                 </a>
                 <div class="vf-qr-caption"><i class="icon-external-link"></i> {l s='Clic para verificar en sede AEAT' mod='verifactu'}</div>
             </div>
@@ -252,8 +252,8 @@
             <div class="vf-actions">
                 <button class="vf-btn vf-btn-primary" id="send_verifactu"
                     {if $verifactu_invoice.estado == "pendiente" || $verifactu_invoice.verifactuEstadoRegistro == "Correcto"}disabled{/if}
-                    title="{l s='Reenviar el registro a Veri*Factu' mod='verifactu'}">
-                    <i class="icon-refresh"></i> {l s='Reenviar a Veri*Factu' mod='verifactu'}
+                    title="{l s='Reenviar el registro a VeriFactu' mod='verifactu'}">
+                    <i class="icon-refresh"></i> {l s='Reenviar a VeriFactu' mod='verifactu'}
                 </button>
 
                 {if $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
@@ -267,8 +267,8 @@
                 {if $show_anulacion_button}
                 <button class="vf-btn vf-btn-danger" id="send_anulacion_verifactu"
                     {if $verifactu_invoice.estado == "pendiente" || $verifactu_invoice.anulacion == "1" || $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto" || !$verifactu_invoice.verifactuEstadoRegistro}disabled{/if}
-                    title="{l s='Enviar anulación de este registro a Veri*Factu' mod='verifactu'}">
-                    <i class="icon-ban"></i> {l s='Anular registro en Veri*Factu' mod='verifactu'}
+                    title="{l s='Enviar anulación de este registro a VeriFactu' mod='verifactu'}">
+                    <i class="icon-ban"></i> {l s='Anular registro en VeriFactu' mod='verifactu'}
                 </button>
                 {/if}
 
@@ -294,7 +294,7 @@
                 function setSpinner(text) {
                     wraps.forEach(function(w) {
                         w.innerHTML = '<i class="icon-refresh icon-spin" style="color:inherit;"></i> '
-                            + (text || '{l s='Comprobando con Veri*Factu...' mod='verifactu'}');
+                            + (text || '{l s='Comprobando con VeriFactu...' mod='verifactu'}');
                     });
                 }
 
@@ -348,7 +348,7 @@
 {else}
     <div class="card" id="formVerifactu">
         <div class="card-header">
-            <h3 class="card-header-title"><i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}</h3>
+            <h3 class="card-header-title"><i class="icon-receipt"></i> {l s='Infoal VeriFactu' mod='verifactu'}</h3>
         </div>
         <div class="card-body text-center text-muted" style="padding: 24px 14px;">
             <i class="icon-file-text-o" style="font-size: 2em; display:block; margin-bottom: 8px;"></i>
@@ -381,7 +381,7 @@
     <div class="card mt-3" id="formVerifactuSlip_{$slip.id_order_slip}">
         <div class="card-header" style="background-color:{$sbg}; color:{$stxt};">
             <h3 class="card-header-title">
-                <i class="icon-reply"></i> {l s='Veri*Factu — Abono' mod='verifactu'}
+                <i class="icon-reply"></i> {l s='VeriFactu — Abono' mod='verifactu'}
                 <span style="font-size:13px; font-weight:normal; margin-left:6px; opacity:.8;">
                     {$slip.formatted_number|escape:'htmlall':'UTF-8'}
                 </span>
@@ -535,7 +535,7 @@
                 <button class="vf-btn vf-btn-primary button-resend-verifactu"
                     data-id_order="{$id_order}" data-type="abono" data-id_slip="{$slip.id_order_slip}"
                     {if $slip.estado == "pendiente" || $slip.verifactuEstadoRegistro == "Correcto"}disabled{/if}
-                    title="{l s='Reenviar este abono a Veri*Factu' mod='verifactu'}">
+                    title="{l s='Reenviar este abono a VeriFactu' mod='verifactu'}">
                     <i class="icon-refresh"></i> {l s='Reenviar abono' mod='verifactu'}
                 </button>
             </div>

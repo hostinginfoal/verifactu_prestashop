@@ -76,7 +76,7 @@
 <div style="background:#e8f4fd;border-left:3px solid #1976d2;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#0c3a6e;display:flex;align-items:center;gap:8px;">
     <i class="icon-download" style="flex-shrink:0;"></i>
     <div>
-        <strong>{l s='Nueva versión disponible del módulo Infoal Veri*Factu' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
+        <strong>{l s='Nueva versión disponible del módulo Infoal VeriFactu' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
         <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#1565c0;font-weight:bold;">
             {l s='Descargar actualización' mod='verifactu'} &rarr;
         </a>
@@ -90,7 +90,7 @@
         <div class="alert alert-success d-print-none">
             <div class="alert-text">
                 <strong>AVISO LEGAL OBLIGATORIO - INALTERABILIDAD DE FACTURA</strong><br>
-                La normativa española prohíbe modificar una factura cuyo registro de facturación ha sido aceptado correctamente en Veri*Factu. Para corregirla debe emitirse una Factura por Abono (Reembolso).
+                La normativa española prohíbe modificar una factura cuyo registro de facturación ha sido aceptado correctamente en VeriFactu. Para corregirla debe emitirse una Factura por Abono (Reembolso).
             </div>
         </div>
     {/if}
@@ -98,7 +98,7 @@
     {* --- BLOQUE PARA LA FACTURA PRINCIPAL --- *}
     <div class="panel" id="formVerifactu">
         <div class="panel-heading" style="color: #333;">
-            <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'} 
+            <i class="icon-receipt"></i> {l s='Infoal VeriFactu' mod='verifactu'} 
             <span class="text-muted">({$verifactu_invoice.formatted_number|escape:'htmlall':'UTF-8'})</span>
         </div>
 
@@ -144,7 +144,7 @@
                     {if $verifactu_invoice.estado == 'pendiente'}
                     <div style="background:#d1ecf1; border:1px solid #bee5eb; border-radius:4px; color:#0c5460; padding: 8px 12px; margin-top: 8px; margin-bottom: 0; font-size: 13px;">
                         <i class="icon-info-circle"></i>
-                        {l s='El registro ha sido enviado correctamente a Veri*Factu y está pendiente de validación por la AEAT. La verificación del resultado se realizará de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}
+                        {l s='El registro ha sido enviado correctamente a VeriFactu y está pendiente de validación por la AEAT. La verificación del resultado se realizará de forma automática; puede continuar navegando con normalidad.' mod='verifactu'}
                         <div class="vf-countdown-wrap" style="margin-top:5px; opacity:0.85;">
                             <i class="icon-refresh"></i>
                             {l s='Próxima comprobación automática en' mod='verifactu'}
@@ -221,7 +221,7 @@
 
                 function setSpinner() {
                     wraps.forEach(function(w) {
-                        w.innerHTML = '<i class="icon-refresh icon-spin"></i> {l s='Comprobando con Veri*Factu...' mod='verifactu'}';
+                        w.innerHTML = '<i class="icon-refresh icon-spin"></i> {l s='Comprobando con VeriFactu...' mod='verifactu'}';
                     });
                 }
 
@@ -285,7 +285,7 @@
     {* --- ESTADO VACÍO --- *}
     <div class="panel" id="formVerifactu">
         <div class="panel-heading">
-            <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}
+            <i class="icon-receipt"></i> {l s='Infoal VeriFactu' mod='verifactu'}
         </div>
         <div class="panel-body text-center text-muted">
              <i class="icon-file-text-alt" style="font-size: 2em;"></i><br><br>
@@ -313,7 +313,7 @@
                                 {l s='Registro Anulado' mod='verifactu'}
                             {else}
                                 {if $slip.estado == "pendiente"}
-                                    {l s='Enviado correctamente. En espera de respuesta de Veri*Factu' mod='verifactu'}
+                                    {l s='Enviado correctamente. En espera de respuesta de VeriFactu' mod='verifactu'}
                                 {elseif $slip.estado == "api_error" || $slip.estado == "stalled"}
                                     {l s='Error de conexión con la API — Se reintentará automáticamente' mod='verifactu'}
                                 {else}
