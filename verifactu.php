@@ -3705,14 +3705,20 @@ $(document).ready(function() {
         $vf_last_cron     = (int)Configuration::get('VERIFACTU_LAST_CRON_RUN_' . $this->context->shop->id);
         $vf_seconds_left  = max(0, $vf_cron_interval - (time() - $vf_last_cron));
 
+        // Check for module updates (cached via checkForUpdates, same as configure page)
+        $widget_update_info = $this->checkForUpdate();
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
-            'verifactu_invoice'          => $verifactu_invoice,
-            'verifactu_slips'            => $verifactu_slips,
-            'id_order'                   => $id_order,
-            'show_anulacion_button'      => $show_anulacion_button,
-            'nif_warning'                => $nif_warning,
+            'verifactu_invoice'           => $verifactu_invoice,
+            'verifactu_slips'             => $verifactu_slips,
+            'id_order'                    => $id_order,
+            'show_anulacion_button'       => $show_anulacion_button,
+            'nif_warning'                 => $nif_warning,
             'vf_seconds_until_next_check' => $vf_seconds_left,
+            'vf_update_available'         => $widget_update_info['update_available'],
+            'vf_latest_version'           => $widget_update_info['latest_version'],
+            'vf_download_url'             => 'https://github.com/hostinginfoal/verifactu_prestashop/releases/latest/download/verifactu.zip',
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/order_side.tpl');

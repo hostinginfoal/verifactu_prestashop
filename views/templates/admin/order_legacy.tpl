@@ -70,6 +70,19 @@
 </style>
 
 
+{* ── Aviso nueva versión disponible ── *}
+{if $vf_update_available}
+<div style="background:#fff8e1;border-left:3px solid #f0a500;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#5a4000;display:flex;align-items:center;gap:8px;">
+    <i class="icon-download" style="flex-shrink:0;"></i>
+    <div>
+        <strong>{l s='Nueva versión disponible' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
+        <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#5a4000;font-weight:bold;">
+            {l s='Descargar actualización' mod='verifactu'} &rarr;
+        </a>
+    </div>
+</div>
+{/if}
+
 {if $verifactu_invoice}
 
     {if $verifactu_invoice.verifactuEstadoRegistro == 'Correcto'}
@@ -84,7 +97,7 @@
     {* --- BLOQUE PARA LA FACTURA PRINCIPAL --- *}
     <div class="panel" id="formVerifactu">
         <div class="panel-heading" style="color: #333;">
-            <i class="icon-receipt"></i> {l s='Veri*Factu' mod='verifactu'} 
+            <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'} 
             <span class="text-muted">({$verifactu_invoice.formatted_number|escape:'htmlall':'UTF-8'})</span>
         </div>
 
@@ -271,7 +284,7 @@
     {* --- ESTADO VACÍO --- *}
     <div class="panel" id="formVerifactu">
         <div class="panel-heading">
-            <i class="icon-receipt"></i> {l s='Veri*Factu' mod='verifactu'}
+            <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}
         </div>
         <div class="panel-body text-center text-muted">
              <i class="icon-file-text-alt" style="font-size: 2em;"></i><br><br>
@@ -378,6 +391,14 @@
                 </button>
             </div>
 
+            <div id="estado_envio_verifactu_slip_{$slip.id_order_slip}" style="display:none;" class="alert alert-success">
+                <div class="alert-text"></div>
+            </div>
+
+        </div>
+    </div>
+    {/foreach}
+{/if}
             <div id="estado_envio_verifactu_slip_{$slip.id_order_slip}" style="display:none;" class="alert alert-success">
                 <div class="alert-text"></div>
             </div>

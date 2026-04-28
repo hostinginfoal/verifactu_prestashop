@@ -17,6 +17,18 @@
     </div>
 </div>
 {/if}
+{* ── Aviso nueva versión disponible ── *}
+{if $vf_update_available}
+<div style="background:#fff8e1;border-left:3px solid #f0a500;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#5a4000;display:flex;align-items:center;gap:8px;">
+    <i class="icon-download" style="flex-shrink:0;"></i>
+    <div>
+        <strong>{l s='Nueva versión disponible' mod='verifactu'} ({$vf_latest_version|escape:'html':'UTF-8'})</strong><br>
+        <a href="{$vf_download_url|escape:'html':'UTF-8'}" target="_blank" style="color:#5a4000;font-weight:bold;">
+            {l s='Descargar actualización' mod='verifactu'} &rarr;
+        </a>
+    </div>
+</div>
+{/if}
 
 {* ================================================================
    BLOQUE FACTURA PRINCIPAL
@@ -51,7 +63,7 @@
     <div class="card" id="formVerifactu">
         <div class="card-header" style="background-color:{$hbg}; color:{$htxt};">
             <h3 class="card-header-title">
-                <i class="icon-receipt"></i> {l s='Veri*Factu' mod='verifactu'}
+                <i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}
                 <span style="font-size:13px; font-weight:normal; margin-left:6px; opacity:.8;">
                     {$verifactu_invoice.formatted_number|escape:'htmlall':'UTF-8'}
                 </span>
@@ -335,7 +347,7 @@
 {else}
     <div class="card" id="formVerifactu">
         <div class="card-header">
-            <h3 class="card-header-title"><i class="icon-receipt"></i> {l s='Veri*Factu' mod='verifactu'}</h3>
+            <h3 class="card-header-title"><i class="icon-receipt"></i> {l s='Infoal Veri*Factu' mod='verifactu'}</h3>
         </div>
         <div class="card-body text-center text-muted" style="padding: 24px 14px;">
             <i class="icon-file-text-o" style="font-size: 2em; display:block; margin-bottom: 8px;"></i>
