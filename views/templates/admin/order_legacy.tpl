@@ -400,11 +400,3 @@
     </div>
     {/foreach}
 {/if}
-            <div id="estado_envio_verifactu_slip_{$slip.id_order_slip}" style="display:none;" class="alert alert-success">
-                <div class="alert-text"></div>
-            </div>
-
-        </div>
-    </div>
-    {/foreach}
-{/if}

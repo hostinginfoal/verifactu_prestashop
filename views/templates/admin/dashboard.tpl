@@ -4,7 +4,7 @@
 <div class="panel">
     <h3><i class="icon icon-certificate"></i> {l s='Infoal VeriFactu para PrestaShop' mod='verifactu'}</h3>
     <p>
-        <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu' mod='verifactu'}</strong><br />
+        <strong>{l s='Envía los registros de facturación de forma automática al sistema VeriFactu de la AEAT' mod='verifactu'}</strong><br />
     </p>
     <br />
     <p>
