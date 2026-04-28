@@ -4219,6 +4219,10 @@ $(document).ready(function() {
         $vf_last_cron     = (int)Configuration::get('VERIFACTU_LAST_CRON_RUN_' . $this->context->shop->id);
         $vf_seconds_left  = max(0, $vf_cron_interval - (time() - $vf_last_cron));
 
+        // Check for module updates — skip if admin disabled the widget banner
+        $hide_banner        = (bool)Configuration::get('VERIFACTU_HIDE_UPDATE_BANNER', false, null, $this->context->shop->id);
+        $widget_update_info = (!$hide_banner) ? $this->checkForUpdate() : array('update_available' => false, 'latest_version' => '', 'download_url' => '');
+
         // 3. --- Asignación a Smarty ---
         $this->context->smarty->assign(array(
             'verifactu_invoice'           => $verifactu_invoice,
@@ -4226,6 +4230,9 @@ $(document).ready(function() {
             'id_order'                    => $id_order,
             'show_anulacion_button'       => $show_anulacion_button,
             'vf_seconds_until_next_check' => $vf_seconds_left,
+            'vf_update_available'         => $widget_update_info['update_available'],
+            'vf_latest_version'           => isset($widget_update_info['latest_version']) ? $widget_update_info['latest_version'] : '',
+            'vf_download_url'             => isset($widget_update_info['download_url'])   ? $widget_update_info['download_url']   : '',
         ));
 
         // 7. Renderizar y devolver el contenido de la plantilla "legacy"
