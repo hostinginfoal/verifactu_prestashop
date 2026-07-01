@@ -219,6 +219,42 @@ if (typeof verifactu_ajax_url !== 'undefined')
     });
   });
 
+  // Listado de facturas, abonos y registros — comprobar estado individual
+  $(document).on('click', '.button-check-verifactu', function(e) {
+    e.preventDefault();
+    var $btn = $(this);
+    $btn.prop('disabled', true).addClass('disabled');
+    $btn.find('i').removeClass('icon-search').addClass('icon-spinner icon-spin');
+
+    $.ajax({
+        type: 'POST',
+        cache: false,
+        dataType: 'json',
+        url: verifactu_ajax_url,
+        data: {
+            ajax: true,
+            action: 'checkSingleRecord',
+            token: verifactu_token,
+            id_reg_fact: $btn.data('id_reg_fact')
+        },
+        success: function(data) {
+            if (data.success) {
+                showSuccessMessage(data.message || 'Estado actualizado correctamente. Recargando...');
+                setTimeout(function() { location.reload(); }, 2000);
+            } else {
+                showErrorMessage('Error: ' + (data.error || data.message || 'Respuesta desconocida.'));
+                $btn.prop('disabled', false).removeClass('disabled');
+                $btn.find('i').removeClass('icon-spinner icon-spin').addClass('icon-search');
+            }
+        },
+        error: function() {
+            showErrorMessage('Error de comunicación con el servidor al comprobar el estado.');
+            $btn.prop('disabled', false).removeClass('disabled');
+            $btn.find('i').removeClass('icon-spinner icon-spin').addClass('icon-search');
+        }
+    });
+  });
+
   $('#send_anulacion_verifactu').on('click', function(e) {
     e.preventDefault();
 

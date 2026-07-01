@@ -2306,11 +2306,13 @@ $(document).ready(function() {
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name. '&tab_module_verifactu=reg_facts';
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->actions = array();
-        
-        $page = (int) Tools::getValue('page', 1);
+        $helper->orderBy  = 'id_reg_fact';
+        $helper->orderWay = 'DESC';
+
+        $page       = (int) Tools::getValue('page', 1);
         $pagination = (int) Tools::getValue($helper->table . '_pagination', 50);
-        $orderBy = Tools::getValue($helper->table . 'Orderby', 'id_reg_fact');
-        $orderWay = Tools::getValue($helper->table . 'Orderway', 'DESC');
+        $orderBy    = Tools::getValue($helper->table . 'Orderby', 'id_reg_fact');
+        $orderWay   = Tools::getValue($helper->table . 'Orderway', 'DESC');
 
         $content = $this->getListContent($helper->table, $page, $pagination, $orderBy, $orderWay);
         $helper->listTotal = $this->getTotalListContent($helper->table);
@@ -2698,6 +2700,12 @@ $(document).ready(function() {
             $actions .= '<a class="btn btn-default button-resend-verifactu"  data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" title="' . $this->l('Reenviar a VeriFactu') . '"><i class="icon-refresh"></i></a>';
         }
 
+        // Botón Check (forzar actualización de estado)
+        if (!empty($row['id_reg_fact'])) {
+            $type = isset($row['id_order_invoice']) ? 'alta' : 'abono';
+            $actions .= ' <a class="btn btn-default button-check-verifactu" data-id_reg_fact="' . (int)$row['id_reg_fact'] . '" data-type="' . $type . '" title="' . $this->l('Comprobar estado en VeriFactu') . '" href="#"><i class="icon-search"></i></a>';
+        }
+
         // Botón Generar Factura Electrónica
         if (isset($row['id_order_invoice']) && !empty($row['id_order_invoice'])) {
             // Factura de venta
@@ -2803,6 +2811,12 @@ $(document).ready(function() {
             
             // Añadimos el botón con target="_blank" para que se abra en una nueva pestaña
             $actions .= '<a class="btn btn-default" href="' . $order_url . '" target="_blank" title="' . $this->l('Corregir en el pedido') . '"><i class="icon-pencil"></i> </a>';
+        }
+
+        // Botón Check (forzar actualización de estado)
+        if (!empty($row['id_reg_fact'])) {
+            $tipo_reg = isset($row['tipo']) ? $row['tipo'] : 'alta';
+            $actions .= ' <a class="btn btn-default button-check-verifactu" data-id_reg_fact="' . (int)$row['id_reg_fact'] . '" data-type="' . Tools::safeOutput($tipo_reg) . '" title="' . $this->l('Comprobar estado en VeriFactu') . '" href="#"><i class="icon-search"></i></a>';
         }
 
         return $actions;

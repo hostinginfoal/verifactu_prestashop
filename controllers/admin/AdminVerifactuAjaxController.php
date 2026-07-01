@@ -120,6 +120,30 @@ class AdminVerifactuAjaxController extends ModuleAdminController
     }
 
     /**
+     * Check and update the status of a single specific reg_fact record.
+     * POST params:
+     *   id_reg_fact  int  The ID of the verifactu_reg_fact record
+     */
+    public function displayAjaxCheckSingleRecord()
+    {
+        header('Content-Type: application/json');
+
+        $id_reg_fact = (int)Tools::getValue('id_reg_fact');
+        if (!$id_reg_fact) {
+            die(json_encode(['success' => false, 'error' => 'ID de registro no válido.']));
+        }
+
+        $id_shop    = (int)$this->context->shop->id;
+        $api_token  = Configuration::get('VERIFACTU_API_TOKEN', null, null, $id_shop);
+        $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+
+        $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
+        $result = $av->checkSingleRecord($id_reg_fact);
+
+        die(json_encode($result));
+    }
+
+    /**
      * Checks the VeriFactu API status.
      */
     public function displayAjaxCheckStatus()

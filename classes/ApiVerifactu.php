@@ -1646,14 +1646,7 @@ class ApiVerifactu
                             else
                             {
                                 $anulacion = 0;
-                                if ($invoice['verifactuEstadoRegistro'] == 'Correcto')
-                                {
-                                    // No hacer nada
-                                }
-                                else
-                                {
-                                    $guardar = true;
-                                }
+                                $guardar = true;
                             }
 
                             if ($guardar) //Actualizamos
@@ -1690,14 +1683,7 @@ class ApiVerifactu
                             else
                             {   
                                 $anulacion = 0;
-                                if ($slip['verifactuEstadoRegistro'] == 'Correcto')
-                                {
-                                    // No hacer nada
-                                }
-                                else
-                                {
-                                    $guardar = true;
-                                }
+                                $guardar = true;
                             }
 
                             if ($guardar)
@@ -2068,6 +2054,124 @@ class ApiVerifactu
             'retried' => $result['retried'],
         ]));
     }
+
+    /**
+     * Comprueba y actualiza el estado de un único registro de VeriFactu.
+     * Usado por el botón "Check" del listado de backoffice.
+     *
+     * @param int $id_reg_fact ID del registro en verifactu_reg_fact
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function checkSingleRecord($id_reg_fact)
+    {
+        $id_reg_fact = (int)$id_reg_fact;
+        if (!$id_reg_fact) {
+            return ['success' => false, 'error' => 'ID de registro no válido.'];
+        }
+
+        $url   = 'https://verifactu.infoal.io/api_v2/verifactu/check';
+        $token = $this->apiToken;
+
+        $data = new \stdClass();
+        $data->ids = [$id_reg_fact];
+
+        $dataString = json_encode($data);
+
+        $curl = curl_init();
+        $curl_options = [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => 'utf-8',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $dataString,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json',
+            ],
+        ];
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        } else {
+            $curl_options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+        }
+        curl_setopt_array($curl, $curl_options);
+        $response = curl_exec($curl);
+        curl_close($curl);
+
+        $obj = json_decode($response);
+
+        if (!isset($obj) || !is_array($obj) || empty($obj)) {
+            return ['success' => false, 'error' => 'La API no devolvió datos para este registro.'];
+        }
+
+        $updated = false;
+        foreach ($obj as $o) {
+            if (!isset($o->id_reg_fact) || (int)$o->id_reg_fact !== $id_reg_fact) {
+                continue;
+            }
+            if ($o->estado_queue == 'pendiente' || $o->estado_queue == 'procesando') {
+                return ['success' => true, 'message' => 'El registro sigue en estado "' . $o->estado_queue . '" en la API. Prueba más tarde.'];
+            }
+
+            // Actualizar verifactu_reg_fact
+            $all_fields = [
+                'estado_queue', 'InvoiceNumber', 'IssueDate', 'EstadoEnvio', 'EstadoRegistro',
+                'CodigoErrorRegistro', 'DescripcionErrorRegistro', 'TipoOperacion',
+                'EmpresaNombreRazon', 'EmpresaNIF', 'hash', 'cadena', 'AnteriorHash',
+                'TipoFactura', 'FacturaSimplificadaArt7273', 'FacturaSinIdentifDestinatarioArt61d',
+                'Macrodato', 'Cupon', 'TotalTaxOutputs', 'InvoiceTotal',
+                'FechaHoraHusoGenRegistro', 'fechaHoraRegistro', 'SIFNombreRazon',
+                'SIFNIF', 'SIFNombreSIF', 'SIFIdSIF', 'SIFVersion', 'SIFNumeroInstalacion',
+                'SIFTipoUsoPosibleSoloVerifactu', 'SIFTipoUsoPosibleMultiOT', 'SIFIndicadorMultiplesOT',
+                'BuyerName', 'BuyerCorporateName', 'BuyerTaxIdentificationNumber',
+                'BuyerCountryCode', 'IDOtroIDType', 'IDOtroID', 'TipoRectificativa',
+                'CorrectiveInvoiceNumber', 'CorrectiveInvoiceSeriesCode', 'CorrectiveIssueDate',
+                'CorrectiveBaseAmount', 'CorrectiveTaxAmount'
+            ];
+            $update_data = [];
+            foreach ($all_fields as $field) {
+                if (isset($o->{$field}) && (string)$o->{$field} !== '') {
+                    $update_data[$field] = pSQL($o->{$field});
+                }
+            }
+            Db::getInstance()->update('verifactu_reg_fact', $update_data, 'id_reg_fact = ' . $id_reg_fact);
+
+            // Actualizar verifactu_order_invoice o verifactu_order_slip
+            $anulacion = ($o->tipo == 'anulacion') ? 1 : 0;
+            $invoice_update = [
+                'estado'                           => 'sincronizado',
+                'verifactuEstadoRegistro'           => pSQL($o->EstadoRegistro),
+                'verifactuEstadoEnvio'              => pSQL($o->EstadoEnvio),
+                'verifactuCodigoErrorRegistro'      => pSQL($o->CodigoErrorRegistro),
+                'verifactuDescripcionErrorRegistro' => pSQL($o->DescripcionErrorRegistro),
+                'TipoFactura'                       => pSQL($o->TipoFactura),
+                'urlQR'                             => pSQL($o->urlQR),
+                'anulacion'                         => (int)$anulacion,
+            ];
+
+            // Intentar en facturas primero, luego en abonos
+            $invoice_row = Db::getInstance()->getRow('SELECT id_order_invoice FROM ' . _DB_PREFIX_ . 'verifactu_order_invoice WHERE id_reg_fact = ' . $id_reg_fact);
+            if ($invoice_row) {
+                Db::getInstance()->update('verifactu_order_invoice', $invoice_update, 'id_order_invoice = ' . (int)$invoice_row['id_order_invoice']);
+            } else {
+                $slip_row = Db::getInstance()->getRow('SELECT id_order_slip FROM ' . _DB_PREFIX_ . 'verifactu_order_slip WHERE id_reg_fact = ' . $id_reg_fact);
+                if ($slip_row) {
+                    Db::getInstance()->update('verifactu_order_slip', $invoice_update, 'id_order_slip = ' . (int)$slip_row['id_order_slip']);
+                }
+            }
+            $updated = true;
+        }
+
+        if ($updated) {
+            return ['success' => true, 'message' => 'Estado actualizado correctamente.'];
+        }
+        return ['success' => false, 'error' => 'No se pudo procesar la respuesta de la API.'];
+    }
+
+
 
     /**
      * Genera la URL de fallback para el QR de la AEAT.
