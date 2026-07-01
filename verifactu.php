@@ -739,7 +739,6 @@ $(document).ready(function() {
         $stats['failed']               = (int)($state_counts['failed'] ?? 0);
         $stats['aceptados_con_errores']= (int)($state_counts['aceptados_con_errores'] ?? 0);
 
-
         // --- Últimos 10 errores recientes (últimos 30 días) ---
         $sql = 'SELECT voi.*, oi.number, o.id_order, CONCAT(c.firstname, " ", c.lastname) AS customer
                 FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
@@ -751,7 +750,6 @@ $(document).ready(function() {
                 AND oi.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY)
                 ORDER BY oi.date_add DESC LIMIT 10';
         $raw_errors = $db->executeS($sql);
-
         $recent_errors = [];
         foreach ((array)$raw_errors as $err) {
             $err['invoice_number'] = $this->getFormattedInvoiceNumberForList($err['number'], $err);
@@ -761,20 +759,96 @@ $(document).ready(function() {
             $recent_errors[] = $err;
         }
 
+        // --- Años disponibles para navegación ---
+        $sql_years = 'SELECT DISTINCT YEAR(oi.date_add) AS yr
+                      FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+                      LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+                      LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+                      WHERE o.id_shop = ' . $id_shop . ' AND oi.date_add IS NOT NULL
+                      ORDER BY yr DESC';
+        $years_rows = $db->executeS($sql_years);
+        $available_years = array_column((array)$years_rows, 'yr');
+        if (empty($available_years)) {
+            $available_years = [date('Y')];
+        }
+
+        // Año seleccionado (por GET o por defecto el más reciente)
+        $selected_year = (int)Tools::getValue('vf_year', $available_years[0]);
+        if (!in_array($selected_year, $available_years)) {
+            $selected_year = $available_years[0];
+        }
+
+        // --- Estadísticas mensuales del año seleccionado ---
+        $month_names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        $monthly_stats = [];
+        $year_total    = 0;
+        $year_correct  = 0;
+        $year_wrong    = 0;
+        $year_accepted = 0;
+
+        $sql_monthly = 'SELECT
+                MONTH(oi.date_add) AS mes,
+                SUM(CASE WHEN voi.verifactuEstadoRegistro = "Correcto"           THEN 1 ELSE 0 END) AS correctos,
+                SUM(CASE WHEN voi.verifactuEstadoRegistro = "Incorrecto"         THEN 1 ELSE 0 END) AS incorrectos,
+                SUM(CASE WHEN voi.verifactuEstadoRegistro = "AceptadoConErrores" THEN 1 ELSE 0 END) AS aceptados_con_errores,
+                COUNT(*) AS total
+            FROM `' . _DB_PREFIX_ . 'verifactu_order_invoice` voi
+            LEFT JOIN `' . _DB_PREFIX_ . 'order_invoice` oi ON voi.id_order_invoice = oi.id_order_invoice
+            LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON oi.id_order = o.id_order
+            WHERE o.id_shop = ' . $id_shop . '
+              AND YEAR(oi.date_add) = ' . (int)$selected_year . '
+            GROUP BY mes
+            ORDER BY mes ASC';
+        $monthly_rows = $db->executeS($sql_monthly);
+        $monthly_by_month = [];
+        foreach ((array)$monthly_rows as $r) {
+            $monthly_by_month[(int)$r['mes']] = $r;
+            $year_total    += (int)$r['total'];
+            $year_correct  += (int)$r['correctos'];
+            $year_wrong    += (int)$r['incorrectos'];
+            $year_accepted += (int)$r['aceptados_con_errores'];
+        }
+        for ($m = 1; $m <= 12; $m++) {
+            $d = isset($monthly_by_month[$m]) ? $monthly_by_month[$m] : [];
+            $monthly_stats[] = [
+                'mes_name'             => $month_names[$m - 1] . ' ' . $selected_year,
+                'mes_short'            => $month_names[$m - 1],
+                'correctos'            => (int)($d['correctos'] ?? 0),
+                'incorrectos'          => (int)($d['incorrectos'] ?? 0),
+                'aceptados_con_errores'=> (int)($d['aceptados_con_errores'] ?? 0),
+                'total'                => (int)($d['total'] ?? 0),
+                'has_data'             => !empty($d),
+            ];
+        }
+
+        // URL base para navegación de año
+        $base_url_year = $this->context->link->getAdminLink('AdminModules', true) .
+            '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name .
+            '&tab_module_verifactu=dashboard';
+
         $ajax_url   = $this->context->link->getAdminLink('AdminVerifactuAjax', true);
         $ajax_token = Tools::getAdminTokenLite('AdminVerifactuAjax');
 
         $this->context->smarty->assign([
-            'stats'        => $stats,
-            'recent_errors' => $recent_errors,
-            'ajax_url'     => $ajax_url,
-            'ajax_token'   => $ajax_token,
-            'current'      => $this->context->link->getAdminLink('AdminModules', true) .
-                              '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name,
+            'stats'               => $stats,
+            'recent_errors'       => $recent_errors,
+            'ajax_url'            => $ajax_url,
+            'ajax_token'          => $ajax_token,
+            'current'             => $this->context->link->getAdminLink('AdminModules', true) .
+                                     '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name,
+            'monthly_stats'       => $monthly_stats,
+            'selected_year'       => $selected_year,
+            'available_years'     => $available_years,
+            'year_total'          => $year_total,
+            'year_correct'        => $year_correct,
+            'year_wrong'          => $year_wrong,
+            'year_accepted'       => $year_accepted,
+            'base_url_year'       => $base_url_year,
         ]);
 
         return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/dashboard.tpl');
     }
+
 
     // =================================================================
     // TODO-08: EXPORTACION CSV
