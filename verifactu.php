@@ -67,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.6.0';
+        $this->version = '1.6.1';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1708,7 +1708,9 @@ $(document).ready(function() {
                 'callback_object' => $this,
                 'search' => true,
             ),
+            'date_add' => array('title' => $this->l('Fecha'), 'type' => 'datetime', 'search' => true, 'orderby' => true),
             'customer' => array('title' => $this->l('Cliente'), 'search' => true, 'orderby' => true),
+            'company' => array('title' => $this->l('Empresa'), 'search' => true, 'orderby' => true),
             'total_paid_tax_incl' => array('title' => $this->l('Total'), 'search' => true, 'type' => 'price'),
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
@@ -1753,11 +1755,12 @@ $(document).ready(function() {
     {
         $db = Db::getInstance();
         $sql = new DbQuery();
-        $sql->select('t.*, oi.number, oi.total_paid_tax_incl, CONCAT(c.firstname, " ", c.lastname) as customer, o.id_order, "view" as list_actions');
+        $sql->select('t.*, oi.number, oi.date_add, oi.total_paid_tax_incl, CONCAT(c.firstname, " ", c.lastname) as customer, a.company, o.id_order, "view" as list_actions');
         $sql->from('verifactu_order_invoice', 't');
         $sql->leftJoin('order_invoice', 'oi', 't.id_order_invoice = oi.id_order_invoice');
         $sql->leftJoin('orders', 'o', 'oi.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
+        $sql->leftJoin('address', 'a', 'o.id_address_invoice = a.id_address');
 
         $whereClauses = [];
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
@@ -1768,7 +1771,7 @@ $(document).ready(function() {
         $table_prefix = 'verifactu_order_invoiceFilter_';
         
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
                 if ($field == 'id_order') 
@@ -1780,11 +1783,26 @@ $(document).ready(function() {
                 {
                     $sql->where('oi.number LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'oi`.`number';
-                } 
+                }
+                elseif ($field == 'date_add') 
+                {
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) $sql->where('oi.date_add >= "' . pSQL($value[0]) . ' 00:00:00"');
+                        if (isset($value[1]) && !empty($value[1])) $sql->where('oi.date_add <= "' . pSQL($value[1]) . ' 23:59:59"');
+                    } else {
+                        $sql->where('oi.date_add LIKE "%' . pSQL($value) . '%"');
+                    }
+                    $orderBy = 'oi`.`date_add';
+                }
                 elseif ($field == 'customer') 
                 {
                     $sql->having('customer LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'customer';
+                }
+                elseif ($field == 'company') 
+                {
+                    $sql->where('a.company LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'a`.`company';
                 }
                 elseif ($field == 'total_paid_tax_incl') 
                 {
@@ -1851,7 +1869,7 @@ $(document).ready(function() {
         $table_prefix = 'verifactu_order_invoiceFilter_';
 
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
                 if ($field == 'id_order') 
@@ -1864,6 +1882,16 @@ $(document).ready(function() {
                     $sql->where('oi.number LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'oi`.`number';
                 } 
+                elseif ($field == 'date_add') 
+                {
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) $sql->where('oi.date_add >= "' . pSQL($value[0]) . ' 00:00:00"');
+                        if (isset($value[1]) && !empty($value[1])) $sql->where('oi.date_add <= "' . pSQL($value[1]) . ' 23:59:59"');
+                    } else {
+                        $sql->where('oi.date_add LIKE "%' . pSQL($value) . '%"');
+                    }
+                    $orderBy = 'oi`.`date_add';
+                }
                 elseif ($field == 'customer') 
                 {
                     $sql->where('CONCAT(c.firstname, " ", c.lastname) LIKE "%' . pSQL($value) . '%"');
@@ -1929,7 +1957,9 @@ $(document).ready(function() {
                 'callback_object' => $this,
                 'search' => true,
             ),
+            'date_add' => array('title' => $this->l('Fecha'), 'type' => 'datetime', 'search' => true, 'orderby' => true),
             'customer' => array('title' => $this->l('Cliente'), 'search' => true, 'orderby' => true),
+            'company' => array('title' => $this->l('Empresa'), 'search' => true, 'orderby' => true),
             'total_products_tax_incl' => array('title' => $this->l('Total'), 'search' => true, 'type' => 'price'),
             'estado' => array('title' => $this->l('Estado Sinc.'), 'search' => true,),
             'verifactuEstadoRegistro' => array('title' => $this->l('Estado VeriFactu'), 'callback' => 'colorEncodeState', 'callback_object' => $this, 'search' => true, 'escape' => false),
@@ -1974,11 +2004,12 @@ $(document).ready(function() {
     {
         $db = Db::getInstance();
         $sql = new DbQuery();
-        $sql->select('t.*, os.id_order_slip, os.total_products_tax_incl, CONCAT(c.firstname, " ", c.lastname) as customer, o.id_order , "view" as list_actions');
+        $sql->select('t.*, os.id_order_slip, os.date_add, os.total_products_tax_incl, CONCAT(c.firstname, " ", c.lastname) as customer, a.company, o.id_order , "view" as list_actions');
         $sql->from('verifactu_order_slip', 't');
         $sql->leftJoin('order_slip', 'os', 't.id_order_slip = os.id_order_slip');
         $sql->leftJoin('orders', 'o', 'os.id_order = o.id_order');
         $sql->leftJoin('customer', 'c', 'o.id_customer = c.id_customer');
+        $sql->leftJoin('address', 'a', 'o.id_address_invoice = a.id_address');
         
         $whereClauses = [];
         if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP) {
@@ -1989,7 +2020,7 @@ $(document).ready(function() {
         $table_prefix = 'verifactu_order_slipFilter_';
 
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
                 if ($field == 'id_order') 
@@ -2001,11 +2032,26 @@ $(document).ready(function() {
                 {
                     $sql->where('os.number LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'os`.`number';
-                } 
+                }
+                elseif ($field == 'date_add') 
+                {
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) $sql->where('os.date_add >= "' . pSQL($value[0]) . ' 00:00:00"');
+                        if (isset($value[1]) && !empty($value[1])) $sql->where('os.date_add <= "' . pSQL($value[1]) . ' 23:59:59"');
+                    } else {
+                        $sql->where('os.date_add LIKE "%' . pSQL($value) . '%"');
+                    }
+                    $orderBy = 'os`.`date_add';
+                }
                 elseif ($field == 'customer') 
                 {
                     $sql->having('customer LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'customer';
+                }
+                elseif ($field == 'company') 
+                {
+                    $sql->where('a.company LIKE "%' . pSQL($value) . '%"');
+                    $orderBy = 'a`.`company';
                 }
                 elseif ($field == 'total_paid_tax_incl') 
                 {
@@ -2072,7 +2118,7 @@ $(document).ready(function() {
         $table_prefix = 'verifactu_order_slipFilter_';
 
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
                 if ($field == 'id_order') 
@@ -2085,6 +2131,16 @@ $(document).ready(function() {
                     $sql->where('os.number LIKE "%' . pSQL($value) . '%"');
                     $orderBy = 'os`.`number';
                 } 
+                elseif ($field == 'date_add') 
+                {
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) $sql->where('os.date_add >= "' . pSQL($value[0]) . ' 00:00:00"');
+                        if (isset($value[1]) && !empty($value[1])) $sql->where('os.date_add <= "' . pSQL($value[1]) . ' 23:59:59"');
+                    } else {
+                        $sql->where('os.date_add LIKE "%' . pSQL($value) . '%"');
+                    }
+                    $orderBy = 'os`.`date_add';
+                }
                 elseif ($field == 'customer') 
                 {
                     $sql->where('CONCAT(c.firstname, " ", c.lastname) LIKE "%' . pSQL($value) . '%"');
@@ -2151,8 +2207,24 @@ $(document).ready(function() {
                 'orderby' => true,
                 'search' => true,
             ),
+            'IssueDate' => array(
+                'title' => $this->l('Fecha'),
+                'type' => 'date',
+                'orderby' => true,
+                'search' => true,
+            ),
             'BuyerName' => array(
                 'title' => $this->l('Cliente'),
+                'type' => 'text',
+                'search' => true,
+            ),
+            'BuyerCorporateName' => array(
+                'title' => $this->l('Empresa'),
+                'type' => 'text',
+                'search' => true,
+            ),
+            'BuyerTaxIdentificationNumber' => array(
+                'title' => $this->l('DNI/NIF/CIF'),
                 'type' => 'text',
                 'search' => true,
             ),
@@ -2280,14 +2352,23 @@ $(document).ready(function() {
         $table_prefix = $table . 'Filter_';
 
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
                 // Lista blanca para evitar inyección en campos desconocidos
-                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
+                $allowedFilters = ['InvoiceNumber', 'IssueDate', 'BuyerName', 'BuyerCorporateName', 'BuyerTaxIdentificationNumber', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
                 
                 if (in_array($field, $allowedFilters)) {
-                    $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) {
+                            $sql->where('t.`' . pSQL($field) . '` >= "' . pSQL($value[0]) . '"');
+                        }
+                        if (isset($value[1]) && !empty($value[1])) {
+                            $sql->where('t.`' . pSQL($field) . '` <= "' . pSQL($value[1]) . ' 23:59:59"');
+                        }
+                    } else {
+                        $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
+                    }
                 }
             }
         }
@@ -2321,13 +2402,22 @@ $(document).ready(function() {
         $table_prefix = $table . 'Filter_';
 
         foreach ($filters as $key => $value) {
-            if (strpos($key, $table_prefix) === 0 && (string)$value !== '') {
+            if (strpos($key, $table_prefix) === 0 && $value !== '' && $value !== null) {
                 $field = substr($key, strlen($table_prefix));
                 
-                $allowedFilters = ['InvoiceNumber', 'BuyerName', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
+                $allowedFilters = ['InvoiceNumber', 'IssueDate', 'BuyerName', 'BuyerCorporateName', 'BuyerTaxIdentificationNumber', 'EstadoRegistro', 'TipoOperacion', 'TipoFactura', 'DescripcionErrorRegistro'];
                 
                 if (in_array($field, $allowedFilters)) {
-                    $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
+                    if (is_array($value)) {
+                        if (isset($value[0]) && !empty($value[0])) {
+                            $sql->where('t.`' . pSQL($field) . '` >= "' . pSQL($value[0]) . '"');
+                        }
+                        if (isset($value[1]) && !empty($value[1])) {
+                            $sql->where('t.`' . pSQL($field) . '` <= "' . pSQL($value[1]) . ' 23:59:59"');
+                        }
+                    } else {
+                        $sql->where('t.`' . pSQL($field) . '` LIKE "%' . pSQL($value) . '%"');
+                    }
                 }
             }
         }
@@ -2342,8 +2432,12 @@ $(document).ready(function() {
 
     /**
      * Escribe un mensaje de log en el fichero de disco del módulo.
-     * Solo escribe si VERIFACTU_DEBUG_MODE está activo para la tienda.
      * Nunca escribe en ps_log (base de datos).
+     *
+     * Política de escritura:
+     *  - severity 1 (Info) y 2 (Warning): solo si VERIFACTU_DEBUG_MODE está activo.
+     *  - severity 3 (Error) y 4 (Critical): siempre, independientemente del modo debug.
+     *    Esto permite diagnosticar problemas en tiendas con debug desactivado.
      *
      * Ruta del fichero: modules/verifactu/logs/verifactu.log
      * Rotación automática al superar 5 MB.
@@ -2358,8 +2452,10 @@ $(document).ready(function() {
             $id_shop = Shop::getContextShopID();
         }
 
-        // Solo loguear si el modo debug está activo para esta tienda
-        if (!(bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop)) {
+        // Info y Warning solo se loguean con debug activo.
+        // Errores y críticos se guardan siempre para facilitar el diagnóstico remoto.
+        $debugMode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
+        if ($severity < 3 && !$debugMode) {
             return;
         }
 

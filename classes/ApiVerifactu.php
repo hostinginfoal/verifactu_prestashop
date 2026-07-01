@@ -65,8 +65,10 @@ class ApiVerifactu
 
     /**
      * Escribe un mensaje de log enrutando a Verifactu::writeLog().
-     * writeLog() solo escribe si VERIFACTU_DEBUG_MODE esta activo,
-     * y siempre escribe en fichero, nunca en ps_log.
+     * Política de escritura (delegada a writeLog):
+     *  - severity 1 (Info) y 2 (Warning): solo si VERIFACTU_DEBUG_MODE está activo.
+     *  - severity 3 (Error) y 4 (Critical): siempre, incluso con debug desactivado.
+     * Nunca escribe en ps_log (base de datos).
      *
      * @param string $message  Mensaje a loguear.
      * @param int    $severity 1=Info, 2=Warning, 3=Error, 4=Critical.
@@ -1722,40 +1724,27 @@ class ApiVerifactu
                     if ($guardar && isset($o->id_reg_fact))
                     {
                         // ... (Tu lógica para actualizar verifactu_reg_fact se mantiene igual) ...
-                        $update_data = [
-                            'estado_queue' => (isset($o->estado_queue) ? pSQL($o->estado_queue) : ''),
-                            'InvoiceNumber' => (isset($o->InvoiceNumber) ? pSQL($o->InvoiceNumber) : ''),
-                            'IssueDate' => (isset($o->IssueDate) ? pSQL($o->IssueDate) : ''),
-                            'EstadoEnvio' => (isset($o->EstadoEnvio) ? pSQL($o->EstadoEnvio) : ''),
-                            'EstadoRegistro' => (isset($o->EstadoRegistro) ? pSQL($o->EstadoRegistro) : ''),
-                            'CodigoErrorRegistro' => (isset($o->CodigoErrorRegistro) ? pSQL($o->CodigoErrorRegistro) : ''),
-                            'DescripcionErrorRegistro' => (isset($o->DescripcionErrorRegistro) ? pSQL($o->DescripcionErrorRegistro) : ''),
-                            'TipoOperacion' => (isset($o->TipoOperacion) ? pSQL($o->TipoOperacion) : ''),
-                            'EmpresaNombreRazon' => (isset($o->EmpresaNombreRazon) ? pSQL($o->EmpresaNombreRazon) : ''),
-                            'EmpresaNIF' => (isset($o->EmpresaNIF) ? pSQL($o->EmpresaNIF) : ''),
-                            'hash' => (isset($o->hash) ? pSQL($o->hash) : ''),
-                            'cadena' => (isset($o->cadena) ? pSQL($o->cadena) : ''),
-                            'AnteriorHash' => (isset($o->AnteriorHash) ? pSQL($o->AnteriorHash) : ''),
-                            'TipoFactura' => (isset($o->TipoFactura) ? pSQL($o->TipoFactura) : ''),
-                            'FacturaSimplificadaArt7273' => (isset($o->FacturaSimplificadaArt7273) ? pSQL($o->FacturaSimplificadaArt7273) : ''),
-                            'FacturaSinIdentifDestinatarioArt61d' => (isset($o->FacturaSinIdentifDestinatarioArt61d) ? pSQL($o->FacturaSinIdentifDestinatarioArt61d) : ''),
-                            'Macrodato' => (isset($o->Macrodato) ? pSQL($o->Macrodato) : ''),
-                            'Cupon' => (isset($o->Cupon) ? pSQL($o->Cupon) : ''),
-                            'TotalTaxOutputs' => (isset($o->TotalTaxOutputs) ? pSQL($o->TotalTaxOutputs) : ''),
-                            'InvoiceTotal' => (isset($o->InvoiceTotal) ? pSQL($o->InvoiceTotal) : ''),
-                            'FechaHoraHusoGenRegistro' => (isset($o->FechaHoraHusoGenRegistro) ? pSQL($o->FechaHoraHusoGenRegistro) : ''),
-                            'fechaHoraRegistro' => (isset($o->fechaHoraRegistro) ? pSQL($o->fechaHoraRegistro) : ''),
-                            'SIFNombreRazon' => (isset($o->SIFNombreRazon) ? pSQL($o->SIFNombreRazon) : ''),
-                            'SIFNIF' => (isset($o->SIFNIF) ? pSQL($o->SIFNIF) : ''),
-                            'SIFNombreSIF' => (isset($o->SIFNombreSIF) ? pSQL($o->SIFNombreSIF) : ''),
-                            'SIFIdSIF' => (isset($o->SIFIdSIF) ? pSQL($o->SIFIdSIF) : ''),
-                            'SIFVersion' => (isset($o->SIFVersion) ? pSQL($o->SIFVersion) : ''),
-                            'SIFNumeroInstalacion' => (isset($o->SIFNumeroInstalacion) ? pSQL($o->SIFNumeroInstalacion) : ''),
-                            'SIFTipoUsoPosibleSoloVerifactu' => (isset($o->SIFTipoUsoPosibleSoloVerifactu) ? pSQL($o->SIFTipoUsoPosibleSoloVerifactu) : ''),
-                            'SIFTipoUsoPosibleMultiOT' => (isset($o->SIFTipoUsoPosibleMultiOT) ? pSQL($o->SIFTipoUsoPosibleMultiOT) : ''),
-                            'SIFIndicadorMultiplesOT' => (isset($o->SIFIndicadorMultiplesOT) ? pSQL($o->SIFIndicadorMultiplesOT) : ''),
+                        $update_data = [];
+                        $all_fields = [
+                            'estado_queue', 'InvoiceNumber', 'IssueDate', 'EstadoEnvio', 'EstadoRegistro',
+                            'CodigoErrorRegistro', 'DescripcionErrorRegistro', 'TipoOperacion',
+                            'EmpresaNombreRazon', 'EmpresaNIF', 'hash', 'cadena', 'AnteriorHash',
+                            'TipoFactura', 'FacturaSimplificadaArt7273', 'FacturaSinIdentifDestinatarioArt61d',
+                            'Macrodato', 'Cupon', 'TotalTaxOutputs', 'InvoiceTotal',
+                            'FechaHoraHusoGenRegistro', 'fechaHoraRegistro', 'SIFNombreRazon',
+                            'SIFNIF', 'SIFNombreSIF', 'SIFIdSIF', 'SIFVersion', 'SIFNumeroInstalacion',
+                            'SIFTipoUsoPosibleSoloVerifactu', 'SIFTipoUsoPosibleMultiOT', 'SIFIndicadorMultiplesOT',
+                            'BuyerName', 'BuyerCorporateName', 'BuyerTaxIdentificationNumber', 
+                            'BuyerCountryCode', 'IDOtroIDType', 'IDOtroID', 'TipoRectificativa', 
+                            'CorrectiveInvoiceNumber', 'CorrectiveInvoiceSeriesCode', 'CorrectiveIssueDate', 
+                            'CorrectiveBaseAmount', 'CorrectiveTaxAmount'
                         ];
-                        //... (el resto de tu lógica para añadir campos de Buyer y Rectificativa a $update_data) ...
+                        
+                        foreach ($all_fields as $field) {
+                            if (isset($o->{$field}) && (string)$o->{$field} !== '') {
+                                $update_data[$field] = pSQL($o->{$field});
+                            }
+                        }
                         Db::getInstance()->update('verifactu_reg_fact', $update_data, 'id_reg_fact = ' . (int)$o->id_reg_fact);
                     }
                 }

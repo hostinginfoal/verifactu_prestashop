@@ -47,6 +47,10 @@ class VerifactuListHelper
                 'title'  => $module->l('Cliente'),
                 'filter' => true,
             ],
+            'company' => [
+                'title'  => $module->l('Empresa'),
+                'filter' => true,
+            ],
             'total_paid_tax_incl' => [
                 'title'       => $module->l('Importe'),
                 'filter'      => true,
@@ -108,6 +112,10 @@ class VerifactuListHelper
                 'title'  => $module->l('Cliente'),
                 'filter' => true,
             ],
+            'company' => [
+                'title'  => $module->l('Empresa'),
+                'filter' => true,
+            ],
             'estado' => [
                 'title'  => $module->l('Estado Módulo'),
                 'filter' => true,
@@ -156,6 +164,14 @@ class VerifactuListHelper
             ],
             'InvoiceNumber' => [
                 'title'  => $module->l('Nº Factura'),
+                'filter' => true,
+            ],
+            'BuyerName' => [
+                'title'  => $module->l('Cliente'),
+                'filter' => true,
+            ],
+            'BuyerCorporateName' => [
+                'title'  => $module->l('Empresa'),
                 'filter' => true,
             ],
             'IssueDate' => [
