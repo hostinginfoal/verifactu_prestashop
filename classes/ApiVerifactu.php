@@ -128,6 +128,7 @@ class ApiVerifactu
 
         $data = new \stdClass();
         $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
+        $taxIdentificationNumber = $this->cleanCustomerNif($taxIdentificationNumber);
         $data->dni = $taxIdentificationNumber;
         $data->nombre = $address['firstname'].' '.$address['lastname'];
         $dataString = json_encode($data);
@@ -390,6 +391,7 @@ class ApiVerifactu
         
         // Comprueba si 'vat_number' tiene contenido. Si lo tiene, lo usamos. Si no, usamos 'dni'.
         $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
+        $taxIdentificationNumber = $this->cleanCustomerNif($taxIdentificationNumber);
         $buyer->TaxIdentificationNumber = $taxIdentificationNumber;
         $buyer->CorporateName = (isset($address['company']) && $address['company'] != ''?$address['company']:'');
         $buyer->Name = $address['firstname'].' '.$address['lastname'];
@@ -2668,6 +2670,27 @@ class ApiVerifactu
             default:
                 return ['vat' => (float)$total_rate, 're' => 0.0];
         }
+    }
+
+    /**
+     * Limpia el NIF del cliente quitándole el prefijo de país (ej. ES) si lo tuviera,
+     * para evitar errores de validación en VeriFactu.
+     */
+    private function cleanCustomerNif($nif)
+    {
+        if (empty($nif)) {
+            return '';
+        }
+        
+        $nif = trim($nif);
+        
+        // Comprobamos si empieza por ES seguido de al menos un número o letra
+        if (preg_match('/^ES[0-9A-Z]/i', $nif)) {
+            // Eliminamos el prefijo 'ES'
+            return substr($nif, 2);
+        }
+        
+        return $nif;
     }
 
 }

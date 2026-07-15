@@ -67,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.6.1';
+        $this->version = '1.6.2';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -3027,24 +3027,16 @@ $(document).ready(function() {
             $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=' . $nif_emisor . '&numserie=' . $numserie . '&fecha=' . $fecha . '&importe=' . $importe;
         }
 
-        // 4. Generación del QR y guardado temporal
-        require_once(dirname(__FILE__) . '/lib/phpqrcode/qrlib.php');
+        // 4. Generación del QR en Base64
         $qr_code_path_for_smarty = null;
-        $tmp_filename = 'verifactu_qr_tpl_' . $id_order_invoice . '_' . time() . '.png';
 
         try {
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $qr_code_path = $tmp_dir . $tmp_filename; // Ruta física
-
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
-            @chmod($qr_code_path, 0644);
-
-            if (file_exists($qr_code_path)) {
-                // Añadimos el archivo a la cola de borrado
-                self::$temp_qr_files[] = $qr_code_path;
-                
-                // Construimos la URL pública para la etiqueta <img>
-                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+            $qrService = new VerifactuQRService();
+            $base64_qr = $qrService->generateQrImage($url_to_encode, 'tpl_inv_' . $id_order_invoice, 4);
+            
+            if (!empty($base64_qr)) {
+                // Convertir a formato TCPDF (@ + base64 puro)
+                $qr_code_path_for_smarty = '@' . preg_replace('#^data:image/[^;]+;base64,#', '', $base64_qr);
             }
         } catch (Exception $e) {
             Verifactu::writeLog('Módulo Verifactu (getVerifactuQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
@@ -3111,21 +3103,16 @@ $(document).ready(function() {
             $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=' . $nif_emisor . '&numserie=' . $numserie . '&fecha=' . $fecha . '&importe=' . $importe;
         }
 
-        // 4. Generación del QR y guardado temporal
-        require_once(dirname(__FILE__) . '/lib/phpqrcode/qrlib.php');
+        // 4. Generación del QR en Base64
         $qr_code_path_for_smarty = null;
-        $tmp_filename = 'verifactu_qr_tpl_slip_' . $id_order_slip . '_' . time() . '.png';
 
         try {
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $qr_code_path = $tmp_dir . $tmp_filename;
-
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
-            @chmod($qr_code_path, 0644);
-
-            if (file_exists($qr_code_path)) {
-                self::$temp_qr_files[] = $qr_code_path;
-                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+            $qrService = new VerifactuQRService();
+            $base64_qr = $qrService->generateQrImage($url_to_encode, 'tpl_slip_' . $id_order_slip, 4);
+            
+            if (!empty($base64_qr)) {
+                // Convertir a formato TCPDF (@ + base64 puro)
+                $qr_code_path_for_smarty = '@' . preg_replace('#^data:image/[^;]+;base64,#', '', $base64_qr);
             }
         } catch (Exception $e) {
             Verifactu::writeLog('Módulo Verifactu (getVerifactuCreditSlipQRData): Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
@@ -3152,19 +3139,14 @@ $(document).ready(function() {
         }
 
         try {
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            // Usamos el prefijo para asegurar un nombre de archivo único
-            $tmp_filename = 'verifactu_qr_' . $file_prefix . '_' . time() . '.png';
-            $imgQR_path = $tmp_dir . $tmp_filename;
-
-            QRcode::png($urlQR, $imgQR_path, QR_ECLEVEL_L, 4, 2);
-
-            if (file_exists($imgQR_path)) {
-                self::$temp_qr_files[] = $imgQR_path; // Añadir a la cola de limpieza
-                return __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename; // Devolver URL pública
+            $qrService = new VerifactuQRService();
+            $base64_qr = $qrService->generateQrImage($urlQR, $file_prefix, 4);
+            
+            if (!empty($base64_qr)) {
+                return $base64_qr;
             }
         } catch (Exception $e) {
-            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, null);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar el QR base64 (widget): ' . $e->getMessage(), 3, null);
         }
 
         return null;
@@ -3968,36 +3950,24 @@ $(document).ready(function() {
             $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif='.$nif_emisor.'&numserie='.$numserie.'&fecha='.$fecha.'&importe='.$importe;
         }
 
-        // 4. GENERACIÓN DEL QR Y GUARDADO TEMPORAL
-        $qr_code_path_for_smarty = null; // Variable que pasaremos a Smarty
-        // Definimos el nombre de archivo fuera del try para usarlo al construir la URL
-        $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
+        // 4. GENERACIÓN DEL QR EN BASE64
+        $qr_code_path_for_smarty = null; // En realidad será el base64 data URI
 
         try {
-            // Ruta del sistema de archivos (para escribir el archivo)
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $qr_code_path = $tmp_dir . $tmp_filename;
-
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            $qrService = new VerifactuQRService();
+            // Clave de caché para esta request
+            $qr_key = 'invoice_' . $order_invoice->id;
+            // Genera la imagen QR en formato base64
+            $base64_qr = $qrService->generateQrImage($url_to_encode, $qr_key, 4);
             
-            // Seguridad adicional: Aseguramos permisos de lectura
-            @chmod($qr_code_path, 0644);
-
-            if (file_exists($qr_code_path)) {
-                // Guardamos la ruta del *archivo* para borrarlo después
-                self::$temp_qr_files[] = $qr_code_path;
-                
-                // Construimos la URL pública completa y esto es lo que pasamos a Smarty
-                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
-
+            if (!empty($base64_qr)) {
+                // TCPDF requiere el base64 crudo precedido de '@' en lugar del tag 'data:image...'
+                $qr_code_path_for_smarty = '@' . preg_replace('#^data:image/[^;]+;base64,#', '', $base64_qr);
             } else {
-                // Si falla, la variable de Smarty seguirá siendo null
-                Verifactu::writeLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
+                Verifactu::writeLog('Módulo Verifactu: Error al generar el QR base64 para la factura ' . $order_invoice->id, 2, $id_shop);
             }
-
         } catch (Exception $e) {
-            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
-            // $qr_code_path_for_smarty sigue siendo null
+            Verifactu::writeLog('Módulo Verifactu: Excepción al generar el QR base64: ' . $e->getMessage(), 3, $id_shop);
         }
         
         // 5. Asignamos la ruta a la plantilla.
@@ -4085,34 +4055,23 @@ $(document).ready(function() {
             return '';
         }
 
-        $qr_code_path_for_smarty = null; // Variable que pasaremos a Smarty
-        // Definimos el nombre de archivo fuera del try para usarlo al construir la URL
-        $tmp_filename = 'verifactu_qr_slip_' . $order_slip->id . '_' . time() . '.png';
+        $qr_code_path_for_smarty = null; // Variable que pasaremos a Smarty en formato Base64
         
         try {
-            // Ruta del sistema de archivos (para escribir el archivo)
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $qr_code_path = $tmp_dir . $tmp_filename;
-
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 4, 2);
+            $qrService = new VerifactuQRService();
+            // Clave de caché para esta request
+            $qr_key = 'slip_' . $order_slip->id;
+            // Genera la imagen QR en formato base64
+            $base64_qr = $qrService->generateQrImage($url_to_encode, $qr_key, 4);
             
-            // Seguridad adicional: Aseguramos permisos de lectura
-            @chmod($qr_code_path, 0644);
-
-            if (file_exists($qr_code_path)) {
-                // Guardamos la ruta del *archivo* para borrarlo después
-                self::$temp_qr_files[] = $qr_code_path;
-
-                // *** LA SOLUCIÓN ***
-                // Construimos la URL pública completa y esto es lo que pasamos a Smarty
-                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
-
+            if (!empty($base64_qr)) {
+                // TCPDF requiere el base64 crudo precedido de '@' en lugar del tag 'data:image...'
+                $qr_code_path_for_smarty = '@' . preg_replace('#^data:image/[^;]+;base64,#', '', $base64_qr);
             } else {
-                 Verifactu::writeLog('Módulo Verifactu: El archivo QR (abono) se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
+                 Verifactu::writeLog('Módulo Verifactu: Error al generar el QR base64 (abono) para ' . $order_slip->id, 2, $id_shop);
             }
         } catch (Exception $e) {
-            Verifactu::writeLog('Módulo Verifactu: Error al generar QR para abono: ' . $e->getMessage(), 3, $id_shop);
-            // $qr_code_path_for_smarty sigue siendo null
+            Verifactu::writeLog('Módulo Verifactu: Error al generar QR base64 para abono: ' . $e->getMessage(), 3, $id_shop);
         }
         
         $this->context->smarty->assign([
@@ -4465,20 +4424,17 @@ $(document).ready(function() {
             $url_to_encode = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=' . $nif_emisor . '&numserie=' . $numserie . '&fecha=' . $fecha . '&importe=' . $importe;
         }
         $qr_code_path_for_smarty = null;
-        $tmp_filename = 'verifactu_qr_' . $order_invoice->id . '_' . time() . '.png';
         try {
-            $tmp_dir = _PS_TMP_IMG_DIR_;
-            $qr_code_path = $tmp_dir . $tmp_filename;
-            QRcode::png($url_to_encode, $qr_code_path, QR_ECLEVEL_L, 6, 2);
-            @chmod($qr_code_path, 0644);
-            if (file_exists($qr_code_path)) {
-                self::$temp_qr_files[] = $qr_code_path;
-                $qr_code_path_for_smarty = Tools::getShopDomainSsl(true, true) . __PS_BASE_URI__ . 'img/tmp/' . $tmp_filename;
+            $qrService = new VerifactuQRService();
+            // Mantenemos tamaño 6 (más grande) requerido originalmente por RockPOS
+            $base64_qr = $qrService->generateQrImage($url_to_encode, 'rockpos_' . $order_invoice->id, 6);
+            if (!empty($base64_qr)) {
+                $qr_code_path_for_smarty = $base64_qr;
             } else {
-                Verifactu::writeLog('Módulo Verifactu: El archivo QR se generó pero no se encontró en ' . $qr_code_path, 2, $id_shop);
+                Verifactu::writeLog('Módulo Verifactu: Error al generar QR base64 RockPOS para ' . $order_invoice->id, 2, $id_shop);
             }
         } catch (Exception $e) {
-            Verifactu::writeLog('Módulo Verifactu: Error al generar el archivo QR: ' . $e->getMessage(), 3, $id_shop);
+            Verifactu::writeLog('Módulo Verifactu: Error al generar QR base64 RockPOS: ' . $e->getMessage(), 3, $id_shop);
         }
         return $qr_code_path_for_smarty;
     }
