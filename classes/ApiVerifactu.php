@@ -742,6 +742,7 @@ class ApiVerifactu
             $data->invoice = $inv;
 
             $seq = 1;
+            $lastLineTaxTypeCode = '01'; // Valor por defecto IVA; se actualiza en cada iteración del bucle de productos.
             foreach ($lines as $l)
             {
                 
@@ -837,6 +838,7 @@ class ApiVerifactu
 
                 $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
+                $lastLineTaxTypeCode = $lineTaxTypeCode; // Guardamos el TaxTypeCode de la última línea de producto procesada.
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
@@ -904,7 +906,7 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
-                $shipping_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
+                $shipping_line->TaxTypeCode = $lastLineTaxTypeCode; // TaxTypeCode de la última línea de producto (ej. '03' para IGIC, '02' para IPSI, '01' para IVA).
                 $shipping_line->ArticleCode = 'ENVIO';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
@@ -1057,7 +1059,7 @@ class ApiVerifactu
                         $discount_line->TaxRate = $rate; // El tipo de IVA real.
                         $discount_line->TaxableBaseAmount = -round($discount_portion_tax_excl, 2);
                         $discount_line->TaxAmountTotal = -round($discount_tax_amount, 2);
-                        $discount_line->TaxTypeCode = (isset($line->TaxTypeCode) ? $line->TaxTypeCode : '01'); //Le asignamos el TaxTypeCode de la última linea o IVA por defecto
+                        $discount_line->TaxTypeCode = $lastLineTaxTypeCode; // TaxTypeCode de la última línea de producto (ej. '03' para IGIC, '02' para IPSI, '01' para IVA).
                         $discount_line->ArticleCode = 'DESCUENTO';
 
                         //Calculamos el tipo de impuesto IGIC IPSI
