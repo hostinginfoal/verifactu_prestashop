@@ -76,5 +76,10 @@
             <i class="icon-question-circle"></i> {l s='Ayuda' mod='verifactu'}
         </a>
     </li>
+    <li class="pull-right">
+        <a href="https://verifactu.infoal.com/perfil-de-usuario" target="_blank" class="btn btn-primary" style="color: white !important; margin: 2px 5px 0 0;">
+            <i class="icon-external-link"></i> {l s='Plataforma VeriFactu' mod='verifactu'}
+        </a>
+    </li>
 </ul>
 

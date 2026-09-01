@@ -67,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.6.3';
+        $this->version = '1.6.4';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -278,6 +278,12 @@ class Verifactu extends Module
     public function getContent()
     {
         $output = '';
+
+        if (Tools::getValue('regenerate_cron_token')) {
+            Configuration::updateValue('VERIFACTU_CRON_TOKEN', Tools::passwdGen(32));
+            $this->context->controller->confirmations[] = $this->l('Token de Cron regenerado con éxito.');
+            // No hacemos redirect aquí para que muestre el success. El resto del formulario se cargará normalmente.
+        }
 
         // --- LOGICA DE REINICIALIZAR (RESET) ---
         $baseUrl = $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name;
@@ -1505,6 +1511,33 @@ $(document).ready(function() {
                             '</div></div>',
                     ),
 
+                    array(
+                        'type' => 'html',
+                        'name' => 'verifactu_separator_cron',
+                        'html_content' => '<div class="vf-config-section" style="margin-top:24px;"><i class="icon-time"></i>' . $this->l('6. Tareas Programadas (Cron)') . '</div>',
+                    ),
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Token de seguridad para Cron'),
+                        'name' => 'VERIFACTU_CRON_TOKEN',
+                        'desc' => $this->l('Este token es necesario para ejecutar el script de cron de forma segura. Puede cambiarlo en cualquier momento.'),
+                    ),
+                    array(
+                        'type' => 'html',
+                        'name' => 'verifactu_cron_info',
+                        'html_content' => '<div class="form-group">' .
+                            '<label class="control-label col-lg-3">' . $this->l('URL para el Cronjob') . '</label>' .
+                            '<div class="col-lg-9">' .
+                            '<p>' . $this->l('El módulo sincroniza automáticamente los registros cuando usted navega por la administración (Pseudo-cron).') . '</p>' .
+                            '<p>' . $this->l('De forma OPCIONAL, si desea que el sistema funcione de manera 100% desatendida, puede configurar un Cronjob en su servidor (CPanel, Plesk, etc.). Recomendamos una frecuencia de 5 minutos:') . '</p>' .
+                            '<div class="alert alert-info" style="word-break: break-all;">' .
+                            '<strong>' . Tools::getHttpHost(true) . __PS_BASE_URI__ . 'modules/' . $this->name . '/cron.php?token=' . Configuration::get('VERIFACTU_CRON_TOKEN') . '</strong>' .
+                            '</div>' .
+                            '<p><strong>' . $this->l('Ejemplo de comando de Cron (cada 5 minutos):') . '</strong><br><code>*/5 * * * * curl -s -O /dev/null "' . Tools::getHttpHost(true) . __PS_BASE_URI__ . 'modules/' . $this->name . '/cron.php?token=' . Configuration::get('VERIFACTU_CRON_TOKEN') . '"</code></p>' .
+                            '<a href="' . $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=configure&regenerate_cron_token=1" class="btn btn-default" onclick="return confirm(\'' . $this->l('¿Seguro que quieres regenerar el token? Tendrás que actualizar la URL en tu servidor Cron.') . '\')"><i class="icon-refresh"></i> ' . $this->l('Regenerar Token') . '</a>' .
+                            '</div></div>',
+                    ),
+
                 ),
                 'submit' => array(
                     'title' => $this->l('Guardar'),
@@ -1527,6 +1560,12 @@ $(document).ready(function() {
         $qr_width_val = Configuration::get('VERIFACTU_QR_WIDTH', null, $id_shop_group, $id_shop);
         $qr_text_val = Configuration::get('VERIFACTU_QR_TEXT', null, $id_shop_group, $id_shop);
         
+        $cron_token = Configuration::get('VERIFACTU_CRON_TOKEN');
+        if (empty($cron_token)) {
+            $cron_token = Tools::passwdGen(32);
+            Configuration::updateValue('VERIFACTU_CRON_TOKEN', $cron_token);
+        }
+        
         return array(
             'VERIFACTU_API_TOKEN' => Configuration::get('VERIFACTU_API_TOKEN', null, $id_shop_group, $id_shop),
             'VERIFACTU_DEBUG_MODE' => Configuration::get('VERIFACTU_DEBUG_MODE', 0, $id_shop_group, $id_shop),
@@ -1542,6 +1581,7 @@ $(document).ready(function() {
             'VERIFACTU_LOCK_ORDER_IF_CORRECT'   => Configuration::get('VERIFACTU_LOCK_ORDER_IF_CORRECT', 0, $id_shop_group, $id_shop),
             'VERIFACTU_RECARGO_COMPAT'          => Configuration::get('VERIFACTU_RECARGO_COMPAT', 0, $id_shop_group, $id_shop),
             'VERIFACTU_HIDE_UPDATE_BANNER'      => Configuration::get('VERIFACTU_HIDE_UPDATE_BANNER', 0, $id_shop_group, $id_shop),
+            'VERIFACTU_CRON_TOKEN'              => $cron_token,
         );
     }
 
@@ -1584,6 +1624,8 @@ $(document).ready(function() {
         $verifactu_show_anulacion = Tools::getValue('VERIFACTU_SHOW_ANULACION_BUTTON');
         $verifactu_lock_order     = Tools::getValue('VERIFACTU_LOCK_ORDER_IF_CORRECT');
         $verifactu_hide_banner    = Tools::getValue('VERIFACTU_HIDE_UPDATE_BANNER');
+        
+        $verifactu_cron_token     = Tools::getValue('VERIFACTU_CRON_TOKEN');
 
         // Convertimos los arrays a JSON para guardarlos. Si son 'false', los guardamos como un array vacío.
         $igic_json = json_encode(is_array($verifactu_igic_taxes) ? $verifactu_igic_taxes : []);
@@ -1613,6 +1655,10 @@ $(document).ready(function() {
             Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
             Configuration::updateValue('VERIFACTU_HIDE_UPDATE_BANNER', $verifactu_hide_banner, false, $id_shop_group, $id_shop);
+            
+            if ($verifactu_cron_token) {
+                Configuration::updateValue('VERIFACTU_CRON_TOKEN', $verifactu_cron_token); // Global para el cron
+            }
 
         } else {
             // Si se seleccionan tiendas específicas.
@@ -1632,6 +1678,9 @@ $(document).ready(function() {
                 Configuration::updateValue('VERIFACTU_LOCK_ORDER_IF_CORRECT', $verifactu_lock_order, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_RECARGO_COMPAT', $verifactu_recargo_compat, false, $id_shop_group, $id_shop);
                 Configuration::updateValue('VERIFACTU_HIDE_UPDATE_BANNER', $verifactu_hide_banner, false, $id_shop_group, $id_shop);
+            }
+            if ($verifactu_cron_token) {
+                Configuration::updateValue('VERIFACTU_CRON_TOKEN', $verifactu_cron_token); // Global para el cron
             }
         }
     }

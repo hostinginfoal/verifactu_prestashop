@@ -755,8 +755,14 @@ class ApiVerifactu
                 $line->GrossAmount = $l['total_price_tax_incl'];
                 $line->ArticleCode = $l['product_reference'];
                 $line->TaxRate = $l['tax_rate'];
-                $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']);
-                $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']);
+                // Ecotax/RAEE: el importe neto del ecotax forma parte de la BaseImponible
+                // según el Art. 78.Dos.4º LIVA y las especificaciones técnicas de VeriFactu.
+                // En PS, total_price_tax_excl NO incluye ecotax, pero total_paid_tax_excl (nivel factura) SÍ.
+                $line_ecotax_total = round((float)$l['ecotax'] * (float)$l['product_quantity'], 6);
+                $line->TaxableBaseAmount = ((float) $l['total_price_tax_excl']) + $line_ecotax_total;
+                // TaxAmountTotal = (total_incl - total_excl) incluye ecotax neto + su propio IVA.
+                // Restamos el ecotax neto para que quede solo la cuota: TaxableBaseAmount × TaxRate.
+                $line->TaxAmountTotal = ((float) $l['total_price_tax_incl'] - (float) $l['total_price_tax_excl']) - $line_ecotax_total;
                 $seq++;
 
                 $lineTaxTypeCode = '01'; // Default IVA
@@ -1015,7 +1021,9 @@ class ApiVerifactu
                     {
                         $totals_by_tax_rate[$rate] = 0;
                     }
-                    $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'];
+                    // Incluimos el ecotax neto en la base de prorrateo, igual que en TaxableBaseAmount.
+                    $line_ecotax = round((float)$line['ecotax'] * (float)$line['product_quantity'], 6);
+                    $totals_by_tax_rate[$rate] += (float)$line['total_price_tax_excl'] + $line_ecotax;
                 }
 
                 // 2. Calculamos el total de productos sin IVA para poder prorratear.
