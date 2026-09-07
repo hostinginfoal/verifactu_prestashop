@@ -2409,7 +2409,7 @@ class ApiVerifactu
         }
 
         // 3. Obtener el país de la tienda
-        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT', null, null, $this->id_shop);
+        $id_shop_country = (int)Country::getByIso('ES');
 
         // 4. Obtener el país de ENTREGA del pedido
         $id_delivery_country = 0;
@@ -2451,7 +2451,7 @@ class ApiVerifactu
     private function isExportInvoice($order_data)
     {
         // 1. Obtener país de la tienda
-        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+        $id_shop_country = (int)Country::getByIso('ES');
 
         // 2. Obtener país y ESTADO de ENTREGA
         $id_delivery_country = 0;
@@ -2546,7 +2546,7 @@ class ApiVerifactu
         }
 
         // 2. Obtener país de la tienda
-        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+        $id_shop_country = (int)Country::getByIso('ES');
 
         // 3. Obtener país de ENTREGA
         $id_delivery_country = 0;
