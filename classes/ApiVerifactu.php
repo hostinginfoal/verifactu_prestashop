@@ -2396,12 +2396,12 @@ class ApiVerifactu
         }
 
         // 1. Comprobar el interruptor maestro del módulo
-        if (Configuration::get('VERIFACTU_USA_OSS') != 1) {
+        if (Configuration::get('VERIFACTU_USA_OSS', null, null, $this->id_shop) != 1) {
             return false;
         }
 
         // 2. Comprobar si es B2C (usando la dirección de facturación)
-        $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : '';
+        $taxIdentificationNumber = !empty($address['vat_number']) ? trim($address['vat_number']) : '';
         $is_b2c = empty($taxIdentificationNumber);
 
         if (!$is_b2c) {
@@ -2409,7 +2409,7 @@ class ApiVerifactu
         }
 
         // 3. Obtener el país de la tienda
-        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT');
+        $id_shop_country = (int)Configuration::get('PS_COUNTRY_DEFAULT', null, null, $this->id_shop);
 
         // 4. Obtener el país de ENTREGA del pedido
         $id_delivery_country = 0;
