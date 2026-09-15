@@ -67,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.6.4';
+        $this->version = '1.6.5';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -1531,9 +1531,9 @@ $(document).ready(function() {
                             '<p>' . $this->l('El módulo sincroniza automáticamente los registros cuando usted navega por la administración (Pseudo-cron).') . '</p>' .
                             '<p>' . $this->l('De forma OPCIONAL, si desea que el sistema funcione de manera 100% desatendida, puede configurar un Cronjob en su servidor (CPanel, Plesk, etc.). Recomendamos una frecuencia de 5 minutos:') . '</p>' .
                             '<div class="alert alert-info" style="word-break: break-all;">' .
-                            '<strong>' . Tools::getHttpHost(true) . __PS_BASE_URI__ . 'modules/' . $this->name . '/cron.php?token=' . Configuration::get('VERIFACTU_CRON_TOKEN') . '</strong>' .
+                            '<strong>' . $this->context->link->getModuleLink($this->name, 'cron', ['token' => Configuration::get('VERIFACTU_CRON_TOKEN')]) . '</strong>' .
                             '</div>' .
-                            '<p><strong>' . $this->l('Ejemplo de comando de Cron (cada 5 minutos):') . '</strong><br><code>*/5 * * * * curl -s -O /dev/null "' . Tools::getHttpHost(true) . __PS_BASE_URI__ . 'modules/' . $this->name . '/cron.php?token=' . Configuration::get('VERIFACTU_CRON_TOKEN') . '"</code></p>' .
+                            '<p><strong>' . $this->l('Ejemplo de comando de Cron (cada 5 minutos):') . '</strong><br><code>*/5 * * * * curl -s -O /dev/null "' . $this->context->link->getModuleLink($this->name, 'cron', ['token' => Configuration::get('VERIFACTU_CRON_TOKEN')]) . '"</code></p>' .
                             '<a href="' . $this->context->link->getAdminLink('AdminModules', true) . '&configure=' . $this->name . '&tab_module_verifactu=configure&regenerate_cron_token=1" class="btn btn-default" onclick="return confirm(\'' . $this->l('¿Seguro que quieres regenerar el token? Tendrás que actualizar la URL en tu servidor Cron.') . '\')"><i class="icon-refresh"></i> ' . $this->l('Regenerar Token') . '</a>' .
                             '</div></div>',
                     ),
