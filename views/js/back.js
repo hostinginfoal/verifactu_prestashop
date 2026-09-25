@@ -184,42 +184,58 @@ if (typeof verifactu_ajax_url !== 'undefined')
   $(document).on('click', '[id^="send_verifactu_idotro_"]', function() {
     var $btn = $(this);
     var id_type_otro = $btn.data('id_type_otro');
-    $btn.prop('disabled', true);
-    $btn.find('strong').after('<i class="icon-spinner icon-spin"></i>');
 
-    $('#estado_envio_verifactu').hide();
-    $.ajax({
-        type: 'POST',
-        cache: false,
-        dataType: 'json',
-        url: verifactu_ajax_url,
-        data: {
-            ajax: true,
-            action: 'enviarVerifactu',
-            token: verifactu_token,
-            id_order: id_order,
-            id_type_otro: id_type_otro
-        },
-        success: function(data) {
-            if (data.response == 'OK') {
-                $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-success');
-                $('#estado_envio_verifactu .alert-text').html('Registro enviado con IDOtro (' + id_type_otro + ') correctamente.<br>En espera de respuesta AEAT...');
-                $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
-            } else if (data.response == 'pendiente') {
-                $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-warning');
-                $('#estado_envio_verifactu .alert-text').html('El registro está pendiente de respuesta.');
-                $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
-            } else {
-                var err = data.error || 'Error enviando el registro a la API.';
-                $('#estado_envio_verifactu').removeClass('alert-success').addClass('alert-danger');
-                $('#estado_envio_verifactu .alert-text').html(err);
-                $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() { window.location.reload(); });
+    Swal.fire({
+        title: '¿Reenviar como No Censado?',
+        html: 'Se reenviará este registro a la AEAT usando el bloque <strong>IDOtro (IDType 07 — No Censado)</strong>.<br><br>'
+            + 'La AEAT lo aceptará como <em>AceptadoConErrores</em>.<br><br>'
+            + '¿Deseas continuar?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reenviar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#e67e22',
+        reverseButtons: true
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+
+        $btn.prop('disabled', true);
+        $btn.find('strong').after('<i class="icon-spinner icon-spin"></i>');
+        $('#estado_envio_verifactu').hide();
+
+        $.ajax({
+            type: 'POST',
+            cache: false,
+            dataType: 'json',
+            url: verifactu_ajax_url,
+            data: {
+                ajax: true,
+                action: 'enviarVerifactu',
+                token: verifactu_token,
+                id_order: id_order,
+                id_type_otro: id_type_otro
+            },
+            success: function(data) {
+                if (data.response == 'OK') {
+                    $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-success');
+                    $('#estado_envio_verifactu .alert-text').html('Registro enviado con IDOtro (' + id_type_otro + ') correctamente.<br>En espera de respuesta AEAT...');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
+                } else if (data.response == 'pendiente') {
+                    $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-warning');
+                    $('#estado_envio_verifactu .alert-text').html('El registro está pendiente de respuesta.');
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
+                } else {
+                    var err = data.error || 'Error enviando el registro a la API.';
+                    $('#estado_envio_verifactu').removeClass('alert-success').addClass('alert-danger');
+                    $('#estado_envio_verifactu .alert-text').html(err);
+                    $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() { window.location.reload(); });
+                }
+            },
+            error: function() {
+                $btn.prop('disabled', false);
+                showErrorMessage('Error de comunicación con el servidor.');
             }
-        },
-        error: function() {
-            $btn.prop('disabled', false);
-            showErrorMessage('Error de comunicación con el servidor.');
-        }
+        });
     });
   });
 
@@ -271,34 +287,49 @@ if (typeof verifactu_ajax_url !== 'undefined')
     var id_order_val = $btn.data('id_order');
     var type_val     = $btn.data('type') || 'alta';
 
-    $btn.prop('disabled', true).addClass('disabled');
+    Swal.fire({
+        title: '¿Reenviar como No Censado?',
+        html: 'Se reenviará este registro a la AEAT usando el bloque <strong>IDOtro (IDType 07 — No Censado)</strong>.<br><br>'
+            + 'La AEAT lo aceptará como <em>AceptadoConErrores</em>.<br><br>'
+            + '¿Deseas continuar?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reenviar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#e67e22',
+        reverseButtons: true
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
 
-    $.ajax({
-        type: 'POST',
-        cache: false,
-        dataType: 'json',
-        url: verifactu_ajax_url,
-        data: {
-            ajax: true,
-            action: 'enviarVerifactu',
-            token: verifactu_token,
-            id_order: id_order_val,
-            type: type_val,
-            id_type_otro: id_type_otro
-        },
-        success: function(data) {
-            if (data.response == 'OK' || data.response == 'pendiente') {
-                showSuccessMessage('Reenvío con IDOtro (' + id_type_otro + ') solicitado. La página se recargará.');
-                setTimeout(function() { location.reload(); }, 2500);
-            } else {
-                showErrorMessage('Error en el reenvío: ' + (data.error || 'Respuesta desconocida del servidor.'));
+        $btn.prop('disabled', true).addClass('disabled');
+
+        $.ajax({
+            type: 'POST',
+            cache: false,
+            dataType: 'json',
+            url: verifactu_ajax_url,
+            data: {
+                ajax: true,
+                action: 'enviarVerifactu',
+                token: verifactu_token,
+                id_order: id_order_val,
+                type: type_val,
+                id_type_otro: id_type_otro
+            },
+            success: function(data) {
+                if (data.response == 'OK' || data.response == 'pendiente') {
+                    showSuccessMessage('Reenvío con IDOtro (' + id_type_otro + ') solicitado. La página se recargará.');
+                    setTimeout(function() { location.reload(); }, 2500);
+                } else {
+                    showErrorMessage('Error en el reenvío: ' + (data.error || 'Respuesta desconocida del servidor.'));
+                    $btn.prop('disabled', false).removeClass('disabled');
+                }
+            },
+            error: function() {
+                showErrorMessage('Error de comunicación con el servidor al intentar reenviar.');
                 $btn.prop('disabled', false).removeClass('disabled');
             }
-        },
-        error: function() {
-            showErrorMessage('Error de comunicación con el servidor al intentar reenviar.');
-            $btn.prop('disabled', false).removeClass('disabled');
-        }
+        });
     });
   });
 
