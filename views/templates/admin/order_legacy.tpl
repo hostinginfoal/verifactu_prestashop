@@ -261,6 +261,14 @@
                 <i class="icon-refresh"></i> {l s='Reenviar registro' mod='verifactu'}
             </button>
 
+            {if $verifactu_invoice.verifactuCodigoErrorRegistro == '1239'}
+            <button class="btn btn-warning btn-sm button-resend-verifactu-idotro"
+                data-id_order="{$verifactu_invoice.id_order}" data-type="alta" data-id_type_otro="07"
+                title="{l s='El NIF no figura en el censo de la AEAT o no coincide con los datos del cliente. Se envía como No Censado (IDType 07) para que la AEAT lo acepte como AceptadoConErrores.' mod='verifactu'}">
+                <i class="icon-warning"></i> {l s='Reenviar como No Censado' mod='verifactu'}
+            </button>
+            {/if}
+
             {if $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
             <button class="btn btn-default" id="check_dni" {if $verifactu_invoice.estado == "pendiente"}disabled="true"{/if}>
                 <i class="icon-user"></i> {l s='Comprobar DNI' mod='verifactu'}
@@ -390,6 +398,13 @@
                 <button class="btn btn-default btn-sm button-resend-verifactu" data-id_order="{$id_order}" data-type="abono" data-id_slip="{$slip.id_order_slip}" {if $slip.estado == "pendiente" || $slip.verifactuEstadoRegistro == "Correcto"}disabled{/if}>
                     <i class="icon-refresh"></i> {l s='Reenviar abono' mod='verifactu'}
                 </button>
+                {if $slip.verifactuCodigoErrorRegistro == '1239'}
+                <button class="btn btn-warning btn-sm button-resend-verifactu-idotro"
+                    data-id_order="{$id_order}" data-type="abono" data-id_type_otro="07"
+                    title="{l s='El NIF no figura en el censo de la AEAT o no coincide con los datos del cliente. Se envía como No Censado (IDType 07).' mod='verifactu'}">
+                    <i class="icon-warning"></i> {l s='Reenviar como No Censado' mod='verifactu'}
+                </button>
+                {/if}
             </div>
 
             <div id="estado_envio_verifactu_slip_{$slip.id_order_slip}" style="display:none;" class="alert alert-success">

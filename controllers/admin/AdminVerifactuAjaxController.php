@@ -19,6 +19,7 @@ class AdminVerifactuAjaxController extends ModuleAdminController
     {
         $id_order = (int)Tools::getValue('id_order');
         $type = Tools::getValue('type', 'alta');
+        $id_type_otro = Tools::getValue('id_type_otro', '');
 
         if (!$id_order || !in_array($type, ['alta', 'abono'])) {
             die(json_encode(['error' => 'Parámetros no válidos.']));
@@ -34,7 +35,7 @@ class AdminVerifactuAjaxController extends ModuleAdminController
         $debug_mode = (bool)Configuration::get('VERIFACTU_DEBUG_MODE', false, null, $id_shop);
 
         $av = new ApiVerifactu($api_token, $debug_mode, $id_shop);
-        $response = $av->sendAltaVerifactu($id_order, $type);
+        $response = $av->sendAltaVerifactu($id_order, $type, $id_type_otro);
 
         header('Content-Type: application/json');
         die($response);

@@ -67,7 +67,7 @@ class Verifactu extends Module
     {
         $this->name = 'verifactu';
         $this->tab = 'billing_invoicing';
-        $this->version = '1.6.5';
+        $this->version = '1.6.6';
         $this->author = 'InFoAL S.L.';
         $this->need_instance = 0;
         $this->is_configurable = true;
@@ -2815,12 +2815,16 @@ $(document).ready(function() {
             $actions .= '<a class="btn btn-default" href="' . $order_url . '" target="_blank" title="' . $this->l('Ir al Pedido') . '"><i class="icon-pencil"></i></a>';
         }
 
-        // Botón Reenviar
+        // Botón Reenviar + Dropdown IDOtro (Error 1239)
         if (isset($row['verifactuEstadoRegistro']) && isset($row['estado']) && $row['verifactuEstadoRegistro'] !== 'Correcto' && $row['estado'] == 'sincronizado') {
-            // Determinamos si es una factura de venta (alta) o un abono
             $type = isset($row['id_order_invoice']) ? 'alta' : 'abono';
+            $actions .= '<a class="btn btn-default button-resend-verifactu" data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" title="' . $this->l('Reenviar a VeriFactu') . '"><i class="icon-refresh"></i></a>';
+        }
 
-            $actions .= '<a class="btn btn-default button-resend-verifactu"  data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" title="' . $this->l('Reenviar a VeriFactu') . '"><i class="icon-refresh"></i></a>';
+        // Dropdown IDOtro: visible siempre que el código de error sea 1239
+        if (isset($row['verifactuCodigoErrorRegistro']) && $row['verifactuCodigoErrorRegistro'] == '1239') {
+            $type = isset($row['id_order_invoice']) ? 'alta' : 'abono';
+            $actions .= ' <a class="btn btn-warning button-resend-verifactu-idotro" data-id_order="' . (int)$row['id_order'] . '" data-type="' . $type . '" data-id_type_otro="07" title="' . $this->l('El NIF no figura en el censo de la AEAT o no coincide con los datos del cliente. Se reenvía como No Censado (IDType 07) para que la AEAT lo acepte como AceptadoConErrores.') . '"><i class="icon-warning"></i> ' . $this->l('No Censado') . '</a>';
         }
 
         // Botón Check (forzar actualización de estado)

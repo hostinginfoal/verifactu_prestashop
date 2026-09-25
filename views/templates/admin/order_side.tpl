@@ -256,6 +256,15 @@
                     <i class="icon-refresh"></i> {l s='Reenviar a VeriFactu' mod='verifactu'}
                 </button>
 
+                {if $verifactu_invoice.verifactuCodigoErrorRegistro == '1239'}
+                <button class="vf-btn vf-btn-warning" id="send_verifactu_idotro_07"
+                    data-id_type_otro="07"
+                    {if $verifactu_invoice.estado == "pendiente"}disabled{/if}
+                    title="{l s='El NIF no figura en el censo de la AEAT o no coincide con los datos del cliente. Se envía como No Censado (IDType 07) para que la AEAT lo acepte como AceptadoConErrores.' mod='verifactu'}">
+                    <i class="icon-warning"></i> {l s='Reenviar como No Censado' mod='verifactu'}
+                </button>
+                {/if}
+
                 {if $verifactu_invoice.verifactuEstadoRegistro == "Incorrecto"}
                 <button class="vf-btn vf-btn-secondary" id="check_dni"
                     {if $verifactu_invoice.estado == "pendiente"}disabled{/if}
@@ -538,6 +547,15 @@
                     title="{l s='Reenviar este abono a VeriFactu' mod='verifactu'}">
                     <i class="icon-refresh"></i> {l s='Reenviar abono' mod='verifactu'}
                 </button>
+                
+                {if $slip.verifactuCodigoErrorRegistro == '1239'}
+                <button class="vf-btn vf-btn-warning button-resend-verifactu-idotro"
+                    data-id_order="{$id_order}" data-type="abono" data-id_type_otro="07"
+                    {if $slip.estado == "pendiente"}disabled{/if}
+                    title="{l s='El NIF no figura en el censo de la AEAT o no coincide con los datos del cliente. Se envía como No Censado (IDType 07).' mod='verifactu'}">
+                    <i class="icon-warning"></i> {l s='Reenviar como No Censado' mod='verifactu'}
+                </button>
+                {/if}
             </div>
 
             <div id="estado_envio_verifactu_slip_{$slip.id_order_slip}" style="display:none;" class="alert mt-2 d-print-none">

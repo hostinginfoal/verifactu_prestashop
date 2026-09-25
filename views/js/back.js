@@ -180,6 +180,50 @@ if (typeof verifactu_ajax_url !== 'undefined')
       });
   });
 
+  // ── Widget del pedido: botones IDOtro con id="send_verifactu_idotro_XX" ──
+  $(document).on('click', '[id^="send_verifactu_idotro_"]', function() {
+    var $btn = $(this);
+    var id_type_otro = $btn.data('id_type_otro');
+    $btn.prop('disabled', true);
+    $btn.find('strong').after('<i class="icon-spinner icon-spin"></i>');
+
+    $('#estado_envio_verifactu').hide();
+    $.ajax({
+        type: 'POST',
+        cache: false,
+        dataType: 'json',
+        url: verifactu_ajax_url,
+        data: {
+            ajax: true,
+            action: 'enviarVerifactu',
+            token: verifactu_token,
+            id_order: id_order,
+            id_type_otro: id_type_otro
+        },
+        success: function(data) {
+            if (data.response == 'OK') {
+                $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-success');
+                $('#estado_envio_verifactu .alert-text').html('Registro enviado con IDOtro (' + id_type_otro + ') correctamente.<br>En espera de respuesta AEAT...');
+                $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
+            } else if (data.response == 'pendiente') {
+                $('#estado_envio_verifactu').removeClass('alert-danger').addClass('alert-warning');
+                $('#estado_envio_verifactu .alert-text').html('El registro está pendiente de respuesta.');
+                $('#estado_envio_verifactu').fadeIn('slow').delay(1500).fadeOut(function() { window.location.reload(); });
+            } else {
+                var err = data.error || 'Error enviando el registro a la API.';
+                $('#estado_envio_verifactu').removeClass('alert-success').addClass('alert-danger');
+                $('#estado_envio_verifactu .alert-text').html(err);
+                $('#estado_envio_verifactu').fadeIn('slow').delay(2000).fadeOut(function() { window.location.reload(); });
+            }
+        },
+        error: function() {
+            $btn.prop('disabled', false);
+            showErrorMessage('Error de comunicación con el servidor.');
+        }
+    });
+  });
+
+
   // Listado de facturas y facturas de abono — reenvío
   $('.button-resend-verifactu').on('click', function(e){
     e.preventDefault();
@@ -215,6 +259,45 @@ if (typeof verifactu_ajax_url !== 'undefined')
             showErrorMessage('Error de comunicación con el servidor al intentar reenviar.');
             $(this).prop('disabled', false).removeClass('disabled');
             $(this).find('i').removeClass('icon-spinner icon-spin').addClass('icon-refresh');
+        }
+    });
+  });
+
+  // ── Listado y widget abonos: .button-resend-verifactu-idotro ──
+  $(document).on('click', '.button-resend-verifactu-idotro', function(e) {
+    e.preventDefault();
+    var $btn = $(this);
+    var id_type_otro = $btn.data('id_type_otro');
+    var id_order_val = $btn.data('id_order');
+    var type_val     = $btn.data('type') || 'alta';
+
+    $btn.prop('disabled', true).addClass('disabled');
+
+    $.ajax({
+        type: 'POST',
+        cache: false,
+        dataType: 'json',
+        url: verifactu_ajax_url,
+        data: {
+            ajax: true,
+            action: 'enviarVerifactu',
+            token: verifactu_token,
+            id_order: id_order_val,
+            type: type_val,
+            id_type_otro: id_type_otro
+        },
+        success: function(data) {
+            if (data.response == 'OK' || data.response == 'pendiente') {
+                showSuccessMessage('Reenvío con IDOtro (' + id_type_otro + ') solicitado. La página se recargará.');
+                setTimeout(function() { location.reload(); }, 2500);
+            } else {
+                showErrorMessage('Error en el reenvío: ' + (data.error || 'Respuesta desconocida del servidor.'));
+                $btn.prop('disabled', false).removeClass('disabled');
+            }
+        },
+        error: function() {
+            showErrorMessage('Error de comunicación con el servidor al intentar reenviar.');
+            $btn.prop('disabled', false).removeClass('disabled');
         }
     });
   });

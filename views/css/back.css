@@ -353,6 +353,45 @@ span.estado_verifactu {
     background: #16a085;
 }
 
+.vf-btn-warning {
+    background: #f39c12;
+    color: #fff;
+}
+
+.vf-btn-warning:hover:not(:disabled) {
+    background: #d68910;
+}
+
+/* --- Grupo de botones ID Otro (Error 1239) --- */
+.vf-idotro-group {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #fff3cd;
+    border: 1px solid #f39c12;
+    border-radius: 4px;
+}
+
+.vf-idotro-label {
+    font-size: 11px;
+    color: #856404;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.vf-btn-idotro {
+    font-size: 11px;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    display: block;
+    width: 100%;
+    text-align: left;
+}
+
+.vf-btn-idotro strong {
+    display: inline-block;
+    min-width: 20px;
+}
+
 /* --- Mensaje de respuesta --- */
 .vf-response-msg {
     margin-top: 8px;

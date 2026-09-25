@@ -172,7 +172,7 @@ class ApiVerifactu
     }
 
 
-    public function sendAltaVerifactu($id_order,$tipo='alta')
+    public function sendAltaVerifactu($id_order, $tipo='alta', $id_type_otro = '')
     {
 
         $reply = array();
@@ -392,14 +392,28 @@ class ApiVerifactu
         // Comprueba si 'vat_number' tiene contenido. Si lo tiene, lo usamos. Si no, usamos 'dni'.
         $taxIdentificationNumber = !empty($address['vat_number']) ? $address['vat_number'] : $address['dni'];
         $taxIdentificationNumber = $this->cleanCustomerNif($taxIdentificationNumber);
+        
+        // IDOtro: si se especifica un tipo (07 = No censado, 06 = Otro doc. probatorio, etc.)
+        // la AEAT exige enviar IDType + TaxIdentificationNumber en lugar del campo habitual.
+        if (!empty($id_type_otro)) {
+            $buyer->IDType = pSQL($id_type_otro);
+        }
         $buyer->TaxIdentificationNumber = $taxIdentificationNumber;
+        
         $buyer->CorporateName = (isset($address['company']) && $address['company'] != ''?$address['company']:'');
         $buyer->Name = $address['firstname'].' '.$address['lastname'];
         $buyer->Address = (isset($address['address1']) && $address['address1'] != ''?$address['address1']:'');
         $buyer->PostCode = (isset($address['postcode']) && $address['postcode'] != ''?$address['postcode']:'');
         $buyer->Town = (isset($address['city']) && $address['city'] != ''?$address['city']:'');
         $buyer->Province = (isset($prov['name']) && $prov['name'] != ''?$prov['name']:'');
-        $buyer->CountryCode = (isset($pais['iso_code']) && $pais['iso_code'] != ''?$pais['iso_code']:'ES');
+        
+        // CountryCode: la AEAT solo permite ES con IDType 07 (No censado) y 03 (Pasaporte).
+        // Para el resto de IDTypes (06, 04, 05...) debe ser el país real del documento.
+        if ($id_type_otro === '07' || $id_type_otro === '03') {
+            $buyer->CountryCode = 'ES';
+        } else {
+            $buyer->CountryCode = (isset($pais['iso_code']) && $pais['iso_code'] != ''?$pais['iso_code']:'ES');
+        }
 
         $data->buyer = $buyer;
 
