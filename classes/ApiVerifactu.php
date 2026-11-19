@@ -476,6 +476,7 @@ class ApiVerifactu
             $data->invoice = $inv;
 
             $seq = 1;
+            $lastLineTaxTypeCode = '01'; // Valor por defecto IVA; se actualiza en cada iteración del bucle de productos del abono.
             foreach ($slipLines as $l)
             {
                 
@@ -572,6 +573,7 @@ class ApiVerifactu
 
                 $line->TaxRate = $line_tax_rate;
                 $line->TaxTypeCode = $lineTaxTypeCode;
+                $lastLineTaxTypeCode = $lineTaxTypeCode; // Guardamos el TaxTypeCode de la última línea de producto procesada.
 
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
@@ -640,7 +642,17 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = -((float)$slip['total_shipping_tax_excl']);
                 $shipping_line->TotalCost = -((float)$slip['total_shipping_tax_incl']);
                 $shipping_line->GrossAmount = -((float)$slip['total_shipping_tax_incl']);
-                $shipping_line->TaxTypeCode = '01'; 
+                $id_orig_invoice = (is_array($invoice) && isset($invoice['id_order_invoice'])) ? (int)$invoice['id_order_invoice'] : 0;
+                $shipping_line->TaxTypeCode = $this->resolveShippingTaxTypeCode(
+                    $id_orig_invoice,
+                    $lastLineTaxTypeCode,
+                    $lines,
+                    $igic_tax_ids,
+                    $ipsi_tax_ids,
+                    $is_oss_invoice,
+                    $is_export_invoice,
+                    $is_b2b_intra_invoice
+                );
                 $shipping_line->ArticleCode = 'ENVIO';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = -((float)$slip['total_shipping_tax_excl']);
@@ -682,13 +694,13 @@ class ApiVerifactu
                 if ($is_oss_invoice) //Para una operación ventanilla unica N2 (No Sujeta), debes usar la parte de Importe No Sujeto. El "Importe No Sujeto" de una línea OSS es el importe total de esa línea (Base + IVA del otro pais)
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_excl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_shipping_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
                 elseif ($is_export_invoice) 
                 {
                     $shipping_line->TaxRate = 0;
-                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_price_tax_excl']);
+                    $shipping_line->TaxableBaseAmount = -((float) $slip['total_shipping_tax_excl']);
                     $shipping_line->TaxAmountTotal = 0;
                 }
 
@@ -923,7 +935,16 @@ class ApiVerifactu
                 $shipping_line->UnitPriceWithoutTax = $invoice['total_shipping_tax_excl'];
                 $shipping_line->TotalCost = $invoice['total_shipping_tax_incl'];
                 $shipping_line->GrossAmount = $invoice['total_shipping_tax_incl'];
-                $shipping_line->TaxTypeCode = $lastLineTaxTypeCode; // TaxTypeCode de la última línea de producto (ej. '03' para IGIC, '02' para IPSI, '01' para IVA).
+                $shipping_line->TaxTypeCode = $this->resolveShippingTaxTypeCode(
+                    isset($invoice['id_order_invoice']) ? (int)$invoice['id_order_invoice'] : 0,
+                    $lastLineTaxTypeCode,
+                    $lines,
+                    $igic_tax_ids,
+                    $ipsi_tax_ids,
+                    $is_oss_invoice,
+                    $is_export_invoice,
+                    $is_b2b_intra_invoice
+                );
                 $shipping_line->ArticleCode = 'ENVIO';
                 $shipping_line->TaxRate = round($shipping_tax_rate, 1);
                 $shipping_line->TaxableBaseAmount = (float)$invoice['total_shipping_tax_excl'];
@@ -2711,6 +2732,101 @@ class ApiVerifactu
         }
         
         return $nif;
+    }
+
+    /**
+     * Resuelve el TaxTypeCode ('01' IVA, '02' IPSI, '03' IGIC) para la línea de gastos de envío.
+     * Prioridad:
+     *  1. Impuesto real del envío guardado en order_invoice_tax (type = 'shipping').
+     *  2. TaxTypeCode heredado de las líneas procesadas ($fallbackTaxTypeCode).
+     *  3. Fallback sobre los impuestos de las líneas del pedido original ($orderLines),
+     *     útil para abonos que solo devuelven gastos de envío (sin líneas de producto).
+     *
+     * @param int    $id_order_invoice
+     * @param string $fallbackTaxTypeCode
+     * @param array  $orderLines
+     * @param array  $igic_tax_ids
+     * @param array  $ipsi_tax_ids
+     * @param bool   $is_oss_invoice
+     * @param bool   $is_export_invoice
+     * @param bool   $is_b2b_intra_invoice
+     * @return string
+     */
+    private function resolveShippingTaxTypeCode(
+        $id_order_invoice,
+        $fallbackTaxTypeCode,
+        $orderLines,
+        $igic_tax_ids,
+        $ipsi_tax_ids,
+        $is_oss_invoice,
+        $is_export_invoice,
+        $is_b2b_intra_invoice
+    ) {
+        if (
+            $is_oss_invoice
+            || $is_export_invoice
+            || $is_b2b_intra_invoice
+            || Configuration::get('VERIFACTU_TERRITORIO_ESPECIAL', null, null, $this->id_shop) != 1
+        ) {
+            return '01';
+        }
+
+        // 1. Impuesto real del envío en order_invoice_tax (type = 'shipping')
+        if ((int)$id_order_invoice > 0) {
+            $sql = new DbQuery();
+            $sql->select('id_tax')
+                ->from('order_invoice_tax')
+                ->where('id_order_invoice = ' . (int)$id_order_invoice)
+                ->where("type = 'shipping'");
+            $shipping_taxes = Db::getInstance()->executeS($sql);
+
+            if ($shipping_taxes) {
+                foreach ($shipping_taxes as $tax) {
+                    $id_tax = (int)$tax['id_tax'];
+                    if (in_array($id_tax, $igic_tax_ids)) {
+                        return '03';
+                    }
+                    if (in_array($id_tax, $ipsi_tax_ids)) {
+                        return '02';
+                    }
+                }
+            }
+        }
+
+        // 2. TaxTypeCode heredado de las líneas procesadas (productos de la factura/abono)
+        if ($fallbackTaxTypeCode === '03' || $fallbackTaxTypeCode === '02') {
+            return $fallbackTaxTypeCode;
+        }
+
+        // 3. Fallback a las líneas originales del pedido (ej. abono solo de transporte sin productos)
+        if (!empty($orderLines) && is_array($orderLines)) {
+            foreach ($orderLines as $orderLine) {
+                $id_order_detail = isset($orderLine['id_order_detail']) ? (int)$orderLine['id_order_detail'] : 0;
+                if ($id_order_detail <= 0) {
+                    continue;
+                }
+
+                $line_tax_sql = new DbQuery();
+                $line_tax_sql->select('id_tax')
+                    ->from('order_detail_tax')
+                    ->where('id_order_detail = ' . $id_order_detail);
+                $line_taxes = Db::getInstance()->executeS($line_tax_sql);
+
+                if ($line_taxes) {
+                    foreach ($line_taxes as $tax) {
+                        $id_tax = (int)$tax['id_tax'];
+                        if (in_array($id_tax, $igic_tax_ids)) {
+                            return '03';
+                        }
+                        if (in_array($id_tax, $ipsi_tax_ids)) {
+                            return '02';
+                        }
+                    }
+                }
+            }
+        }
+
+        return '01';
     }
 
 }
